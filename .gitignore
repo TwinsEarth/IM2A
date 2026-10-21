@@ -15,3 +15,7 @@ Thumbs.db
 .env.*
 !.env.example
 
+
+# ±¾µØ SQLite ÑÝÊ¾¿â
+.data/
+

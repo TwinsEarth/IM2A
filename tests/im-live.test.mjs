@@ -18,7 +18,7 @@ const json = (url, init) =>
   }));
 
 test('状态接口：三种身份可见会话、2 张待审批、12 项治理自检全绿、fleet 默认模拟', async () => {
-  const app = await startServer({ port: 0 });
+  const app = await startServer({ port: 0, db: ':memory:' });
   try {
     const lin = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);
     assert.equal(lin.status, 200);
@@ -44,7 +44,7 @@ test('状态接口：三种身份可见会话、2 张待审批、12 项治理自
 });
 
 test('熟人聊天可直接发送；空消息与非成员被拒绝', async () => {
-  const app = await startServer({ port: 0 });
+  const app = await startServer({ port: 0, db: ':memory:' });
   try {
     const sent = await json(`${app.url}/api/message`, {
       method: 'POST',
@@ -91,7 +91,7 @@ test('熟人聊天可直接发送；空消息与非成员被拒绝', async () =>
 });
 
 test('审批通过陌生人询盘：扣费 → 查看 → 回复 → 结算，关系升级为「已知」，会话解锁', async () => {
-  const app = await startServer({ port: 0 });
+  const app = await startServer({ port: 0, db: ':memory:' });
   try {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);
     const ticket = state.body.tickets.find((t) => t.type === 'NEGOTIATION');
@@ -135,7 +135,7 @@ test('审批通过陌生人询盘：扣费 → 查看 → 回复 → 结算，�
 });
 
 test('采购审批：通过后执行在预算内、额度扣减；非法动作被拒绝', async () => {
-  const app = await startServer({ port: 0 });
+  const app = await startServer({ port: 0, db: ':memory:' });
   try {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);
     const ticket = state.body.tickets.find((t) => t.payload?.kind === 'PROCUREMENT_PURCHASE');
@@ -164,7 +164,7 @@ test('采购审批：通过后执行在预算内、额度扣减；非法动作�
 });
 
 test('驳回：对方不被扣费、无权进入会话，执行链终止', async () => {
-  const app = await startServer({ port: 0 });
+  const app = await startServer({ port: 0, db: ':memory:' });
   try {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);
     const ticket = state.body.tickets.find((t) => t.type === 'NEGOTIATION');
@@ -201,7 +201,7 @@ test('Agent 接入真实模型协议：注入 LLM stub 后回复来自 llm，状
     };
   };
   const llm = createLlm({ config: resolveLlmConfig({ DEEPSEEK_API_KEY: 'test-key' }), fetchImpl: stubFetch });
-  const app = await startServer({ port: 0, llm });
+  const app = await startServer({ port: 0, llm, db: ':memory:' });
   try {
     const sent = await json(`${app.url}/api/message`, {
       method: 'POST',
@@ -233,7 +233,7 @@ test('Agent 接入真实模型协议：注入 LLM stub 后回复来自 llm，状
 });
 
 test('fleet 面：模拟态下 probe 明确拒绝；重置回到种子场景；未知路由 404', async () => {
-  const app = await startServer({ port: 0 });
+  const app = await startServer({ port: 0, db: ':memory:' });
   try {
     const probe = await json(`${app.url}/api/fleet/probe`, {
       method: 'POST',
@@ -258,7 +258,7 @@ test('fleet 面：模拟态下 probe 明确拒绝；重置回到种子场景；�
 });
 
 test('身份兜底：未知用户回落到林总，页面与静态资源可访问', async () => {
-  const app = await startServer({ port: 0 });
+  const app = await startServer({ port: 0, db: ':memory:' });
   try {
     const state = await json(`${app.url}/api/state?user=nobody`);
     assert.equal(state.status, 200);

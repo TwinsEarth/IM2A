@@ -38,6 +38,7 @@ import { AuditLog } from '../../services/audit/src/audit-log.mjs';
 import { createLlm } from './llm.mjs';
 import { createSkillExecutor } from './skills.mjs';
 import { createAgentRuntime } from './agent-runtime.mjs';
+import { createPersistence, defaultDbPath } from './store.mjs';
 import { TICKET_STATE } from '../../services/orchestrator/src/approval-engine.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -53,19 +54,22 @@ const FLEET = Object.freeze({
 const PERSONA_ORDER = Object.freeze([USERS.LIN, USERS.ZHOU, USERS.MOM]);
 
 // ─────────────────────────── 聊天演示世界 ───────────────────────────
-function buildDemo(llm, skills) {
+function buildDemo(llm, skills, persistence = null) {
   const world = createWorld();
   seedScenario(world);
   world.checks = probeChecks();
+  const restoredAudit = persistence === null ? [] : persistence.loadAudit();
 
   const demo = {
     world,
     seq: 0,
     threads: [],
     events: [],
-    auditLog: new AuditLog({ clock: world.clock }),
+    auditLog: new AuditLog({ clock: world.clock, records: restoredAudit }),
+    seq: persistence === null ? 0 : persistence.loadSeq(),
     llm,
     skills,
+    persistence,
     runtime: createAgentRuntime({ llm, guard: world.egress, registry: world.registry, trustMatrix: world.trustMatrix, skills, capabilityGate: world.gate })
   };
   demo.threads = [
@@ -99,16 +103,36 @@ function buildDemo(llm, skills) {
         ]
       }
   ];
+  if (persistence !== null && persistence.hasSeed()) {
+    demo.threads = persistence.loadThreads().map((thread) => ({ ...thread, messages: persistence.loadMessages(thread.id) }));
+    demo.seq = persistence.loadSeq();
+    return demo;
+  }
   // 种子审计：已发生的协商/预审/建单在链上留痕（重启从种子重建，链同样从创世开始）
   recordAudit(demo, { source: 'negotiation-engine', action: 'NEGOTIATION_COMPLETED', actor: AGENTS.ZHOU_BUTLER, traceId: 'trace-stranger-001', detail: { rounds: 2 } });
   recordAudit(demo, { source: 'approval-engine', action: 'TICKET_CREATED', actor: AGENTS.LIN_FILTER, target: String(world.ids.ticketStranger ?? ''), traceId: 'trace-stranger-001', decision: 'PENDING', detail: { channel: 'im' } });
+  if (persistence !== null) {
+    for (const thread of demo.threads) {
+      persistence.saveThread(thread);
+      for (const message of thread.messages) persistence.appendMessage(thread.id, message);
+    }
+    for (const record of demo.auditLog.snapshot()) persistence.appendAudit(record);
+    persistence.saveSeq(demo.seq);
+  }
   return demo;
 }
 
 function recordAudit(demo, entry) {
   const record = demo.auditLog.append(entry);
+  if (demo.persistence) demo.persistence.appendAudit(record);
   demo.events.push({ at: record.at, type: 'AUDIT', action: record.action, seq: record.seq });
   return record;
+}
+
+function pushMessage(demo, thread, message) {
+  thread.messages.push(message);
+  if (demo.persistence) demo.persistence.appendMessage(thread.id, message);
+  return message;
 }
 
 function makeMessage(demo, from, text, kind = 'text', at = null, extra = {}) {
@@ -232,7 +256,9 @@ async function dispatchProbe(machineId, argv) {
 }
 
 // ─────────────────────────── HTTP 服务 ───────────────────────────
-export function createApp({ fleet = null, llm = null, skills = null } = {}) {
+export function createApp({ fleet = null, llm = null, skills = null, db = undefined } = {}) {
+  const persistence = typeof db === 'string' ? createPersistence({ dbPath: db }) : (db ?? createPersistence());
+  const ownsPersistence = !(db !== undefined && typeof db !== 'string');
   const llmClient = llm ?? createLlm();
   const skillExecutor = skills ?? createSkillExecutor({
     relayUrl: FLEET.relayUrl,
@@ -240,7 +266,7 @@ export function createApp({ fleet = null, llm = null, skills = null } = {}) {
     deviceToken: FLEET.deviceToken,
     dispatchProbe: (machineId, argv) => (fleet !== null && typeof fleet === 'function' ? fleet({ probe: true, machineId, argv }) : dispatchProbe(machineId, argv))
   });
-  const holder = { demo: buildDemo(llmClient, skillExecutor) };
+  const holder = { demo: buildDemo(llmClient, skillExecutor, persistence) };
   const fleetOverride = fleet;
   const server = createServer(async (req, res) => {
     try {
@@ -249,11 +275,17 @@ export function createApp({ fleet = null, llm = null, skills = null } = {}) {
       sendJson(res, 500, { error: 'INTERNAL', message: String(error?.message ?? error) });
     }
   });
-  return { server, holder, getState: () => stateFor(holder.demo, USERS.LIN, 'th-lin-agent') };
+  return {
+    server,
+    holder,
+    persistence,
+    getState: () => stateFor(holder.demo, USERS.LIN, 'th-lin-agent'),
+    closePersistence: () => { if (ownsPersistence) persistence.close(); }
+  };
 }
 
-export function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm = null, skills = null } = {}) {
-  const app = createApp({ fleet, llm, skills });
+export function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm = null, skills = null, db = undefined } = {}) {
+  const app = createApp({ fleet, llm, skills, db });
   return new Promise((resolve, reject) => {
     app.server.once('error', reject);
     app.server.listen(port, host, () => {
@@ -263,7 +295,7 @@ export function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm
         host,
         port: address.port,
         url: `http://${host}:${address.port}`,
-        close: () => new Promise((done) => app.server.close(done))
+        close: () => new Promise((done) => app.server.close(() => { app.closePersistence(); done(); }))
       });
     });
   });
@@ -333,7 +365,8 @@ async function route(req, res, holder, fleetOverride) {
   }
 
   if (method === 'POST' && pathname === '/api/reset') {
-    holder.demo = buildDemo(holder.demo.llm, holder.demo.skills);
+    holder.demo.persistence?.reset();
+    holder.demo = buildDemo(holder.demo.llm, holder.demo.skills, holder.demo.persistence);
     sendJson(res, 200, { ok: true, state: stateFor(holder.demo, USERS.LIN, 'th-lin-agent') });
     return;
   }
@@ -393,6 +426,7 @@ function stateFor(demo, user, requestedThread) {
     audit: snap.audit.slice(-20),
     auditChain: { ok: integrity.ok, length: integrity.length, head: integrity.head, trimmed: integrity.trimmed, recent: demo.auditLog.records({ limit: 12 }) },
     llm: demo.llm.stats(),
+    store: demo.persistence ? demo.persistence.stats() : null,
     runtime: { version: 'im-live-agent-runtime/1', stats: demo.runtime.stats(), catalog: demo.runtime.catalog() },
     fleet: null, // 由 /api/fleet 单独提供，避免 poll 拖慢状态接口
     serverNow: new Date().toISOString()
@@ -436,7 +470,7 @@ async function sendMessage(demo, body) {
     };
   }
   const message = makeMessage(demo, userId, text);
-  thread.messages.push(message);
+  pushMessage(demo, thread, message);
   demo.events.push({ at: message.at, type: 'CHAT_MESSAGE', threadId, messageId: message.id });
   recordAudit(demo, { source: 'messaging', action: 'CHAT_MESSAGE', actor: userId, target: threadId, detail: { messageId: message.id, kind: message.kind } });
   const agentReply = await maybeAgentReply(demo, thread, userId, text);
@@ -464,14 +498,14 @@ async function maybeAgentReply(demo, thread, userId, text) {
   }
   if (ran.ok !== true) {
     const note = makeMessage(demo, AGENTS.LIN_BUTLER, ran.blocked === true ? 'Agent 草稿被出口护栏拦截（内容不展示），已写入审计链。' : 'Agent 本轮未能生成回复（已记录原因）。', 'agent');
-    thread.messages.push(note);
+    pushMessage(demo, thread, note);
     recordAudit(demo, { source: 'egress-guard', action: ran.blocked === true ? 'AGENT_DRAFT_BLOCKED' : 'AGENT_FAILED', actor: role, target: thread.id, decision: ran.reason ?? null, detail: { matched: ran.matched ?? null } });
     return { ok: false, blocked: ran.blocked === true, reason: ran.reason ?? null };
   }
   const reply = makeMessage(demo, role, ran.reply, 'agent', null, {
     engine: { source: ran.engine.source, model: ran.engine.model, latencyMs: ran.engine.latencyMs, tokens: ran.engine.tokens, planner: ran.planner?.source ?? null, tools: (ran.toolCalls ?? []).map((c) => ({ skillId: c.skillId, allowed: c.allowed, reason: c.reason ?? null, result: c.result ?? null })) }
   });
-  thread.messages.push(reply);
+  pushMessage(demo, thread, reply);
   recordAudit(demo, { source: 'agent-runtime', action: 'AGENT_REPLY', actor: role, target: thread.id, detail: { engine: ran.engine.source, planner: ran.planner?.source ?? null, tools: (ran.toolCalls ?? []).map((c) => c.skillId) } });
   return { ok: true, messageId: reply.id, engine: reply.engine };
 }
@@ -499,18 +533,18 @@ function appendDecisionMessages(demo, ticketId, action, outcome) {
       : threadOf(demo, 'th-lin-agent');
   if (thread === null) return;
   if (action === 'REJECT') {
-    thread.messages.push({
+    pushMessage(demo, thread, {
       ...makeMessage(demo, AGENTS.LIN_BUTLER, `已驳回「${payload.title ?? kind}」：${outcome.message?.state ? `对方消息状态 ${outcome.message.state}` : '执行链已终止'}。`, 'agent'),
       ticketId
     });
     return;
   }
-  thread.messages.push({
+  pushMessage(demo, thread, {
     ...makeMessage(demo, AGENTS.LIN_BUTLER, `审批通过「${payload.title ?? kind}」，执行链已完成：扣费 → 查看 → 回复 → 结算；关系档位已按规则更新。`, 'agent'),
     ticketId
   });
   if (outcome.message !== null && outcome.message !== undefined && outcome.message.state !== undefined) {
-    thread.messages.push({
+    pushMessage(demo, thread, {
       ...makeMessage(demo, USERS.ZHOU, outcome.message.replyText ?? '（已收到林总回复）', 'text'),
       ticketId
     });
@@ -545,12 +579,14 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve
 if (isMain) {
   const port = Number(process.env.PORT ?? process.argv[2] ?? 8797);
   const started = await startServer({ port });
+  console.log(`  持久化      ${started.persistence.dbPath}`);
   const fleet = await fleetSnapshot();
   console.log(`\n  AgentIM 人机混合 IM 演示已启动`);
   console.log(`  ─────────────────────────────────────────────`);
   console.log(`  控制台      ${started.url}`);
   console.log(`  状态接口    ${started.url}/api/state`);
   console.log(`  fleet       ${fleet.mode}  (${fleet.relayUrl})`);
+  console.log(`  store       ${JSON.stringify(started.persistence.stats())}`);
   console.log(`  ─────────────────────────────────────────────`);
   console.log(`  登录身份：林总 / 周先生 / 林母（页面顶部切换）\n`);
 }
