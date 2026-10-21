@@ -84,6 +84,10 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 | POST | `/api/pay/callback` | — | 渠道回调：**按原始 body 验签**（`x-signature: sha256=…` + `x-timestamp`）；验签失败不入账 |
 | GET | `/api/pay/orders` | `x-admin-token` | 订单与统计 |
 | GET | `/api/ops/reconcile` | `x-admin-token` | 日切对账（逐笔 mismatched/missingInLedger + Markdown 报告） |
+| GET | `/api/version` | — | 版本三元组与能力声明（`0.1.0 / R21 / schema 1`，声明≠证明） |
+
+> **发布**：`node scripts/release-check.mjs` —— 全量测试/一致性/自检/部署/内置验收五步全绿才允许打 tag，
+> 报告写入 `reports/RELEASE-REPORT.md`。发布前必读 [docs/30 发布说明 RC](../../docs/30-v0.1.0-发布说明RC.md) 的 17 条缺口。
 
 > **多节点**：`IM2AGENT_BUS=tcp IM2AGENT_BUS_PORT=17000` 启动节点 A；节点 B 加 `IM2AGENT_BUS_PEERS=127.0.0.1:17000`。
 > 任一节点上的审批/预览事件会推送到所有节点的 `/api/events` 客户端。边界见 [docs/28](../../docs/28-v0.0.8-横向扩展与多节点.md)。

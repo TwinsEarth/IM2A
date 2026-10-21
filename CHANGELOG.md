@@ -14,6 +14,21 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.1.0-rc — 2026-10-21
+
+**内测发布候选（RC）**：不再加业务功能，只做发布工程——版本契约、schema 闸门、一键发布检查。
+
+- **§51 版本契约**（`apps/im2agent/version.mjs`）：版本三元组 `0.1.0 / R21 / schema 1`；`GET /api/version` 公开可读；`/api/health` 带版本；**13 项 CAPABILITIES 是"声明"不是"证明"**（文档逐项对应 Gate）
+- **数据 schema 闸门**：`serialize()` 写入 `schemaVersion`；`createWorld` 遇到缺失/不一致 → **`SCHEMA_MISMATCH` 显式失败**（不猜测、不静默迁移）
+- **§52 一键发布检查**（`scripts/release-check.mjs`）：全量测试 → 一致性验收 → quickstart → deploy-lint → **内置"像生产"实例跑验收 Gate**（lan/jsonfile + 双令牌，而非 demo/内存）；任一步红 → 禁止打 tag，报告仍落盘归档失败现场
+- **发布报告**：`reports/RELEASE-REPORT.md`（PASS；五步耗时与版本三元组）
+- 文档：`docs/30-v0.1.0-发布说明RC.md`（**17 条已知缺口**逐条写影响/缓解/能否带缺口内测；Go/No-Go 三条件）
+- 契约：R21
+
+**发布检查实测**：5/5 步通过（全量测试 6512ms / 一致性 715ms / 自检 513ms / 部署 70ms / 内置验收 PASS 7 SKIP 1）。
+
+验证：全量 **722/722**；verify **122/122**；im2agent **18/18**（含版本与 schema 闸门）。
+
 ## v0.0.9-pay — 2026-10-21
 
 **支付渠道化 + 日切对账**：钱包从"内部记账"变成"有渠道语义的支付"。

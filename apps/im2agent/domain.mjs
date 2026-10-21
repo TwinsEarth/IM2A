@@ -18,8 +18,18 @@ export const USER_NAMES = Object.freeze({ [USERS.LIN]: '林总', [USERS.ZHOU]: '
 const now = () => new Date().toISOString();
 
 /** 建一个可序列化的世界（jsonfile 存储直接落这个对象；memory 存储进程内保存） */
+export const SCHEMA_VERSION = 1;
+
 export function createWorld({ restored = null } = {}) {
   if (restored !== null && typeof restored === 'object') {
+    // v0.1.0：数据 schema 不匹配必须显式失败——旧数据在新代码上"尽力恢复"比报错危险得多
+    const schema = restored.schemaVersion;
+    if (schema !== SCHEMA_VERSION) {
+      throw new DomainError(
+        `数据 schema 不匹配：文件 ${schema === undefined ? '缺失' : schema}，当前需要 ${SCHEMA_VERSION}；请先执行迁移（见 docs/30）`,
+        'SCHEMA_MISMATCH'
+      );
+    }
     // 从 store 恢复：审计链用持久化的记录重建（链尾/序号延续），其余状态原样接续
     const audit = new AuditLog({ records: restored.audit ?? [] });
     return {
@@ -113,9 +123,10 @@ export function recordAudit(world, entry) {
   return record;
 }
 
-/** 序列化：交给 store 持久化（含审计链与账本投影） */
+/** 序列化：交给 store 持久化（含审计链与账本投影 + schema 版本） */
 export function serialize(world) {
   return {
+    schemaVersion: SCHEMA_VERSION,
     agents: world.state.agents,
     trust: world.state.trust,
     tickets: world.state.tickets,

@@ -45,6 +45,7 @@ import { AuditTrace } from '../../services/observability/src/trace.mjs';
 import { CircuitBreaker, ProviderGuard } from '../../services/resilience/src/provider-guard.mjs';
 import { BackupService } from '../../services/persistence/src/backup.mjs';
 import { createBroadcastBus } from '../../services/messaging/src/broadcast.mjs';
+import { VERSION, SCHEMA_VERSION as VERSION_SCHEMA, buildInfo } from './version.mjs';
 import { createWorld, decide, previewContext, recordAudit, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -91,6 +92,7 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   const world = createWorld({ restored });
   const holder = { world, rt, store: storeImpl, llm: llmImpl };
   holder.limiter = createRateLimiter({ max: rt.rateLimitPerMin });
+  holder.buildInfo = buildInfo(env);
 
   // v0.0.2：短信通道 + OTP 投递（验证码只经 otp.deliver 注入，永不出 API）
   // v0.0.5：主通道 + 熔断 + 显式备用通道（IM2AGENT_SMS_FAULT=1 可演练运营商故障）
@@ -332,7 +334,13 @@ async function route(req, res, holder, persist) {
 
   if (method === 'GET' && pathname === '/api/health') {
     const chain = holder.world.audit.verify();
-    sendJson(res, 200, { ok: true, service: 'im2agent', profile: holder.rt.profile, store: holder.store.kind, auditOk: chain.ok, pending: holder.world.state.tickets.filter((t) => t.state === 'PENDING').length, generatedAt: new Date().toISOString() }, holder.rt);
+    sendJson(res, 200, { ok: true, service: 'im2agent', profile: holder.rt.profile, store: holder.store.kind, auditOk: chain.ok, pending: holder.world.state.tickets.filter((t) => t.state === 'PENDING').length, version: VERSION, schemaVersion: VERSION_SCHEMA, generatedAt: new Date().toISOString() }, holder.rt);
+    return;
+  }
+
+  // v0.1.0：版本契约（公开可读；声明能力，不代表已验证）
+  if (method === 'GET' && pathname === '/api/version') {
+    sendJson(res, 200, holder.buildInfo, holder.rt);
     return;
   }
 

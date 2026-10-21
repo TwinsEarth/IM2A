@@ -693,6 +693,32 @@ test('⑱ v0.0.9 支付渠道：验签入账 / 幂等 / 篡改拒绝 / 对账', 
   });
 });
 
+test('⑲ v0.1.0 版本契约与数据 schema 闸门', async () => {
+  // 纯逻辑：serialize 带 schemaVersion；不匹配必须显式失败
+  const { serialize, createWorld, SCHEMA_VERSION, DomainError } = await import('../apps/im2agent/domain.mjs');
+  const world = createWorld({});
+  const snapshot = serialize(world);
+  assert.equal(snapshot.schemaVersion, SCHEMA_VERSION);
+  assert.throws(
+    () => createWorld({ restored: { ...snapshot, schemaVersion: SCHEMA_VERSION - 1 } }),
+    (error) => error instanceof DomainError && error.code === 'SCHEMA_MISMATCH'
+  );
+  assert.throws(() => createWorld({ restored: { ...snapshot, schemaVersion: undefined } }), /SCHEMA_MISMATCH|schema/);
+
+  await withApp({ RATE_LIMIT_PER_MIN: '0' }, async (app) => {
+    const version = await json(`${app.urls[0]}/api/version`);
+    assert.equal(version.status, 200);
+    assert.equal(version.body.version, '0.1.0');
+    assert.equal(version.body.contractRevision, 'R21');
+    assert.equal(version.body.schemaVersion, SCHEMA_VERSION);
+    assert.ok(version.body.capabilities >= 10, '能力清单应列出对外能力数');
+
+    const health = await json(`${app.urls[0]}/api/health`);
+    assert.equal(health.body.version, '0.1.0');
+    assert.equal(health.body.schemaVersion, SCHEMA_VERSION);
+  });
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

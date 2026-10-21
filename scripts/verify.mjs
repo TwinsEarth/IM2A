@@ -896,6 +896,32 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 26. v0.1.0 发布候选交付完整性 ─────────────────────────
+{
+  record('v0.1.0 版本模块存在', await exists(path.join(ROOT, 'apps/im2agent/version.mjs')), '缺 version.mjs');
+  record('v0.1.0 发布检查脚本存在', await exists(path.join(ROOT, 'scripts/release-check.mjs')), '缺 release-check.mjs');
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  record('契约含 v0.1.0 §51–§52', contract.includes('## 51. `apps/im2agent/version.mjs`') && contract.includes('## 52. `scripts/release-check.mjs`'), '缺 §51/§52');
+  record('v0.1.0 明确 SCHEMA_MISMATCH 显式失败', contract.includes('SCHEMA_MISMATCH'), '缺 schema 闸门');
+
+  const versionSrc = await exists(path.join(ROOT, 'apps/im2agent/version.mjs')) ? await read(path.join(ROOT, 'apps/im2agent/version.mjs')) : '';
+  record('版本三元组与契约一致（0.1.0 / R21 / 1）', /VERSION = '0\.1\.0'/.test(versionSrc) && /CONTRACT_REVISION = 'R21'/.test(versionSrc) && /SCHEMA_VERSION = 1/.test(versionSrc), '版本三元组不符');
+  const domainSrc = await exists(path.join(ROOT, 'apps/im2agent/domain.mjs')) ? await read(path.join(ROOT, 'apps/im2agent/domain.mjs')) : '';
+  record('数据 schema 校验落在 domain 层', domainSrc.includes('SCHEMA_MISMATCH') && domainSrc.includes('schemaVersion'), '缺 schema 校验');
+  record('CAPABILITIES 是声明（文档需对应 Gate）', versionSrc.includes('CAPABILITIES') && contract.includes('声明'), '缺能力声明口径');
+
+  const doc30 = path.join(ROOT, 'docs/30-v0.1.0-发布说明RC.md');
+  if (await exists(doc30)) {
+    const t30 = await read(doc30);
+    const required = ['发布', '版本', '缺口', '回滚'];
+    const missingKeywords = required.filter((word) => !t30.includes(word));
+    record('docs/30 覆盖发布说明与缺口/回滚', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/30 v0.1.0 发布说明存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

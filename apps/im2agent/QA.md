@@ -67,6 +67,9 @@
 | 61 | **回调幂等** | 同 providerTxnId 重放 → `duplicate:true`，`DEPOSIT` 仍 1 条 | ✅ | 同上 |
 | 62 | **金额强校验** | 回调金额 ≠ 订单金额 → `AMOUNT_MISMATCH`，不入账 | ✅ | payment-channel 12 |
 | 63 | **对账逐笔** | mismatched/missingInLedger 逐笔列出；只读；空日 ok | ✅ | reconcile 10 + 测试 ⑱ |
+| 64 | **版本可读** | `/api/version` 返回 `0.1.0 / R21 / schema 1`，`/api/health` 同源 | ✅ | 测试 ⑲ |
+| 65 | **schema 不匹配显式失败** | 旧/缺 schema 数据 → `SCHEMA_MISMATCH`，不静默迁移 | ✅ | 测试 ⑲ |
+| 66 | **发布检查可执行** | `node scripts/release-check.mjs` 五步全绿才允许打 tag；报告落盘 | ✅ | 实测 5/5 PASS |
 
 ## 本地一键回归
 
