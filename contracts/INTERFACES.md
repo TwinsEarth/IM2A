@@ -17,6 +17,7 @@
 | R5 | 2026-10-21 | §11 澄清「平台可读名 vs 自证 id」：`agentId` 允许平台名，自证性由 `derivedId` 表达并在卡片中强制校验；`createAgentIdentity` 返回 `derivedId` | 澄清（不破坏 R4 调用方） |
 | R6 | 2026-10-21 | **v3 增补**：新增 §17 人格与记忆生命周期（SOUL + 晋升/衰减/遗忘/跨平台导出）、§18 多 Agent 结构化讨论（DISCUSS/AUDIT/REVIEW）、§19 细粒度工具审批（Agent×Skill 策略）；原 §17/§18 顺延为 §20/§21 | 加法（v1/v2 语义全保留） |
 | R7 | 2026-10-21 | **v4 增补「宿主型 IM」机制**：§22 服务端可信上下文注入、§23 旁观与主动沉默、§24 敏感场景模型路由、§25 轮次内投递（mid-turn delivery）；原 §20→§26 禁止事项、§21→§27 验证命令 | 加法（v1–v3 语义全保留） |
+| R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
 
@@ -801,7 +802,85 @@ export class TurnInbox {
 
 ---
 
-## 26. 禁止事项（对所有实现者）
+## 26. `services/identity/src/signed-envelope.mjs`（v5 新增）
+
+**职责**：**带签名的消息信封 + 重放保护 + TOFU 密钥学习**。借鉴 Beacon 的"第三协议层（Agent 间的社交+经济胶水）"：Ed25519 签名只证明"这条消息确实由该 Agent 发出"，**不证明它有权发**——授权仍在 §12 网关与 §9 付费门控里。
+
+```js
+export const ENVELOPE_CODE = Object.freeze({
+  ENVELOPE_INVALID: 'ENVELOPE_INVALID', SIGNATURE_INVALID: 'SIGNATURE_INVALID', REPLAY_DETECTED: 'REPLAY_DETECTED',
+  CLOCK_SKEW: 'CLOCK_SKEW', KEY_UNKNOWN: 'KEY_UNKNOWN', TOFU_CONFLICT: 'TOFU_CONFLICT'
+});
+export class SignedEnvelopeError extends Error {}
+
+export class SignedEnvelopeService {
+  constructor({ identity, clock = () => new Date(), windowMs = 300_000, nonceTtlMs = 600_000 });
+  sign({ toAgentId, kind, payload = {}, meta = {} });
+  //  -> { v:1, from, to, nonce, at, kind, payload, meta, alg:'ed25519', publicKeyPem, signature }
+  verify({ envelope, expectedTo = null });   // -> { ok, code, from, payload }；只返回判定，不抛
+  learnKey({ agentId, publicKeyPem });       // TOFU：首次学习成功；已存在且不同 → throw TOFU_CONFLICT
+  knownKey(agentId);                          // -> publicKeyPem | null
+}
+```
+**判定顺序（冻结）**：结构 → 签名 → 时间窗（`|now-at| > windowMs` → `CLOCK_SKEW`）→ `expectedTo` 不符 → `ENVELOPE_INVALID` → nonce 重放（→ `REPLAY_DETECTED`）→ 发送方公钥：已知则用已知钥验签（`SIGNATURE_INVALID`），未知则 `KEY_UNKNOWN`（调用方须先 `learnKey` 或预置白名单）。
+**与付费的边界**：信封通过 ≠ 可以收费/放行；付费仍走 §9 状态机与 §3 门控。**不要**把"验签通过"当作"陌生人可信"的替代品。
+
+---
+
+## 27. `services/orchestrator/src/relay-summary.mjs`（v5 新增）
+
+**职责**：**第三人称转达**。借鉴 Pisces/Convia：AI 作为人际会话里的**合法第三方节点**注入摘要，**绝不冒充任何一方**。这解决的是：A 的日程 Agent 与 B 的日程 Agent 协商完成后，结果如何进入两人的 IM 会话。
+
+```js
+export const RELAY_KIND = Object.freeze({ THIRD_PERSON_RELAY: 'THIRD_PERSON_RELAY' });
+export const RELAY_CODE = Object.freeze({
+  RELAY_INVALID: 'RELAY_INVALID', IMPERSONATION_BLOCKED: 'IMPERSONATION_BLOCKED',
+  PARTICIPANTS_REQUIRED: 'PARTICIPANTS_REQUIRED', NOT_PARTICIPANT: 'NOT_PARTICIPANT', SUMMARY_TOO_LONG: 'SUMMARY_TOO_LONG'
+});
+export class RelaySummaryError extends Error {}
+
+export class RelaySummaryBuilder {
+  constructor({ clock = () => new Date(), maxLength = 600 });
+  build({ conversationId, participants, summarizerAgentId, topic, conclusion, pendingActions = [], approvals = [], provenance = [] });
+  //  -> 冻结 relay：{ kind, attribution:'AGENT_SUMMARY', notFromHuman:true, from:summarizerAgentId,
+  //        participants, topic, conclusion, pendingActions, approvals, provenance, text, hash, at }
+  assertNotImpersonation({ relay, humanUserIds = [] });   // from ∈ humanUserIds → throw IMPERSONATION_BLOCKED
+  render({ relay });                                       // -> 第三人称文本
+}
+```
+**不变量**：`notFromHuman` 恒为 `true`、`attribution` 恒为 `AGENT_SUMMARY`（**不允许生成"像是人发的"消息**）；`summarizerAgentId` 必须是参与方；`provenance` 必须能追溯到"哪两个/哪几个 Agent 协商出的这个结论"；超过 `maxLength` → `SUMMARY_TOO_LONG`（摘要不是聊天记录）。
+
+---
+
+## 28. `services/orchestrator/src/confirmation-tier.mjs`（v5 新增）
+
+**职责**：**确认层工具不可被 planner 预批准**。借鉴 ZLAgent：把工具分成 `PLANNER`（可自动执行）与 `CONFIRMATION`（必须人确认，**模型/规划器的"我已批准"一律无效**）。扣费、审批、对外承诺必须落在确认层。
+
+```js
+export const TOOL_TIER = Object.freeze({ PLANNER: 'PLANNER', CONFIRMATION: 'CONFIRMATION' });
+export const TIER_CODE = Object.freeze({
+  PLANNER_ALLOWED: 'PLANNER_ALLOWED', CONFIRMATION_REQUIRED: 'CONFIRMATION_REQUIRED',
+  PLANNER_PREAPPROVAL_REJECTED: 'PLANNER_PREAPPROVAL_REJECTED', TIER_SET: 'TIER_SET'
+});
+export class ConfirmationTierError extends Error {}
+
+export class ConfirmationTier {
+  constructor({ clock = () => new Date() });
+  setTier({ agentId, skillId, tier });     // -> policy；未登记技能默认 CONFIRMATION（fail-closed）
+  tierOf({ agentId, skillId });            // -> TOOL_TIER
+  evaluate({ agentId, skillId, plannerClaimsApproved = false, humanApproved = false });
+  //  -> { decision:'AUTO'|'REQUIRE_APPROVAL', code, tier, reasons: [] }
+}
+```
+**判定（冻结）**：
+- 未登记技能 → `tier=CONFIRMATION`（**fail-closed**，不假设它安全）。
+- `tier=PLANNER` → `AUTO/PLANNER_ALLOWED`。
+- `tier=CONFIRMATION` 且 `humanApproved=true` → `AUTO/CONFIRMATION_REQUIRED`（人已批准，可执行；reasons 注明"人确认"）。
+- `tier=CONFIRMATION` 且未获人批准：`REQUIRE_APPROVAL`；若 `plannerClaimsApproved=true` → code `PLANNER_PREAPPROVAL_REJECTED`（**记录这次越权主张，进审计**），否则 `CONFIRMATION_REQUIRED`。
+
+---
+
+## 29. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -815,7 +894,7 @@ export class TurnInbox {
 
 ---
 
-## 21. 验证命令
+## 30. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -841,6 +920,11 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=trusted-context
 node E:\GPT\agent-im\scripts\test.mjs --filter=presence
 node E:\GPT\agent-im\scripts\test.mjs --filter=model-router
 node E:\GPT\agent-im\scripts\test.mjs --filter=turn-inbox
+
+# v5 新增模块（§26–§28）
+node E:\GPT\agent-im\scripts\test.mjs --filter=signed-envelope
+node E:\GPT\agent-im\scripts\test.mjs --filter=relay-summary
+node E:\GPT\agent-im\scripts\test.mjs --filter=confirmation-tier
 
 # 一条命令验证（起服务 → 自检 → 打印入口）
 node E:\GPT\agent-im\scripts\quickstart.mjs

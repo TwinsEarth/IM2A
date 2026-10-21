@@ -136,6 +136,17 @@
 
   <div class="grid" style="margin-top:16px">
     <div class="card">
+      <h3>可信传达<span class="hint">信封证明"谁发的"，转达不冒充人，扣费不可被 planner 预批准</span></h3>
+      <p class="sub">
+        开源解决"连接与执行"，这一层解决"信任与治理"：陌生人 Agent 的来意必须是**可验签、不可重放**的信封；
+        Agent 进入人类会话只能是第三人称转达；扣费/审批必须在确认层。
+      </p>
+      <div id="trusted"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
       <h3>签名审计<span class="hint">哈希链 + Ed25519：两种攻击，两层防御</span></h3>
       <p class="sub">
         哈希链能抓住"改内容不重算哈希"；但拿到数据库写权限的人可以整链重算——这时只有签名能证明"是谁写的"。
@@ -394,9 +405,44 @@ async function runTurnDemo() {
   }
 }
 
+async function loadTrusted() {
+  const [env, relay, confirm] = await Promise.all([
+    getJson('/api/v2/envelope'),
+    getJson('/api/v2/relay'),
+    getJson('/api/v2/confirmation')
+  ]);
+  const confirmRows = (confirm.cases || []).map((c) => `<tr>
+      <td>${esc(c.label)}</td>
+      <td><span class="tag ${c.tier === 'CONFIRMATION' ? 'warn' : 'info'}">${esc(c.tier)}</span></td>
+      <td><span class="tag ${c.decision === 'AUTO' ? 'ok' : 'warn'}">${esc(c.decision)}</span></td>
+      <td class="mono">${esc(c.code)}</td>
+    </tr>`).join('');
+  $('trusted').innerHTML = `
+    <div class="note ${env.first?.ok ? 'ok' : 'bad'}">
+      <b>① 签名信封（Ed25519 + 重放保护 + TOFU）</b><br>
+      信封 from=${esc(env.envelope?.from ?? '')} → to=${esc(env.envelope?.to ?? '')} ·
+      nonce ${esc(String(env.envelope?.nonce ?? '').slice(0, 8))}…<br>
+      首次验签 <span class="tag ok">${esc(env.first?.code ?? 'OK')}</span> ·
+      二次重放 <span class="tag bad">${esc(env.replay?.code ?? '')}</span> ·
+      篡改内容 <span class="tag bad">${esc(env.tampered?.code ?? '')}</span> ·
+      投错人 <span class="tag bad">${esc(env.wrongTo?.code ?? '')}</span>
+      <div style="color:var(--muted);margin-top:6px">${esc(env.boundary ?? '')}</div>
+    </div>
+    <div class="note violet" style="margin-top:10px">
+      <b>② 第三人称转达（不冒充任何一方）</b><br>
+      kind=${esc(relay.relay?.kind ?? '')} · attribution=${esc(relay.relay?.attribution ?? '')} ·
+      notFromHuman=<b>${esc(String(relay.relay?.notFromHuman))}</b> · provenance ${esc((relay.relay?.provenance || []).length)} 方<br>
+      <span style="color:#ddd6fe">${esc(relay.text ?? '')}</span><br>
+      冒充人类 → <span class="tag bad">${esc(relay.impersonation?.code ?? '')}</span>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">③ 确认层（planner 的"我已批准"无效）</b>
+      <table><thead><tr><th>场景</th><th>层级</th><th>决策</th><th>判定码</th></tr></thead><tbody>${confirmRows}</tbody></table>
+    </div>`;
+}
+
 async function loadAll() {
   try {
-    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting()]);
+    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting(), loadTrusted()]);
   } catch (error) {
     document.querySelector('main').insertAdjacentHTML('beforeend', `<div class="note bad">加载失败：${esc(error.message)}</div>`);
   }

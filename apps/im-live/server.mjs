@@ -605,6 +605,22 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  // ── v5：可信传达（签名信封 / 第三人称转达 / 确认层）──
+  if (method === 'GET' && pathname === '/api/v2/envelope') {
+    sendJson(res, 200, holder.demo.v2.envelopeView());
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/relay') {
+    sendJson(res, 200, holder.demo.v2.relayView());
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/confirmation') {
+    sendJson(res, 200, holder.demo.v2.confirmationView());
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/v2/audit') {
     const v2 = holder.demo.v2;
     const verify = v2.signedAudit.verify();

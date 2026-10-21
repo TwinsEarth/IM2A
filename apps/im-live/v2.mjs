@@ -38,6 +38,9 @@ import {
 import { AgentSessionRegistry } from '../../services/messaging/src/session.mjs';
 import { PersonaMemory, MEMORY_STAGE } from '../../services/orchestrator/src/persona-memory.mjs';
 import { DiscussionEngine, DISCUSSION_MODE, STANCE } from '../../services/orchestrator/src/discussion-engine.mjs';
+import { RelaySummaryBuilder } from '../../services/orchestrator/src/relay-summary.mjs';
+import { ConfirmationTier, TOOL_TIER } from '../../services/orchestrator/src/confirmation-tier.mjs';
+import { SignedEnvelopeService } from '../../services/identity/src/signed-envelope.mjs';
 
 import { USERS, AGENTS } from '../demo-server/flow.mjs';
 
@@ -316,6 +319,15 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
   const modelRouter = new ModelRouter({ clock });
   const turnInbox = new TurnInbox({ clock, capacity: 50 });
 
+  // ⑬ v5：可信传达（签名信封 / 第三人称转达 / 确认层）
+  const envelopes = new SignedEnvelopeService({ identity: identities[AGENTS.ZHOU_BUTLER], clock });
+  envelopes.learnKey({ agentId: AGENTS.ZHOU_BUTLER, publicKeyPem: identities[AGENTS.ZHOU_BUTLER].publicKeyPem });
+  const relays = new RelaySummaryBuilder({ clock, maxLength: 600 });
+  const confirmation = new ConfirmationTier({ clock });
+  confirmation.setTier({ agentId: AGENTS.LIN_BUTLER, skillId: 'payment.charge', tier: TOOL_TIER.CONFIRMATION });
+  confirmation.setTier({ agentId: AGENTS.LIN_BUTLER, skillId: 'mail.read', tier: TOOL_TIER.PLANNER });
+  confirmation.setTier({ agentId: AGENTS.LIN_PROCUREMENT, skillId: 'procurement.purchase', tier: TOOL_TIER.CONFIRMATION });
+
   const layer = {
     operator,
     identities,
@@ -334,6 +346,9 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     presence,
     modelRouter,
     turnInbox,
+    envelopes,
+    relays,
+    confirmation,
     auditDiscussionId: auditDiscussion.id,
 
     /** v3：人格 + 记忆生命周期视图（SOUL 与记忆分离；晋升按时间+访问次数，不由模型自称） */
@@ -485,6 +500,93 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
         sample: drained.consumed[0]?.text ?? null,
         ended,
         queued: queued.delivered
+      };
+    },
+
+    /** v5：签名信封——消息级签名、重放保护、TOFU；但"验签通过 ≠ 有权发" */
+    envelopeView() {
+      const payload = { topic: 'A 轮融资 20 分钟', amountCents: 5000 };
+      const envelope = envelopes.sign({ toAgentId: AGENTS.LIN_BUTLER, kind: 'STRANGER_INTENT', payload });
+      const first = envelopes.verify({ envelope, expectedTo: AGENTS.LIN_BUTLER });
+      const replay = envelopes.verify({ envelope, expectedTo: AGENTS.LIN_BUTLER });
+      const tampered = envelopes.verify({ envelope: { ...envelope, payload: { ...payload, amountCents: 1 } }, expectedTo: AGENTS.LIN_BUTLER });
+      const wrongTo = envelopes.verify({
+        envelope: envelopes.sign({ toAgentId: AGENTS.LIN_FILTER, kind: 'PING', payload: {} }),
+        expectedTo: AGENTS.LIN_BUTLER
+      });
+      return {
+        envelope: {
+          v: envelope.v,
+          from: envelope.from,
+          to: envelope.to,
+          kind: envelope.kind,
+          nonce: envelope.nonce,
+          at: envelope.at,
+          signed: typeof envelope.signature === 'string'
+        },
+        first: { ok: first.ok, code: first.code ?? null },
+        replay: { ok: replay.ok, code: replay.code ?? null },
+        tampered: { ok: tampered.ok, code: tampered.code ?? null },
+        wrongTo: { ok: wrongTo.ok, code: wrongTo.code ?? null },
+        boundary: '验签通过只证明发送方私钥签发过该内容；是否受理/收费仍由网关与付费状态机决定'
+      };
+    },
+
+    /** v5：第三人称转达——AI 是会话里的合法第三方，绝不冒充人 */
+    relayView() {
+      const relay = relays.build({
+        conversationId: CHANNEL_IDS.DIRECT_LIN_ZHOU,
+        participants: [AGENTS.LIN_BUTLER, AGENTS.ZHOU_BUTLER],
+        summarizerAgentId: AGENTS.LIN_BUTLER,
+        topic: '周五 16:00 融资沟通',
+        conclusion: '时间已定：周五 16:00-16:20 视频；对方需提前 24h 提交 BP。',
+        pendingActions: [{ who: USERS.LIN, action: '确认时段' }],
+        approvals: [{ ticketId: 'tkt-stranger', state: 'PENDING' }],
+        provenance: [AGENTS.ZHOU_BUTLER, AGENTS.LIN_BUTLER]
+      });
+      let impersonation;
+      try {
+        relays.assertNotImpersonation({ relay: { ...relay, from: USERS.LIN }, humanUserIds: [USERS.LIN, USERS.ZHOU] });
+        impersonation = { blocked: false, code: null };
+      } catch (error) {
+        impersonation = { blocked: true, code: error?.code ?? 'IMPERSONATION_BLOCKED' };
+      }
+      // 展示层把 agentId 换成可读名（只影响渲染，不影响 relay 本体与 hash）
+      const rawText = relays.render({ relay });
+      const prettyText = Object.entries(AGENT_PROFILES).reduce(
+        (acc, [agentIdKey, profile]) => acc.replaceAll(agentIdKey, profile.displayName),
+        rawText
+      );
+      return {
+        relay: {
+          kind: relay.kind,
+          attribution: relay.attribution,
+          notFromHuman: relay.notFromHuman,
+          from: relay.from,
+          participants: relay.participants,
+          provenance: relay.provenance,
+          pendingActions: relay.pendingActions.length,
+          approvals: relay.approvals.length,
+          hash: relay.hash
+        },
+        text: prettyText,
+        impersonation,
+        rule: 'AI 只做第三人称转达；一旦把人类 userId 当 from → IMPERSONATION_BLOCKED'
+      };
+    },
+
+    /** v5：确认层——扣费/审批不可能被 planner 的"我已批准"绕过 */
+    confirmationView() {
+      const cases = [
+        { label: '付费扣费（planner 自称已批准）', agentId: AGENTS.LIN_BUTLER, skillId: 'payment.charge', plannerClaimsApproved: true },
+        { label: '付费扣费（人已批准）', agentId: AGENTS.LIN_BUTLER, skillId: 'payment.charge', humanApproved: true },
+        { label: '读邮件（planner 层）', agentId: AGENTS.LIN_BUTLER, skillId: 'mail.read' },
+        { label: '未登记技能（fail-closed）', agentId: AGENTS.LIN_BUTLER, skillId: 'unknown.skill' },
+        { label: '采购下单（确认层，未被批准）', agentId: AGENTS.LIN_PROCUREMENT, skillId: 'procurement.purchase' }
+      ];
+      return {
+        cases: cases.map((item) => ({ label: item.label, ...confirmation.evaluate(item) })),
+        rule: '扣费/审批必须在确认层；planner 的"我已批准"一律无效并留审计'
       };
     },
 

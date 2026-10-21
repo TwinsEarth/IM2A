@@ -6,7 +6,7 @@
  * 为什么需要它：本项目交付物很厚（11 篇 v1 文档 + 2 篇 v2/v3 + 8 个 proto + 多套演示），
  * 评审/新同学最容易卡在"从哪开始"。本脚本把"能不能跑起来"变成一个 10 秒内可回答的问题：
  *
- *   node scripts/quickstart.mjs            # 起服务 → 跑 10 项自检 → 打印入口 → 保持运行
+ *   node scripts/quickstart.mjs            # 起服务 → 跑 11 项自检 → 打印入口 → 保持运行
  *   node scripts/quickstart.mjs --check    # 只跑自检，不起常驻服务（CI 用）
  *   node scripts/quickstart.mjs --port 8899
  *
@@ -156,6 +156,20 @@ await check('v4：宿主四机制（可信上下文 / 旁观沉默 / 模型路�
   }).then((res) => res.json());
   if (turn.injected !== 'MID_TURN' || turn.consumed !== 1) throw new Error('轮次内投递未生效');
   return `上下文签验通过 · 家庭群静默记录 · 家庭事务→${routing.body.decisions[0].tier} · 轮次内消费 ${turn.consumed} 条`;
+});
+
+await check('v5：可信传达（签名信封 / 不冒充人 / 确认层）', async () => {
+  const env = await json(`${base}/api/v2/envelope`);
+  if (env.body.first?.ok !== true) throw new Error('签名信封验签失败');
+  if (env.body.replay?.code !== 'REPLAY_DETECTED') throw new Error('重放未被识别');
+  if (env.body.tampered?.code !== 'SIGNATURE_INVALID') throw new Error('篡改未被识别');
+  const relay = await json(`${base}/api/v2/relay`);
+  if (relay.body.relay?.notFromHuman !== true) throw new Error('转达消息未被标记为非人类发言');
+  if (relay.body.impersonation?.blocked !== true) throw new Error('冒充人类未被拦截');
+  const confirm = await json(`${base}/api/v2/confirmation`);
+  const claim = confirm.body.cases?.find((c) => c.label.includes('planner 自称'));
+  if (claim?.code !== 'PLANNER_PREAPPROVAL_REJECTED') throw new Error('planner 预批准未被拒绝');
+  return `信封：验签/重放/篡改三种结果 · 转达：notFromHuman · 确认层：${claim.code}`;
 });
 
 await check('审批闭环：通过 → 扣费 → 会话解锁', async () => {

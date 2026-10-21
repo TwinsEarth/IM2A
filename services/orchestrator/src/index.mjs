@@ -20,3 +20,6 @@ export * from './tool-policy.mjs';
 // v4：宿主能力（§23 旁观与主动沉默、§24 敏感场景模型路由）
 export * from './presence-policy.mjs';
 export * from './model-router.mjs';
+// v5：可信传达（§27 第三人称转达、§28 确认层不可被 planner 预批准）
+export * from './relay-summary.mjs';
+export * from './confirmation-tier.mjs';

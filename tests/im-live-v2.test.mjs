@@ -257,6 +257,45 @@ test('v4：宿主型 IM 四机制（可信上下文 / 旁观静默 / 模型路�
   });
 });
 
+test('v5：可信传达（签名信封 / 第三人称转达 / 确认层）', async () => {
+  await withServer(async (app) => {
+    // ① 签名信封：签名、重放、篡改、投错人
+    const env = await json(`${app.url}/api/v2/envelope`);
+    assert.equal(env.status, 200);
+    assert.equal(env.body.first.ok, true, '正常信封应验签通过');
+    assert.equal(env.body.first.code, null);
+    assert.equal(env.body.replay.code, 'REPLAY_DETECTED', '同一信封二次消费必须被识别为重放');
+    assert.equal(env.body.tampered.code, 'SIGNATURE_INVALID', '篡改 payload 必须破坏签名');
+    assert.equal(env.body.wrongTo.code, 'ENVELOPE_INVALID', '投给别人的信封不能在本方通过');
+    assert.match(env.body.boundary, /受理|权限/, '必须写明"验签通过 ≠ 有权发"');
+
+    // ② 第三人称转达：AI 可以进会话，但不能冒充人
+    const relay = await json(`${app.url}/api/v2/relay`);
+    assert.equal(relay.status, 200);
+    assert.equal(relay.body.relay.kind, 'THIRD_PERSON_RELAY');
+    assert.equal(relay.body.relay.attribution, 'AGENT_SUMMARY');
+    assert.equal(relay.body.relay.notFromHuman, true);
+    assert.ok(relay.body.relay.provenance.length >= 2, 'provenance 可追溯协商双方');
+    assert.match(relay.body.text, /总管/, '第三人称文本');
+    assert.equal(relay.body.impersonation.blocked, true, '把人类 userId 当 from 必须被拦');
+    assert.equal(relay.body.impersonation.code, 'IMPERSONATION_BLOCKED');
+
+    // ③ 确认层：planner 的"我已批准"无效
+    const confirm = await json(`${app.url}/api/v2/confirmation`);
+    assert.equal(confirm.status, 200);
+    const plannerClaims = confirm.body.cases.find((c) => c.label.includes('planner 自称'));
+    assert.equal(plannerClaims.decision, 'REQUIRE_APPROVAL');
+    assert.equal(plannerClaims.code, 'PLANNER_PREAPPROVAL_REJECTED', '模型预批准必须被显式拒绝');
+    const humanApproved = confirm.body.cases.find((c) => c.label.includes('人已批准'));
+    assert.equal(humanApproved.decision, 'AUTO');
+    const plannerTier = confirm.body.cases.find((c) => c.label.includes('读邮件'));
+    assert.equal(plannerTier.code, 'PLANNER_ALLOWED');
+    const unknownSkill = confirm.body.cases.find((c) => c.label.includes('未登记'));
+    assert.equal(unknownSkill.tier, 'CONFIRMATION', '未登记技能 fail-closed');
+    assert.equal(unknownSkill.decision, 'REQUIRE_APPROVAL');
+  });
+});
+
 test('/api/state 暴露 v2 摘要，/v2 页面可访问', async () => {
   await withServer(async (app) => {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);

@@ -45,6 +45,16 @@
 > | **轮次内投递** | Flopwire | 协商提案要等下一次用户提示才可见，实时协作退化成批处理 | `services/messaging/src/turn-inbox.mjs`（§25，MID_TURN / QUEUED，未消费不静默丢） |
 >
 > 判据论证与逐项目重排见 [docs/14-宿主型IM判据与机制落点.md](docs/14-宿主型IM判据与机制落点.md)。
+>
+> ### v5：可信传达（开源解决连接，我们解决信任）
+>
+> | 机制 | 借鉴 | 没有它会怎样 | 落点 |
+> |---|---|---|---|
+> | **签名信封 + 重放保护 + TOFU** | Beacon | 陌生人 Agent 可伪造/重放来意，付费门控建在沙上 | `services/identity/src/signed-envelope.mjs`（§26）；**验签通过 ≠ 有权发**，授权仍在网关与付费状态机 |
+> | **第三人称转达** | Pisces/Convia | Agent 只能伪装成人说话，或干脆进不了人类会话 | `services/orchestrator/src/relay-summary.mjs`（§27）；`notFromHuman` 恒 true，冒充人类 → `IMPERSONATION_BLOCKED` |
+> | **确认层不可预批准** | ZLAgent | 规划器可以"预批准"扣费，审批形同虚设 | `services/orchestrator/src/confirmation-tier.mjs`（§28）；未登记技能 fail-closed，`PLANNER_PREAPPROVAL_REJECTED` 进审计 |
+>
+> 四层技术栈映射与"必须自研"的边界见 [docs/15-四层技术栈映射与自研边界.md](docs/15-四层技术栈映射与自研边界.md)。
 
 ---
 
@@ -86,7 +96,7 @@
 ```powershell
 cd E:\GPT\agent-im
 
-# 一条命令：起服务 → 跑 10 项自检 → 打印入口 → 保持运行
+# 一条命令：起服务 → 跑 11 项自检 → 打印入口 → 保持运行
 node scripts/quickstart.mjs
 # 或只自检（CI 用，exit 0/1）
 node scripts/quickstart.mjs --check

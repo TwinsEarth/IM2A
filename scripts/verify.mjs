@@ -354,6 +354,52 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 13. v5「可信传达」交付完整性 ─────────────────────────
+{
+  const v5Modules = [
+    ['services/identity/src/signed-envelope.mjs', 'services/identity/test/signed-envelope.test.mjs'],
+    ['services/orchestrator/src/relay-summary.mjs', 'services/orchestrator/test/relay-summary.test.mjs'],
+    ['services/orchestrator/src/confirmation-tier.mjs', 'services/orchestrator/test/confirmation-tier.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v5Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v5 模块与测试齐备（${v5Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v5Machines = {
+    TOOL_TIER: ['PLANNER', 'CONFIRMATION'],
+    RELAY_KIND: ['THIRD_PERSON_RELAY']
+  };
+  for (const [machine, values] of Object.entries(v5Machines)) {
+    const inContract = values.every((v) => contract.includes(v));
+    const inSrc = values.every((v) => srcText.includes(`'${v}'`));
+    record(`v5 枚举 ${machine} 契约↔实现一致（${values.length} 值）`, inContract && inSrc, `contract=${inContract} impl=${inSrc}`);
+  }
+
+  const v5Sections = ['26', '27', '28'];
+  const missingSections = v5Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v5 §26–§28 三节', missingSections.length === 0, missingSections.join(', '));
+
+  const doc15 = path.join(ROOT, 'docs/15-四层技术栈映射与自研边界.md');
+  if (await exists(doc15)) {
+    const t15 = await read(doc15);
+    const projects = ['Pisces', 'dsh-meeting', 'a2a-dm', 'Beacon', 'MalikClaw', 'ZLAgent', 'openvela'];
+    const missingProjects = projects.filter((name) => !t15.includes(name));
+    record(`docs/15 覆盖四层 ${projects.length} 个项目`, missingProjects.length === 0, missingProjects.join(', '));
+    record('docs/15 明确「开源解决连接与执行，自研解决信任与治理」', t15.includes('信任') && t15.includes('治理'), '缺结论表述');
+  } else {
+    record('docs/15 四层技术栈映射文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);
