@@ -826,6 +826,39 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 24. v0.0.8 横向扩展交付完整性 ─────────────────────────
+{
+  const busImpl = 'services/messaging/src/broadcast.mjs';
+  const busTest = 'tests/broadcast.test.mjs';
+  const missing = [];
+  if (!(await exists(path.join(ROOT, busImpl)))) missing.push(busImpl);
+  if (!(await exists(path.join(ROOT, busTest)))) missing.push(busTest);
+  record('v0.0.8 广播总线实现与测试齐备', missing.length === 0, missing.join(', '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  record('契约含 v0.0.8 §48 广播总线', contract.includes('## 48. `services/messaging/src/broadcast.mjs`'), '缺 §48');
+  const src = await exists(path.join(ROOT, busImpl)) ? await read(path.join(ROOT, busImpl)) : '';
+  const busCodes = ['BUS_CLOSED', 'INVALID_CONFIG', 'MESSAGE_TOO_LARGE'];
+  const missingCodes = busCodes.filter((code) => !contract.includes(code) && !src.includes(code));
+  record(`v0.0.8 关键状态码契约↔实现存在（${busCodes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+  record('总线实现包含内存与 TCP 两种通道', src.includes("MEMORY: 'memory'") && src.includes("TCP: 'tcp'"), '缺 memory/tcp');
+  record('总线明确"不持久化/无订阅者丢弃"边界', contract.includes('不持久化') && src.includes('不持久化'), '缺边界表述');
+  record('服务端已接入总线（/api/ops/bus）', await (async () => {
+    const serverSrc = await read(path.join(ROOT, 'apps/im2agent/server.mjs'));
+    return serverSrc.includes("pathname === '/api/ops/bus'");
+  })(), '缺 /api/ops/bus 或未接入');
+
+  const doc28 = path.join(ROOT, 'docs/28-v0.0.8-横向扩展与多节点.md');
+  if (await exists(doc28)) {
+    const t28 = await read(doc28);
+    const required = ['横向', '多节点', '去重', 'Redis'];
+    const missingKeywords = required.filter((word) => !t28.includes(word));
+    record('docs/28 覆盖横向扩展/多节点/去重/迁移', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/28 v0.0.8 横向扩展文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

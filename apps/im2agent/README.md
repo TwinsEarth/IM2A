@@ -79,6 +79,10 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 | GET | `/api/ops/backup` | `x-admin-token` | 列出备份（坏文件显式标 `skipped`） |
 | POST | `/api/ops/backup/restore` | `x-admin-token` | 验签并返回数据；**不自动应用**（`applied:false`） |
 | GET | `/app/` | — | **Web/PWA 客户端**：审批 / 巡视 / 账本三态（手机可直接加到主屏） |
+| GET | `/api/ops/bus` | `x-admin-token` | 多节点广播状态（published/received/deduped/dropped + peers） |
+
+> **多节点**：`IM2AGENT_BUS=tcp IM2AGENT_BUS_PORT=17000` 启动节点 A；节点 B 加 `IM2AGENT_BUS_PEERS=127.0.0.1:17000`。
+> 任一节点上的审批/预览事件会推送到所有节点的 `/api/events` 客户端。边界见 [docs/28](../../docs/28-v0.0.8-横向扩展与多节点.md)。
 
 > **真实环境验收**：先起服务（生产形态），再跑
 > `node scripts/accept.mjs --target https://<域名> --token <ADMIN_TOKEN> --viewer-token <VIEWER_TOKEN> --require-real-providers`

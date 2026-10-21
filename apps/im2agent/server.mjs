@@ -42,6 +42,7 @@ import { Metrics, METRIC, evaluateAlerts } from '../../services/observability/sr
 import { AuditTrace } from '../../services/observability/src/trace.mjs';
 import { CircuitBreaker, ProviderGuard } from '../../services/resilience/src/provider-guard.mjs';
 import { BackupService } from '../../services/persistence/src/backup.mjs';
+import { createBroadcastBus } from '../../services/messaging/src/broadcast.mjs';
 import { createWorld, decide, previewContext, recordAudit, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -204,7 +205,20 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
 
   // 多端同步：SSE 推送（客户端也可用 1s 轮询兜底，见 client/README）
   holder.sseClients = new Set();
-  holder.broadcast = (payload) => {
+
+  // v0.0.8：多节点广播总线（memory 单机 / tcp 多节点；生产替换为 Redis Pub/Sub 时调用方不变）
+  const busKind = env.IM2AGENT_BUS ?? 'memory';
+  const busPeers = String(env.IM2AGENT_BUS_PEERS ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item !== '');
+  holder.bus = createBroadcastBus({
+    kind: busKind,
+    listenPort: Number(env.IM2AGENT_BUS_PORT ?? 0),
+    peers: busPeers
+  });
+  // 所有来源（本节点 + 其它节点）的事件统一从这里投递到本地 SSE 客户端
+  holder.bus.subscribe('im2agent.events', (payload) => {
     const line = `data: ${JSON.stringify(payload)}\n\n`;
     for (const client of holder.sseClients) {
       try {
@@ -213,7 +227,8 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
         holder.sseClients.delete(client);
       }
     }
-  };
+  });
+  holder.broadcast = (payload) => holder.bus.publish('im2agent.events', payload);
 
   const server = createServer(async (req, res) => {
     try {
@@ -926,6 +941,13 @@ async function route(req, res, holder, persist) {
     return;
   }
 
+  // ── v0.0.8 多节点广播状态 ──
+  if (method === 'GET' && pathname === '/api/ops/bus') {
+    if (!requireAccess(req, res, holder)) return;
+    sendJson(res, 200, { bus: holder.bus.stats(), peers: busPeers }, holder.rt);
+    return;
+  }
+
   sendJson(res, 404, { error: 'NOT_FOUND', path: pathname }, holder.rt);
 }
 
@@ -989,19 +1011,35 @@ export function startServer({ env = process.env, ...rest } = {}) {
   const { rt } = app.holder;
   return new Promise((resolve, reject) => {
     app.server.once('error', reject);
-    app.server.listen(rt.port, rt.host, () => {
-      const address = app.server.address();
-      const urls = [`http://${address.address}:${address.port}`];
-      if (rt.host === '0.0.0.0') urls.push(...lanUrls(address.port));
-      resolve({
-        ...app,
-        runtime: rt,
-        port: address.port,
-        host: rt.host,
-        urls,
-        close: () => new Promise((done) => app.server.close(() => done()))
-      });
-    });
+    // 总线先于 HTTP 启动：多节点模式必须先监听广播端口，才能接收对端事件
+    app.holder.bus
+      .start()
+      .then(() => {
+        app.server.listen(rt.port, rt.host, () => {
+          const address = app.server.address();
+          const urls = [`http://${address.address}:${address.port}`];
+          if (rt.host === '0.0.0.0') urls.push(...lanUrls(address.port));
+          resolve({
+            ...app,
+            runtime: rt,
+            port: address.port,
+            host: rt.host,
+            urls,
+            close: () =>
+              new Promise((done) => {
+                app.server.close(async () => {
+                  try {
+                    await app.holder.bus.close();
+                  } catch {
+                    // 总线关闭失败不应阻塞进程退出
+                  }
+                  done();
+                });
+              })
+          });
+        });
+      })
+      .catch(reject);
   });
 }
 

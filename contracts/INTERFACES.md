@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R19 | 2026-10-21 | **v0.0.8 横向扩展增补**：§48 多节点广播总线（memory/tcp 同构接口；事件每节点最多投递一次；同源保序；关闭后 publish 不抛；64KB 上限；**总线不持久化、无订阅者即丢弃**，不伪装成消息队列）；原 §49→§51 禁止事项、§50→§52 验证命令 | 加法（v1–v0.0.7 语义全保留） |
 | R18 | 2026-10-21 | **v0.0.7 客户端增补**：§47 Web/PWA 客户端（三态导航 + 纯函数 logic.mjs 可 Node 测试 + manifest/service worker + 角色前端门控）；Flutter 三端保留为未编译等价物，状态如实标注；原 §47→§49 禁止事项、§48→§50 验证命令 | 加法（v1–v0.0.6 语义全保留） |
 | R17 | 2026-10-21 | **v0.0.6 验收工具化增补**：§45 上线前预检（可达/鉴权/持久存储/真实依赖/时钟偏移；只读）、§46 验收执行器（本机 Gate → 真实目标可执行；不可自动化显式 MANUAL；异常记 FAIL 不中断；SKIP/MANUAL 不影响 ok）；原 §45→§47 禁止事项、§46→§48 验证命令 | 加法（v1–v0.0.5 语义全保留） |
 | R16 | 2026-10-21 | **v0.0.5 内测保障增补**：§43 外部依赖熔断与降级（OPEN 快速失败不调用主方 / 半开只探测一次 / 降级必须标记 usedFallback 与原因码 / 不静默返回空值）、§44 数据备份与恢复（sha256 校验后才 restore、restore 不自动应用、轮转不删最新、文件级备份边界写清）；原 §43→§45 禁止事项、§44→§46 验证命令 | 加法（v1–v0.0.4 语义全保留） |
@@ -1396,7 +1397,24 @@ export function funnelSummary(metrics);          // -> [{stage,count,rate}]；�
 
 ---
 
-## 49. 禁止事项（对所有实现者）
+## 48. `services/messaging/src/broadcast.mjs`（v0.0.8 新增）
+
+**职责**：**多节点事件扇出**。单进程 SSE 只能服务一个节点；横向扩展的第一步是"任一节点产生的事件，所有节点上的在线客户端都能收到"。生产用 Redis Pub/Sub，本机零依赖用 **TCP 广播总线**（同构接口，可替换）。
+
+```js
+export const BUS_KIND = Object.freeze({ MEMORY: 'memory', TCP: 'tcp' });
+export const BUS_CODE = Object.freeze({ BUS_CLOSED: 'BUS_CLOSED', INVALID_CONFIG: 'INVALID_CONFIG', PEER_FAILED: 'PEER_FAILED' });
+export class BroadcastError extends Error {}
+
+export function createBroadcastBus({ kind = 'memory', nodeId = null, listenPort = 0, peers = [], clock = () => Date.now() });
+// 返回（两种 kind 同构）：
+// { kind, nodeId, start(), close(), publish(topic, payload, { id }), subscribe(topic, handler), stats() }
+```
+**不变量**：①**每个事件每个节点最多投递一次**（按事件 id 去重；跨节点回环不得重复触发本地订阅）；②同一 origin 发布的事件在订阅端**保持顺序**；③`stop`/`close` 后 `publish` 不抛（返回 `{ok:false, code:BUS_CLOSED}`），不得影响业务主流程；④消息体是 JSON（`topic + payload + id + origin`），单条上限 64KB，超限丢弃并计入 `stats.dropped`；⑤总线**不持久化**：没有订阅者的事件直接丢弃（与 SSE 语义一致），不能伪装成消息队列。
+
+---
+
+## 51. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1410,7 +1428,7 @@ export function funnelSummary(metrics);          // -> [{stage,count,rate}]；�
 
 ---
 
-## 50. 验证命令
+## 52. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1449,6 +1467,9 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.8 横向扩展（§48）
+node E:\GPT\agent-im\scripts\test.mjs --filter=broadcast
 
 # v0.0.7 客户端（§47）
 node E:\GPT\agent-im\scripts\test.mjs --filter=web-client

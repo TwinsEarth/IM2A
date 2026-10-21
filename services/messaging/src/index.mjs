@@ -47,3 +47,11 @@ export {
   createTencentImPaasAdapter,
   createSelfHostedKernelAdapter,
 } from './im-adapter.mjs';
+
+// v8（v0.0.8）§48 多节点广播总线（memory / tcp 同构；生产替换 Redis Pub/Sub）
+export {
+  BUS_KIND,
+  BUS_CODE,
+  BroadcastError,
+  createBroadcastBus,
+} from './broadcast.mjs';
