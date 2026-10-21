@@ -114,12 +114,13 @@ if (tree.status !== 201) {
 
 console.log(`  skipped (need Workflows: write): ${skipped.length === 0 ? 'none' : skipped.join(', ')}`);
 
-const message = `feat: IM2A v0.1 — 人机混合熟人社交 IM（独立开源实现）
+const pkgVersion = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
+const message = `feat: IM2A v${pkgVersion} — TaskLedger 任务账本（只追加 + 状态机 + 幂等键 + 租约）
 
-发布内容：计划 / 技术方案 / 设计方案 / 交付清单 + 可运行 Demo
-（IM、审批态、陌生人付费消息、Agent Runtime、DeepSeek-V4.1-Flash 可选、SQLite、登录鉴权、可选 HTTPS）
-与 w2m/DSH 完全独立：不引用其代码/服务/依赖。
-测试：node scripts/test.mjs → 198 passed / 0 failed（无网络、无第三方依赖）`;
+v0.2.0 交付：apps/im2a/task-ledger.mjs + 13 项契约测试（create/lease/heartbeat/complete/fail/cancel/
+sweepExpired/fromEvents）；旧 attempt 落账被 TOKEN_STALE 拒绝；重复 create/complete 幂等不追加事件。
+文档同步：ARCHITECTURE/PLAN/DELIVERY/README。测试：node scripts/test.mjs → 211 passed / 0 failed。
+与 w2m/DSH 完全独立：不引用其代码/服务/依赖，仅借鉴任务账本设计思想。`;
 const commit = await api('POST', `/repos/${OWNER}/${REPO}/git/commits`, { message, tree: tree.body.sha, parents });
 if (commit.status !== 201) {
   console.error(`  commit failed: HTTP ${commit.status} ${JSON.stringify(commit.body).slice(0, 300)}`);
