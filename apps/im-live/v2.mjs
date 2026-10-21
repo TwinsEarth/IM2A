@@ -14,6 +14,8 @@
  *   · 身份私钥在进程内存中生成，生产的私钥应存 KMS/HSM，不落业务库（docs/05 §15 有表设计）。
  */
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
+import os from 'node:os';
 
 import { AuditLog } from '../../services/audit/src/audit-log.mjs';
 import { SignedAuditLog } from '../../services/audit/src/signed-audit.mjs';
@@ -41,6 +43,8 @@ import { DiscussionEngine, DISCUSSION_MODE, STANCE } from '../../services/orches
 import { RelaySummaryBuilder } from '../../services/orchestrator/src/relay-summary.mjs';
 import { ConfirmationTier, TOOL_TIER } from '../../services/orchestrator/src/confirmation-tier.mjs';
 import { SignedEnvelopeService } from '../../services/identity/src/signed-envelope.mjs';
+import { AgentMailboxStore } from '../../services/messaging/src/agent-mailbox.mjs';
+import { DelegationService } from '../../services/gateway/src/delegation.mjs';
 
 import { USERS, AGENTS } from '../demo-server/flow.mjs';
 
@@ -328,6 +332,13 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
   confirmation.setTier({ agentId: AGENTS.LIN_BUTLER, skillId: 'mail.read', tier: TOOL_TIER.PLANNER });
   confirmation.setTier({ agentId: AGENTS.LIN_PROCUREMENT, skillId: 'procurement.purchase', tier: TOOL_TIER.CONFIRMATION });
 
+  // ⑭ v6：持久邮箱（跨运行/跨机器的持久真相层，修补 TurnInbox 重启丢失）
+  const mailboxDir = process.env.IM_MAILBOX_DIR ?? path.join(os.tmpdir(), 'agentim-mailbox');
+  const mailbox = new AgentMailboxStore({ dir: mailboxDir, clock });
+
+  // ⑮ v6：带衰减的委托（子 token 不得比父 token 更宽）
+  const delegations = new DelegationService({ clock });
+
   const layer = {
     operator,
     identities,
@@ -349,6 +360,8 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     envelopes,
     relays,
     confirmation,
+    mailbox,
+    delegations,
     auditDiscussionId: auditDiscussion.id,
 
     /** v3：人格 + 记忆生命周期视图（SOUL 与记忆分离；晋升按时间+访问次数，不由模型自称） */
@@ -587,6 +600,143 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
       return {
         cases: cases.map((item) => ({ label: item.label, ...confirmation.evaluate(item) })),
         rule: '扣费/审批必须在确认层；planner 的"我已批准"一律无效并留审计'
+      };
+    },
+
+    /**
+     * v6：持久邮箱——会话历史属于 Agent 身份，而不是某次运行会话。
+     * 演示：投 2 条 → 只 ack 第 1 条 → **新建一个 store 实例（模拟进程重启）** → pending 仍为 1。
+     */
+    mailboxView() {
+      const toAgentId = AGENTS.LIN_BUTLER;
+      const run = randomUUID().slice(0, 8);
+      // 每次演示用一个独立子目录，保证"重启后 pending=1"可被稳定断言（真实部署按 agent 分文件，同一目录长期累积）
+      const runDir = path.join(mailboxDir, `run-${run}`);
+      const store = new AgentMailboxStore({ dir: runDir, clock });
+      const id1 = `mail-${run}-1`;
+      const id2 = `mail-${run}-2`;
+      const delivered = store.deliver({
+        toAgentId,
+        message: { id: id1, from: AGENTS.ZHOU_BUTLER, kind: 'AGENT_TURN', payload: { text: '周先生方接受周五 16:00' } }
+      });
+      const duplicate = store.deliver({
+        toAgentId,
+        message: { id: id1, from: AGENTS.ZHOU_BUTLER, kind: 'AGENT_TURN', payload: { text: '重复投递（不应重复入队）' } }
+      });
+      store.deliver({
+        toAgentId,
+        message: { id: id2, from: AGENTS.ZHOU_BUTLER, kind: 'AGENT_TURN', payload: { text: 'BP 已提交' } }
+      });
+      const firstPage = store.fetch({ agentId: toAgentId, limit: 1 });
+      const acked = store.ack({ agentId: toAgentId, cursor: firstPage.nextCursor });
+      // 模拟"进程重启 / 换机器"：用同一目录新建实例，不共享内存
+      const reopened = new AgentMailboxStore({ dir: runDir, clock });
+      const stats = reopened.stats(toAgentId);
+      const rest = reopened.fetch({ agentId: toAgentId, limit: 50 });
+      return {
+        delivered: delivered.stored,
+        duplicate: duplicate.duplicate,
+        ackedCursor: acked.acked,
+        afterRestart: {
+          delivered: stats.delivered,
+          acked: stats.acked,
+          pending: stats.pending,
+          sizeBytes: stats.sizeBytes
+        },
+        remaining: rest.messages.map((message) => message?.payload?.text ?? null).filter(Boolean),
+        note: 'pending 在"重启"后仍然存在——这正是内存版 TurnInbox 做不到的'
+      };
+    },
+
+    /** v6：带衰减的委托——总 Agent 把某件事交给子 Agent，子权限必须收窄 */
+    delegationView() {
+      const parent = tokens[AGENTS.LIN_BUTLER];
+      const attempt = (label, options) => {
+        try {
+          const token = delegations.delegate(options);
+          return {
+            label,
+            ok: true,
+            code: null,
+            token: {
+              id: token.id,
+              domains: token.domains,
+              trustCeiling: token.trustCeiling,
+              hopLimit: token.hopLimit,
+              expiresAt: token.expiresAt
+            }
+          };
+        } catch (error) {
+          return { label, ok: false, code: error?.code ?? 'DELEGATION_DENIED' };
+        }
+      };
+      const base = {
+        parentToken: parent,
+        childAgentId: AGENTS.LIN_PROCUREMENT,
+        principalUserId: USERS.LIN,
+        trustCeiling: 1,
+        ttlMs: 60_000
+      };
+      const child = attempt('正常委托（域名收窄为 task，跳数 2）', { ...base, domains: ['task'], hopLimit: 2 });
+      const childToken = child.ok ? delegations.delegate({ ...base, domains: ['task'], hopLimit: 2 }) : null;
+      const verified = childToken ? delegations.verify({ token: childToken, agentId: AGENTS.LIN_PROCUREMENT }) : null;
+      // 再委托一层（子 token 还剩 1 跳）
+      const grandchild = childToken
+        ? attempt('子 Agent 再委托一层（孙 token）', {
+            parentToken: childToken,
+            childAgentId: AGENTS.LIN_FILTER,
+            principalUserId: USERS.LIN,
+            domains: ['task'],
+            trustCeiling: 1,
+            ttlMs: 30_000,
+            hopLimit: 1
+          })
+        : { label: '子 Agent 再委托一层（孙 token）', ok: false, code: 'SKIPPED' };
+      const grandchildToken = grandchild.ok
+        ? delegations.delegate({
+            parentToken: childToken,
+            childAgentId: AGENTS.LIN_FILTER,
+            principalUserId: USERS.LIN,
+            domains: ['task'],
+            trustCeiling: 1,
+            ttlMs: 30_000,
+            hopLimit: 1
+          })
+        : null;
+      const hopExhausted = grandchildToken
+        ? attempt('孙 Agent 继续委托（跳数耗尽）', {
+            parentToken: grandchildToken,
+            childAgentId: AGENTS.LIN_FAMILY,
+            principalUserId: USERS.LIN,
+            domains: ['task'],
+            trustCeiling: 1,
+            ttlMs: 10_000,
+            hopLimit: 1
+          })
+        : { label: '孙 Agent 继续委托（跳数耗尽）', ok: false, code: 'SKIPPED' };
+
+      const attempts = [
+        child,
+        attempt('尝试扩大域名（父无 billing 域）', { ...base, domains: ['task', 'billing'], hopLimit: 1 }),
+        attempt('尝试放宽信任上限（1 → 4）', { ...base, domains: ['task'], trustCeiling: 4, hopLimit: 1 }),
+        attempt('尝试把时限拉长到 20 分钟（父 15 分钟）', { ...base, domains: ['task'], ttlMs: 20 * 60_000, hopLimit: 1 }),
+        grandchild,
+        hopExhausted
+      ];
+
+      let afterRevoke;
+      if (childToken && grandchildToken) {
+        // 撤销父（同时级联撤销孙）→ 孙必须失效
+        delegations.revoke({ tokenId: childToken.id, cascade: true });
+        const revokedVerify = delegations.verify({ token: grandchildToken, agentId: AGENTS.LIN_FILTER });
+        afterRevoke = { ok: revokedVerify.ok, code: revokedVerify.code ?? null, target: 'grandchild' };
+      }
+      return {
+        parent: { agentId: parent.agentId, domains: parent.domains, trustCeiling: parent.trustCeiling, expiresAt: parent.expiresAt },
+        childVerified: verified ? { ok: verified.ok, effectiveScope: verified.effectiveScope } : null,
+        attempts,
+        afterRevoke,
+        rule: '委托只能收窄：域名子集 / 信任上限不放宽 / 时限不长于父 / 跳数受限 / 撤销级联'
       };
     },
 

@@ -147,6 +147,17 @@
 
   <div class="grid" style="margin-top:16px">
     <div class="card">
+      <h3>持久与委托<span class="hint">会话历史属于 Agent 身份；委托只能收窄</span></h3>
+      <p class="sub">
+        内存里的轮次收件箱重启即丢；持久邮箱让"对方离线时到达的消息"在重启后仍然存在。
+        总 Agent 把事交给子 Agent 时，子权限必须是父权限的子集——否则一次授权等于复制全部权限。
+      </p>
+      <div id="durability"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
       <h3>签名审计<span class="hint">哈希链 + Ed25519：两种攻击，两层防御</span></h3>
       <p class="sub">
         哈希链能抓住"改内容不重算哈希"；但拿到数据库写权限的人可以整链重算——这时只有签名能证明"是谁写的"。
@@ -440,9 +451,34 @@ async function loadTrusted() {
     </div>`;
 }
 
+async function loadDurability() {
+  const [mb, dg] = await Promise.all([getJson('/api/v2/mailbox'), getJson('/api/v2/delegation')]);
+  const attemptRows = (dg.attempts || []).map((a) => `<tr>
+      <td>${esc(a.label)}</td>
+      <td><span class="tag ${a.ok ? 'ok' : 'bad'}">${a.ok ? '通过' : '拒绝'}</span></td>
+      <td class="mono">${esc(a.code ?? '—')}</td>
+    </tr>`).join('');
+  $('durability').innerHTML = `
+    <div class="note ${mb.afterRestart?.pending === 1 ? 'ok' : 'bad'}">
+      <b>① 持久邮箱（重启后仍 pending）</b><br>
+      投递 ${esc(mb.afterRestart?.delivered)} 条 · 已确认 ${esc(mb.afterRestart?.acked)} 条 ·
+      <b>pending ${esc(mb.afterRestart?.pending)}</b> · 文件 ${esc(mb.afterRestart?.sizeBytes)} 字节<br>
+      重复投递幂等：<span class="tag ok">duplicate=${esc(String(mb.duplicate))}</span> ·
+      未消费消息：${esc((mb.remaining || []).join('、') || '—')}
+      <div style="color:var(--muted);margin-top:6px">${esc(mb.note ?? '')}</div>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">② 带衰减的委托</b>
+      <table><thead><tr><th>尝试</th><th>结果</th><th>判定码</th></tr></thead><tbody>${attemptRows}</tbody></table>
+      <div class="note violet" style="margin-top:8px">
+        撤销父委托后孙委托：<span class="tag bad">${esc(dg.afterRevoke?.code ?? '—')}</span> ·
+        ${esc(dg.rule ?? '')}
+      </div>
+    </div>`;
+}
+
 async function loadAll() {
   try {
-    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting(), loadTrusted()]);
+    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting(), loadTrusted(), loadDurability()]);
   } catch (error) {
     document.querySelector('main').insertAdjacentHTML('beforeend', `<div class="note bad">加载失败：${esc(error.message)}</div>`);
   }

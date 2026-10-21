@@ -55,6 +55,15 @@
 > | **确认层不可预批准** | ZLAgent | 规划器可以"预批准"扣费，审批形同虚设 | `services/orchestrator/src/confirmation-tier.mjs`（§28）；未登记技能 fail-closed，`PLANNER_PREAPPROVAL_REJECTED` 进审计 |
 >
 > 四层技术栈映射与"必须自研"的边界见 [docs/15-四层技术栈映射与自研边界.md](docs/15-四层技术栈映射与自研边界.md)。
+>
+> ### v6：持久与委托（补掉自己承认的两个洞）
+>
+> | 机制 | 借鉴 | 补的是什么洞 | 落点 |
+> |---|---|---|---|
+> | **Agent 持久邮箱** | Greft | v4 的 `TurnInbox` 是内存态、重启即丢 pending（当时已如实登记） | `services/messaging/src/agent-mailbox.mjs`（§29）；JSONL 落盘、幂等去重、cursor/ack、坏行容忍 |
+> | **带衰减的委托** | AGORA | 网关只会签发 token，没有"子 token 不得比父更宽"的强制 → 一次授权等于复制全部权限 | `services/gateway/src/delegation.mjs`（§30）；域名子集 / 信任上限不放宽 / 时限不长于父 / 跳数受限 / 撤销级联 |
+>
+> 三层技术栈与平台接入边界（微信/飞书/钉钉/企业微信/WhatsApp/X 能给你什么、不能给你什么）见 [docs/16-三层技术栈与平台接入边界.md](docs/16-三层技术栈与平台接入边界.md)。
 
 ---
 
@@ -96,7 +105,7 @@
 ```powershell
 cd E:\GPT\agent-im
 
-# 一条命令：起服务 → 跑 11 项自检 → 打印入口 → 保持运行
+# 一条命令：起服务 → 跑 12 项自检 → 打印入口 → 保持运行
 node scripts/quickstart.mjs
 # 或只自检（CI 用，exit 0/1）
 node scripts/quickstart.mjs --check

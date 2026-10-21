@@ -296,6 +296,41 @@ test('v5：可信传达（签名信封 / 第三人称转达 / 确认层）', asy
   });
 });
 
+test('v6：持久邮箱（重启不丢）+ 带衰减委托（权限只能收窄）', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const pathMod = await import('node:path');
+  const dir = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'agentim-mailbox-test-'));
+  process.env.IM_MAILBOX_DIR = dir;
+  try {
+    await withServer(async (app) => {
+      // ① 持久邮箱：ack 一条后"重启"，另一条仍 pending
+      const mailbox = await json(`${app.url}/api/v2/mailbox`);
+      assert.equal(mailbox.status, 200, '邮箱视图应可读');
+      assert.equal(mailbox.body.delivered, true);
+      assert.equal(mailbox.body.duplicate, true, '同 id 重复投递不得重复入队');
+      assert.equal(mailbox.body.afterRestart.delivered, 2);
+      assert.equal(mailbox.body.afterRestart.acked, 1);
+      assert.equal(mailbox.body.afterRestart.pending, 1, '重启后未消费的消息必须仍在');
+      assert.ok(mailbox.body.remaining.some((text) => String(text).includes('BP')), '未消费消息可被重新读取');
+
+      // ② 带衰减委托：正常收窄通过，四种扩张各被拒
+      const delegation = await json(`${app.url}/api/v2/delegation`);
+      assert.equal(delegation.status, 200);
+      assert.equal(delegation.body.childVerified.ok, true, '正常收窄的委托应验签通过');
+      const codes = delegation.body.attempts.map((item) => item.code);
+      assert.equal(codes[1], 'SCOPE_ESCALATION', '扩大域名必须被拒');
+      assert.equal(codes[2], 'SCOPE_ESCALATION', '放宽信任上限必须被拒');
+      assert.equal(codes[3], 'EXPIRY_EXCEEDED', '时限长于父必须被拒');
+      assert.equal(codes[5], 'HOP_LIMIT', '跳数耗尽后不得再委托');
+      assert.equal(delegation.body.afterRevoke.code, 'PARENT_REVOKED', '撤销父必须级联到孙');
+    });
+  } finally {
+    delete process.env.IM_MAILBOX_DIR;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('/api/state 暴露 v2 摘要，/v2 页面可访问', async () => {
   await withServer(async (app) => {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);

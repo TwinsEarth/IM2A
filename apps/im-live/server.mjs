@@ -621,6 +621,25 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  // ── v6：持久邮箱 / 带衰减委托 ──
+  if (method === 'GET' && pathname === '/api/v2/mailbox') {
+    try {
+      sendJson(res, 200, holder.demo.v2.mailboxView());
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'MAILBOX_FAILED', message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/delegation') {
+    try {
+      sendJson(res, 200, holder.demo.v2.delegationView());
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'DELEGATION_FAILED', message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/v2/audit') {
     const v2 = holder.demo.v2;
     const verify = v2.signedAudit.verify();

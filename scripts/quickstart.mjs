@@ -6,7 +6,7 @@
  * 为什么需要它：本项目交付物很厚（11 篇 v1 文档 + 2 篇 v2/v3 + 8 个 proto + 多套演示），
  * 评审/新同学最容易卡在"从哪开始"。本脚本把"能不能跑起来"变成一个 10 秒内可回答的问题：
  *
- *   node scripts/quickstart.mjs            # 起服务 → 跑 11 项自检 → 打印入口 → 保持运行
+ *   node scripts/quickstart.mjs            # 起服务 → 跑 12 项自检 → 打印入口 → 保持运行
  *   node scripts/quickstart.mjs --check    # 只跑自检，不起常驻服务（CI 用）
  *   node scripts/quickstart.mjs --port 8899
  *
@@ -170,6 +170,19 @@ await check('v5：可信传达（签名信封 / 不冒充人 / 确认层）', as
   const claim = confirm.body.cases?.find((c) => c.label.includes('planner 自称'));
   if (claim?.code !== 'PLANNER_PREAPPROVAL_REJECTED') throw new Error('planner 预批准未被拒绝');
   return `信封：验签/重放/篡改三种结果 · 转达：notFromHuman · 确认层：${claim.code}`;
+});
+
+await check('v6：持久邮箱（重启不丢）+ 委托只能收窄', async () => {
+  const mailbox = await json(`${base}/api/v2/mailbox`);
+  if (mailbox.body.afterRestart?.pending !== 1) throw new Error('重启后 pending 丢失');
+  if (mailbox.body.duplicate !== true) throw new Error('重复投递未被幂等处理');
+  const delegation = await json(`${base}/api/v2/delegation`);
+  const codes = (delegation.body.attempts || []).map((item) => item.code);
+  for (const expected of ['SCOPE_ESCALATION', 'EXPIRY_EXCEEDED', 'HOP_LIMIT']) {
+    if (!codes.includes(expected)) throw new Error(`委托衰减未拦住 ${expected}`);
+  }
+  if (delegation.body.afterRevoke?.code !== 'PARENT_REVOKED') throw new Error('撤销未级联');
+  return `邮箱重启后 pending=1 · 委托拦截 ${codes.filter(Boolean).join('/')}`;
 });
 
 await check('审批闭环：通过 → 扣费 → 会话解锁', async () => {

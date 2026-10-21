@@ -400,6 +400,47 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 14. v6「持久与委托」交付完整性 ─────────────────────────
+{
+  const v6Modules = [
+    ['services/messaging/src/agent-mailbox.mjs', 'services/messaging/test/agent-mailbox.test.mjs'],
+    ['services/gateway/src/delegation.mjs', 'services/gateway/test/delegation.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v6Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v6 模块与测试齐备（${v6Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v6Codes = ['CAPACITY_EXCEEDED', 'CURSOR_INVALID', 'DUPLICATE_MESSAGE', 'SCOPE_ESCALATION', 'EXPIRY_EXCEEDED', 'HOP_LIMIT', 'PARENT_REVOKED'];
+  const missingCodes = v6Codes.filter((code) => !contract.includes(code) || !srcText.includes(`'${code}'`));
+  record(`v6 关键错误码契约↔实现一致（${v6Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+
+  const v6Sections = ['29', '30'];
+  const missingSections = v6Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v6 §29–§30 两节', missingSections.length === 0, missingSections.join(', '));
+
+  const doc16 = path.join(ROOT, 'docs/16-三层技术栈与平台接入边界.md');
+  if (await exists(doc16)) {
+    const t16 = await read(doc16);
+    const projects = ['Sigil', 'Agent-IM', 'im-for-agents', 'WKongAI', 'Greft', 'AgentHub', 'AGORA'];
+    const platforms = ['微信', '飞书', '钉钉', 'WhatsApp'];
+    const missingProjects = projects.filter((name) => !t16.includes(name));
+    const missingPlatforms = platforms.filter((name) => !t16.includes(name));
+    record(`docs/16 覆盖协议/编排层 ${projects.length} 个项目`, missingProjects.length === 0, missingProjects.join(', '));
+    record(`docs/16 覆盖主流平台边界（${platforms.length} 个）`, missingPlatforms.length === 0, missingPlatforms.join(', '));
+  } else {
+    record('docs/16 三层技术栈与平台边界文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

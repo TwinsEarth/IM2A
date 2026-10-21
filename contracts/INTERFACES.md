@@ -18,6 +18,7 @@
 | R6 | 2026-10-21 | **v3 增补**：新增 §17 人格与记忆生命周期（SOUL + 晋升/衰减/遗忘/跨平台导出）、§18 多 Agent 结构化讨论（DISCUSS/AUDIT/REVIEW）、§19 细粒度工具审批（Agent×Skill 策略）；原 §17/§18 顺延为 §20/§21 | 加法（v1/v2 语义全保留） |
 | R7 | 2026-10-21 | **v4 增补「宿主型 IM」机制**：§22 服务端可信上下文注入、§23 旁观与主动沉默、§24 敏感场景模型路由、§25 轮次内投递（mid-turn delivery）；原 §20→§26 禁止事项、§21→§27 验证命令 | 加法（v1–v3 语义全保留） |
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
+| R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
 
@@ -880,7 +881,57 @@ export class ConfirmationTier {
 
 ---
 
-## 29. 禁止事项（对所有实现者）
+## 29. `services/messaging/src/agent-mailbox.mjs`（v6 新增）
+
+**职责**：**Agent 持久邮箱**。借鉴 Greft：会话历史归属于 **Agent 身份**而不是某次运行会话——接收方离线时消息安全暂存，进程崩溃/换机器/换框架都能靠同一邮箱恢复。
+
+**这直接修补的已知缺陷**：v4 的 `TurnInbox` 是单进程内存态，重启即丢 pending（当时已如实登记）。本模块提供落盘版本。
+
+```js
+export const MAILBOX_CODE = Object.freeze({
+  MAILBOX_UNKNOWN: 'MAILBOX_UNKNOWN', MESSAGE_INVALID: 'MESSAGE_INVALID', DUPLICATE_MESSAGE: 'DUPLICATE_MESSAGE',
+  CAPACITY_EXCEEDED: 'CAPACITY_EXCEEDED', CURSOR_INVALID: 'CURSOR_INVALID'
+});
+export class AgentMailboxError extends Error {}
+
+export class AgentMailboxStore {
+  constructor({ dir, clock = () => new Date(), capacityPerAgent = 1000 });
+  deliver({ toAgentId, message });          // -> { stored, duplicate, seq }；message 必须有非空 id
+  fetch({ agentId, cursor = null, limit = 50 });   // -> { messages, nextCursor, pending }
+  ack({ agentId, cursor });                 // -> { acked }  提交消费位移
+  history(agentId);                         // -> 全量只读（审计用）
+  stats(agentId);                           // -> { delivered, acked, pending, sizeBytes }
+}
+```
+**不变量**：①每个 agent 一个 append-only 文件（`<dir>/<agentId>.jsonl`），新实例读取同一目录必须恢复同样的 pending；②同一 `message.id` 重复投递**不重复入队**（返回 `duplicate:true`）；③`cursor` 单调，乱序/回退 → `CURSOR_INVALID`；④容量超限 → `CAPACITY_EXCEEDED`（不静默丢弃）。
+
+---
+
+## 30. `services/gateway/src/delegation.mjs`（v6 新增）
+
+**职责**：**带衰减的委托**。借鉴 AGORA 的治理层原语：总 Agent 不能把"自己的全部权限"直接交给子 Agent，委托必须**收窄**（scope 子集、时限不长于父、信任上限不放宽、跳数受限），且父级撤销要级联。
+
+```js
+export const DELEGATION_CODE = Object.freeze({
+  DELEGATION_DENIED: 'DELEGATION_DENIED', SCOPE_ESCALATION: 'SCOPE_ESCALATION', EXPIRY_EXCEEDED: 'EXPIRY_EXCEEDED',
+  HOP_LIMIT: 'HOP_LIMIT', PARENT_REVOKED: 'PARENT_REVOKED', TOKEN_INVALID: 'TOKEN_INVALID'
+});
+export class DelegationError extends Error {}
+
+export class DelegationService {
+  constructor({ clock = () => new Date() });
+  delegate({ parentToken, childAgentId, principalUserId, domains, trustCeiling, ttlMs, hopLimit = 1 });
+  //  -> 冻结 token：{ id, agentId, principalUserId, domains, trustCeiling, issuedAt, expiresAt, hopLimit, parentId, signature? }
+  verify({ token, agentId });   // -> { ok, code, effectiveScope, chain }
+  revoke({ tokenId, cascade = true });   // -> { revoked }
+  chainOf(tokenId);                      // -> token[]
+}
+```
+**衰减规则（冻结，违反即拒绝）**：`child.domains ⊆ parent.domains`（否则 `SCOPE_ESCALATION`）；`child.trustCeiling <= parent.trustCeiling`（数值越大越宽松，**不得放宽**，否则 `SCOPE_ESCALATION`）；`child.expiresAt <= parent.expiresAt`（否则 `EXPIRY_EXCEEDED`）；`hopLimit` 必须 ≥1 且每层 -1（0 → `HOP_LIMIT`）；父级被撤销 → 子级 `PARENT_REVOKED`（`cascade` 默认 true）。
+
+---
+
+## 31. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -894,7 +945,7 @@ export class ConfirmationTier {
 
 ---
 
-## 30. 验证命令
+## 32. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -925,6 +976,10 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=turn-inbox
 node E:\GPT\agent-im\scripts\test.mjs --filter=signed-envelope
 node E:\GPT\agent-im\scripts\test.mjs --filter=relay-summary
 node E:\GPT\agent-im\scripts\test.mjs --filter=confirmation-tier
+
+# v6 新增模块（§29–§30）
+node E:\GPT\agent-im\scripts\test.mjs --filter=agent-mailbox
+node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 
 # 一条命令验证（起服务 → 自检 → 打印入口）
 node E:\GPT\agent-im\scripts\quickstart.mjs

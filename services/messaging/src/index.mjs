@@ -28,3 +28,10 @@ export {
   TurnInboxError,
   TurnInbox,
 } from './turn-inbox.mjs';
+
+// v6 §29 Agent 持久邮箱（跨运行/跨机器的持久真相层）
+export {
+  MAILBOX_CODE,
+  AgentMailboxError,
+  AgentMailboxStore,
+} from './agent-mailbox.mjs';
