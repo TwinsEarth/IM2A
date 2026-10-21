@@ -32,6 +32,19 @@
 > | 快速产品验证 | Xiajiao | 一条命令 `node scripts/quickstart.mjs` → 起服务 + 9 项自检 + 打印入口 | `scripts/quickstart.mjs` |
 >
 > 分层选型与逐项裁决（✅3 / ◐3 / 子项否决）见 [docs/13-分层选型与落地映射.md](docs/13-分层选型与落地映射.md)。
+>
+> ### v4：宿主型 IM（Agent 入驻 IM，而不是在 IM 上加机器人）
+>
+> 判据：Agent 有独立身份、与人类共享消息会话模型、有独立授权、是频道成员、被服务端注入可信上下文、离线/轮次内仍被驱动。按此补了四块宿主能力：
+>
+> | 机制 | 借鉴 | 没有它会怎样 | 落点 |
+> |---|---|---|---|
+> | **服务端可信上下文** | MagicChat | 每个 Agent 各自查关系链 → 权限口径不一、越权查询无法集中审计 | `services/gateway/src/trusted-context.mjs`（§22，签名注入，Agent 只读不可改） |
+> | **旁观与主动沉默** | nekoclaw | 家庭群里 Agent 过度活跃，熟人社交最需要的"不打扰"被破坏 | `services/orchestrator/src/presence-policy.mjs`（§23，OBSERVE=记录但不说；1:1 除外） |
+> | **敏感场景模型路由** | MindRoom | 家庭/法律对话被送到云端大模型，隐私承诺失效 | `services/orchestrator/src/model-router.mjs`（§24，敏感域与家庭档钉本地） |
+> | **轮次内投递** | Flopwire | 协商提案要等下一次用户提示才可见，实时协作退化成批处理 | `services/messaging/src/turn-inbox.mjs`（§25，MID_TURN / QUEUED，未消费不静默丢） |
+>
+> 判据论证与逐项目重排见 [docs/14-宿主型IM判据与机制落点.md](docs/14-宿主型IM判据与机制落点.md)。
 
 ---
 
@@ -73,7 +86,7 @@
 ```powershell
 cd E:\GPT\agent-im
 
-# 一条命令：起服务 → 跑 9 项自检 → 打印入口 → 保持运行
+# 一条命令：起服务 → 跑 10 项自检 → 打印入口 → 保持运行
 node scripts/quickstart.mjs
 # 或只自检（CI 用，exit 0/1）
 node scripts/quickstart.mjs --check

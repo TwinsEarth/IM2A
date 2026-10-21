@@ -121,6 +121,21 @@
 
   <div class="grid" style="margin-top:16px">
     <div class="card">
+      <h3>宿主型 IM 四机制<span class="hint">Agent 入驻 IM，而不是在 IM 上加机器人</span></h3>
+      <p class="sub">
+        宿主型与"IM+机器人"的区别在于：Agent 有自己的身份与会话、被服务端注入可信上下文、会主动沉默、
+        敏感对话不出端侧、协商消息能在当前轮次内到达。
+      </p>
+      <div id="hosting"></div>
+      <div class="row">
+        <button class="btn primary" id="turnDemo">演示：轮次内投递</button>
+        <span class="sub" id="turnResult2" style="margin:0"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
       <h3>签名审计<span class="hint">哈希链 + Ed25519：两种攻击，两层防御</span></h3>
       <p class="sub">
         哈希链能抓住"改内容不重算哈希"；但拿到数据库写权限的人可以整链重算——这时只有签名能证明"是谁写的"。
@@ -332,9 +347,56 @@ async function loadDiscussions() {
     </div>`).join('') || '<div class="sub">暂无讨论</div>';
 }
 
+async function loadHosting() {
+  const [ctx, presence, routing] = await Promise.all([
+    getJson('/api/v2/context'),
+    getJson('/api/v2/presence'),
+    getJson('/api/v2/model-route')
+  ]);
+  const presenceRows = (presence.decisions || []).map((d) => `<tr>
+      <td>${esc(d.label)}</td>
+      <td><span class="tag ${d.result.speak ? 'ok' : 'warn'}">${d.result.speak ? '发言' : '沉默'}</span></td>
+      <td><span class="tag ${d.result.recordSilently ? 'info' : ''}">${d.result.recordSilently ? '仅记录' : '—'}</span></td>
+      <td class="mono">${esc(d.result.code ?? '')}</td>
+    </tr>`).join('');
+  const routeRows = (routing.decisions || []).map((d) => `<tr>
+      <td>${esc(d.label)}</td>
+      <td><span class="tag ${d.tier === 'LOCAL' ? 'violet' : 'info'}">${esc(d.tier)}</span></td>
+      <td class="mono">${esc(d.model ?? '')}</td>
+      <td class="mono">${esc(d.code ?? '')}</td>
+    </tr>`).join('');
+  $('hosting').innerHTML = `
+    <div class="note ${ctx.verify?.ok ? 'ok' : 'bad'}">
+      <b>① 服务端可信上下文</b><br>
+      注入字段：会话 ${esc(ctx.context?.conversation?.channelType ?? '')} · 成员 ${esc((ctx.context?.conversation?.members || []).length)} ·
+      发送者信任档 ${esc(ctx.context?.sender?.trustLevel ?? '—')} · 能力 ${esc((ctx.context?.capabilities || []).length)} 项 ·
+      候选对象 ${esc(JSON.stringify(ctx.context?.candidates ?? {}))}<br>
+      验签 ${ctx.verify?.ok ? '通过' : '失败'} · Agent 篡改 → <span class="tag bad">${esc(ctx.forgery?.code ?? '')}</span> ·
+      换个 Agent 复用 → <span class="tag bad">${esc(ctx.crossAgent?.code ?? '')}</span>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">② 旁观与主动沉默</b>
+      <table><thead><tr><th>场景</th><th>是否发言</th><th>记录</th><th>判定码</th></tr></thead><tbody>${presenceRows}</tbody></table>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">③ 敏感场景模型路由</b>
+      <table><thead><tr><th>场景</th><th>档位</th><th>模型</th><th>判定码</th></tr></thead><tbody>${routeRows}</tbody></table>
+    </div>
+    <div class="note violet" style="margin-top:10px"><b>④ 轮次内投递</b>：点下面的按钮看"协商提案在 Agent 当前轮次内到达"（不等下一次用户提示）。</div>`;
+}
+
+async function runTurnDemo() {
+  $('turnResult2').textContent = '演示中…';
+  try {
+    const data = await getJson('/api/v2/turn-demo', { method: 'POST' });
+    $('turnResult2').textContent =
+      `轮次 ${data.turn.state} · 注入=${data.injected} · 当前轮次消费 ${data.consumed} 条 · 轮次外=${data.queued}`;
+  } catch (error) {
+    $('turnResult2').textContent = '失败：' + error.message;
+  }
+}
+
 async function loadAll() {
   try {
-    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions()]);
+    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting()]);
   } catch (error) {
     document.querySelector('main').insertAdjacentHTML('beforeend', `<div class="note bad">加载失败：${esc(error.message)}</div>`);
   }
@@ -342,6 +404,7 @@ async function loadAll() {
 
 $('refresh').addEventListener('click', loadAll);
 $('turn').addEventListener('click', negotiateTurn);
+$('turnDemo').addEventListener('click', runTurnDemo);
 $('tamperContent').addEventListener('click', () => tamper('content'));
 $('tamperResign').addEventListener('click', () => tamper('resign'));
 loadAll();

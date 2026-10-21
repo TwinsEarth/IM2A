@@ -306,6 +306,54 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   record('契约含 v3 §17–§19 三节', missingSections.length === 0, missingSections.join(', '));
 }
 
+// ───────────────────────── 12. v4「宿主型 IM」交付完整性 ─────────────────────────
+{
+  const v4Modules = [
+    ['services/gateway/src/trusted-context.mjs', 'services/gateway/test/trusted-context.test.mjs'],
+    ['services/orchestrator/src/presence-policy.mjs', 'services/orchestrator/test/presence-policy.test.mjs'],
+    ['services/orchestrator/src/model-router.mjs', 'services/orchestrator/test/model-router.test.mjs'],
+    ['services/messaging/src/turn-inbox.mjs', 'services/messaging/test/turn-inbox.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v4Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v4 模块与测试齐备（${v4Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v4Machines = {
+    PRESENCE_MODE: ['ALWAYS', 'MENTION_ONLY', 'OBSERVE', 'OFF'],
+    MODEL_TIER: ['LOCAL', 'CLOUD'],
+    TURN_STATE: ['IDLE', 'RUNNING', 'CLOSED']
+  };
+  for (const [machine, values] of Object.entries(v4Machines)) {
+    const inContract = values.every((v) => contract.includes(v));
+    const inSrc = values.every((v) => srcText.includes(`'${v}'`));
+    record(`v4 状态机 ${machine} 契约↔实现一致（${values.length} 态）`, inContract && inSrc, `contract=${inContract} impl=${inSrc}`);
+  }
+
+  const v4Sections = ['22', '23', '24', '25'];
+  const missingSections = v4Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v4 §22–§25 四节', missingSections.length === 0, missingSections.join(', '));
+
+  const doc14 = path.join(ROOT, 'docs/14-宿主型IM判据与机制落点.md');
+  if (await exists(doc14)) {
+    const t14 = await read(doc14);
+    const projects = ['MagicChat', 'MindRoom', 'nekoclaw', 'imcodes', 'AICQ', 'Flopwire'];
+    const missingProjects = projects.filter((name) => !t14.includes(name));
+    record(`docs/14 覆盖宿主机制 ${projects.length} 个项目`, missingProjects.length === 0, missingProjects.join(', '));
+    record('docs/14 写明「宿主 vs 机器人」判据', t14.includes('宿主') && t14.includes('机器人'), '缺判据表述');
+  } else {
+    record('docs/14 宿主型 IM 判据文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

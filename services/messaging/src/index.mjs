@@ -20,3 +20,11 @@ export {
   SessionError,
   AgentSessionRegistry,
 } from './session.mjs';
+
+// v4 §25 轮次内投递（mid-turn delivery）
+export {
+  TURN_STATE,
+  INBOX_CODE,
+  TurnInboxError,
+  TurnInbox,
+} from './turn-inbox.mjs';

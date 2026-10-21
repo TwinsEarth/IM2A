@@ -17,3 +17,6 @@ export * from './persona-memory.mjs';
 export * from './discussion-engine.mjs';
 // v3：细粒度工具审批（§19，Agent × Skill 策略）
 export * from './tool-policy.mjs';
+// v4：宿主能力（§23 旁观与主动沉默、§24 敏感场景模型路由）
+export * from './presence-policy.mjs';
+export * from './model-router.mjs';

@@ -16,6 +16,7 @@
 | R4 | 2026-10-21 | **v2.0 面向 Agent 的 IM 修订**：新增 §11 身份（Ed25519 + AgentCard）、§12 Agent Gateway（统一数据平面）、§13 可见域（读侧权限）、§14 频道模型（频道类型隔离未读）、§15 Agent 会话（Agent 作为一等客户端）、§16 签名审计（哈希链 + Ed25519）；§17 禁止事项追加 3 条 v2 铁律 | 加法（v1 语义全部保留） |
 | R5 | 2026-10-21 | §11 澄清「平台可读名 vs 自证 id」：`agentId` 允许平台名，自证性由 `derivedId` 表达并在卡片中强制校验；`createAgentIdentity` 返回 `derivedId` | 澄清（不破坏 R4 调用方） |
 | R6 | 2026-10-21 | **v3 增补**：新增 §17 人格与记忆生命周期（SOUL + 晋升/衰减/遗忘/跨平台导出）、§18 多 Agent 结构化讨论（DISCUSS/AUDIT/REVIEW）、§19 细粒度工具审批（Agent×Skill 策略）；原 §17/§18 顺延为 §20/§21 | 加法（v1/v2 语义全保留） |
+| R7 | 2026-10-21 | **v4 增补「宿主型 IM」机制**：§22 服务端可信上下文注入、§23 旁观与主动沉默、§24 敏感场景模型路由、§25 轮次内投递（mid-turn delivery）；原 §20→§26 禁止事项、§21→§27 验证命令 | 加法（v1–v3 语义全保留） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
 
@@ -695,7 +696,112 @@ export class ToolPolicy {
 
 ---
 
-## 20. 禁止事项（对所有实现者）
+## 22. `services/gateway/src/trusted-context.mjs`（v4 新增）
+
+**职责**：**服务端可信上下文注入**。借鉴 MagicChat：Agent 处理一个请求时，不该自己去查关系链/群成员/授权候选——服务端把「当前会话、发送者、信任档位、能力声明、候选对象」作为**签名上下文**注入，Agent 只读不可改。
+
+**不变量**：
+- 上下文由网关签名；Agent 自造或改写上下文 → `CONTEXT_FORGED`。
+- 候选对象（candidates）必须已经过 §13 可见域裁剪，**注入不等于越权**。
+- 上下文有 TTL；跨 Agent 复用 → `CONTEXT_SCOPE_MISMATCH`。
+
+```js
+export const CONTEXT_CODE = Object.freeze({
+  CONTEXT_INVALID: 'CONTEXT_INVALID', CONTEXT_EXPIRED: 'CONTEXT_EXPIRED',
+  CONTEXT_FORGED: 'CONTEXT_FORGED', CONTEXT_SCOPE_MISMATCH: 'CONTEXT_SCOPE_MISMATCH'
+});
+export class TrustedContextError extends Error {}
+
+export class TrustedContextProvider {
+  constructor({ trustMatrix, registry, visibility = null, identity, clock = () => new Date(), ttlMs = 120_000 });
+  build({ agentId, principalUserId, conversationId, channelType = null, members = [], senderId = null, candidates = {} });
+  //  -> 冻结 context：{ contextId, issuedAt, expiresAt, agentId, principalUserId,
+  //       conversation:{ id, channelType, members }, sender:{ id, trustLevel }|null,
+  //       capabilities:[], trustCeiling, candidates:{ contacts?, groups?, approvals? }, signature }
+  verify({ context, agentId = null });   // -> { ok, code, context }  只返回判定，不抛
+}
+```
+
+---
+
+## 23. `services/orchestrator/src/presence-policy.mjs`（v4 新增）
+
+**职责**：**旁观与主动沉默**。借鉴 nekoclaw：Agent 在家庭群/熟人群里不该过度活跃——可以默默记录、可以只在被 @ 时说话、也可以完全不参与。
+
+```js
+export const PRESENCE_MODE = Object.freeze({ ALWAYS: 'ALWAYS', MENTION_ONLY: 'MENTION_ONLY', OBSERVE: 'OBSERVE', OFF: 'OFF' });
+export const PRESENCE_CODE = Object.freeze({
+  POLICY_MATCHED: 'POLICY_MATCHED', POLICY_NOT_FOUND: 'POLICY_NOT_FOUND', MODE_INVALID: 'MODE_INVALID',
+  SILENCED: 'SILENCED', MENTION_REQUIRED: 'MENTION_REQUIRED'
+});
+export class PresencePolicyError extends Error {}
+
+export class PresencePolicy {
+  constructor({ clock = () => new Date() });
+  setPolicy({ agentId, channelId, mode, note = null });
+  policiesOf(agentId);
+  decide({ agentId, channelId, mentioned = false, isDirect = false });
+  //  -> { speak: boolean, mode, code, recordSilently: boolean, reasons: [] }
+}
+```
+**判定（冻结）**：无策略 → `ALWAYS/POLICY_NOT_FOUND`。命中后：`OFF` → 不说话也不记录（`SILENCED`）；`OBSERVE` → `speak=false, recordSilently=true`（`SILENCED`）；`MENTION_ONLY` → `isDirect ? 说话 : speak=mentioned`（未提及 → `MENTION_REQUIRED`）；`ALWAYS` → 说话。**DIRECT 频道除 `OFF` 外一律说话**（1:1 对话里"沉默"等于失联）。
+
+**投递集成铁律（接频道/轮次时必守）**：
+1. `OBSERVE` 的消息必须进记忆/审计，但**不得产生任何用户可见信号**（正在输入/已读/回复中）——否则"记录但不打扰"立刻破功。
+2. `OFF` **不得产生任何痕迹**：不进 inbox、不写审计、不加未读；"先入队再丢弃"会留下本不该存在的审计痕迹，并与 §25 的 MID_TURN 投递竞态。
+3. `isDirect` 与 `mentioned` 必须来自频道层（频道类型 + @ 解析），**不能由模型自报**，否则 DIRECT 例外会被模型用来"给自己开麦"。
+
+---
+
+## 24. `services/orchestrator/src/model-router.mjs`（v4 新增）
+
+**职责**：**按敏感度路由模型**。借鉴 MindRoom：敏感会话（家庭/法律/医疗/记忆）钉在本地或端侧模型，其余走云端；路由决策必须可审计。
+
+```js
+export const MODEL_TIER = Object.freeze({ LOCAL: 'LOCAL', CLOUD: 'CLOUD' });
+export const ROUTE_CODE = Object.freeze({
+  ROUTED_LOCAL: 'ROUTED_LOCAL', ROUTED_CLOUD: 'ROUTED_CLOUD',
+  DOMAIN_SENSITIVE: 'DOMAIN_SENSITIVE', TRUST_SENSITIVE: 'TRUST_SENSITIVE', EXPLICIT_OVERRIDE: 'EXPLICIT_OVERRIDE'
+});
+export class ModelRouterError extends Error {}
+
+export class ModelRouter {
+  constructor({ clock = () => new Date(), sensitiveDomains = ['family', 'legal', 'medical', 'memory'], localModel = 'local-small', cloudModel = 'cloud-large' });
+  setRule({ domain, tier, note = null });          // 覆盖默认敏感域判断
+  route({ domain, trustLevel = 4, explicitTier = null });
+  //  -> { tier, model, code, reasons: [] }
+}
+```
+**判定（冻结）**：显式覆盖 → 该 tier（`EXPLICIT_OVERRIDE`，同时给出 reasons 让人可审）；`domain ∈ sensitiveDomains` → `LOCAL/DOMAIN_SENSITIVE`；`trustLevel <= FAMILY(1)` → `LOCAL/TRUST_SENSITIVE`（家庭事务不出端侧）；否则 `CLOUD/ROUTED_CLOUD`。
+
+---
+
+## 25. `services/messaging/src/turn-inbox.mjs`（v4 新增）
+
+**职责**：**轮次内投递（mid-turn delivery）**。借鉴 Flopwire：Agent 正在执行一轮任务时，对方的消息/协商提案应当**在该轮次内到达**，而不是等到下一次用户提示。这是"协商中间态可即时注入"的落点。
+
+```js
+export const TURN_STATE = Object.freeze({ IDLE: 'IDLE', RUNNING: 'RUNNING', CLOSED: 'CLOSED' });
+export const INBOX_CODE = Object.freeze({
+  TURN_NOT_FOUND: 'TURN_NOT_FOUND', TURN_CLOSED: 'TURN_CLOSED', AGENT_MISMATCH: 'AGENT_MISMATCH',
+  CAPACITY_EXCEEDED: 'CAPACITY_EXCEEDED', NO_ACTIVE_TURN: 'NO_ACTIVE_TURN'
+});
+export class TurnInboxError extends Error {}
+
+export class TurnInbox {
+  constructor({ clock = () => new Date(), capacity = 50 });
+  beginTurn({ agentId, turnId = null });                  // -> turn { id, agentId, state:'RUNNING', startedAt }
+  inject({ agentId, message, turnId = null });            // -> { delivered:'MID_TURN'|'QUEUED', pending }
+  drain({ agentId, turnId = null });                      // -> { consumed: message[], pending }
+  endTurn({ agentId, turnId = null, outcome = null });    // -> { injected, consumed, dropped, state:'CLOSED' }
+  status({ agentId });                                    // -> { state, pending, turns }
+}
+```
+**不变量**：活动轮次内的注入标记为 `MID_TURN` 并立即可被 `drain` 消费；无活动轮次时入队（`QUEUED`）等下一轮；轮次结束仍未消费 → 计入 `dropped` **并保留审计**（不静默丢失）；容量超限 → `CAPACITY_EXCEEDED`。
+
+---
+
+## 26. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -729,6 +835,12 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=audit
 node E:\GPT\agent-im\scripts\test.mjs --filter=persona
 node E:\GPT\agent-im\scripts\test.mjs --filter=tool-policy
 node E:\GPT\agent-im\scripts\test.mjs --filter=discussion
+
+# v4 新增模块（§22–§25）
+node E:\GPT\agent-im\scripts\test.mjs --filter=trusted-context
+node E:\GPT\agent-im\scripts\test.mjs --filter=presence
+node E:\GPT\agent-im\scripts\test.mjs --filter=model-router
+node E:\GPT\agent-im\scripts\test.mjs --filter=turn-inbox
 
 # 一条命令验证（起服务 → 自检 → 打印入口）
 node E:\GPT\agent-im\scripts\quickstart.mjs

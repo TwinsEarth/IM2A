@@ -25,6 +25,10 @@ import {
 } from '../../services/identity/src/agent-id.mjs';
 import { AgentGateway, PROTOCOL } from '../../services/gateway/src/agent-gateway.mjs';
 import { VisibilityGate, DOMAIN } from '../../services/gateway/src/visibility.mjs';
+import { TrustedContextProvider } from '../../services/gateway/src/trusted-context.mjs';
+import { PresencePolicy, PRESENCE_MODE } from '../../services/orchestrator/src/presence-policy.mjs';
+import { ModelRouter, MODEL_TIER } from '../../services/orchestrator/src/model-router.mjs';
+import { TurnInbox } from '../../services/messaging/src/turn-inbox.mjs';
 import {
   ChannelRegistry,
   CHANNEL_TYPE,
@@ -295,6 +299,23 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     }
   });
 
+  // ⑫ v4：宿主能力（服务端可信上下文 / 旁观静默 / 敏感模型路由 / 轮次内投递）
+  const trustedContext = new TrustedContextProvider({
+    trustMatrix: world.trustMatrix,
+    registry: world.registry,
+    visibility,
+    identity: operator,
+    clock,
+    ttlMs: 120_000
+  });
+  const presence = new PresencePolicy({ clock });
+  // 家庭群默认旁观：记录但不说。1:1 直接对话永远说话（除非显式 OFF）。
+  presence.setPolicy({ agentId: AGENTS.LIN_BUTLER, channelId: CHANNEL_IDS.DIRECT_LIN_MOM, mode: PRESENCE_MODE.OBSERVE, note: '家庭群：先记录，被叫到才说话' });
+  presence.setPolicy({ agentId: AGENTS.LIN_BUTLER, channelId: CHANNEL_IDS.DIRECT_LIN_ZHOU, mode: PRESENCE_MODE.ALWAYS, note: '1:1 对话必须及时回' });
+  presence.setPolicy({ agentId: AGENTS.LIN_BUTLER, channelId: CHANNEL_IDS.NEGOTIATION, mode: PRESENCE_MODE.MENTION_ONLY, note: '协商频道只在对被点名时插话' });
+  const modelRouter = new ModelRouter({ clock });
+  const turnInbox = new TurnInbox({ clock, capacity: 50 });
+
   const layer = {
     operator,
     identities,
@@ -309,6 +330,10 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     inboxes,
     persona,
     discussions,
+    trustedContext,
+    presence,
+    modelRouter,
+    turnInbox,
     auditDiscussionId: auditDiscussion.id,
 
     /** v3：人格 + 记忆生命周期视图（SOUL 与记忆分离；晋升按时间+访问次数，不由模型自称） */
@@ -359,6 +384,107 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
           };
         }),
         auditId: auditDiscussion.id
+      };
+    },
+
+    /** v4：服务端可信上下文——Agent 不用自己查关系链，网关把签名上下文注入进来 */
+    contextView({ agentId = AGENTS.LIN_BUTLER, senderId = USERS.ZHOU } = {}) {
+      const context = trustedContext.build({
+        agentId,
+        principalUserId: signedCards[agentId].card.ownerUserId,
+        conversationId: CHANNEL_IDS.DIRECT_LIN_ZHOU,
+        channelType: CHANNEL_TYPE.DIRECT,
+        members: [USERS.LIN, USERS.ZHOU],
+        senderId,
+        candidates: {
+          // 一个家庭档联系人（agent 信任上限内 → 保留并投影）+ 一个陌生人（超出上限 → 被整项丢弃）
+          contacts: [
+            { id: USERS.MOM, displayName: '林母', detail: '+86 138 0000 0001' },
+            { id: USERS.ZHOU, displayName: '周先生', detail: '+86 138 0000 0002' }
+          ],
+          approvals: [{ id: 'tkt-stranger' }, { id: 'tkt-procurement' }]
+        }
+      });
+      const verified = trustedContext.verify({ context, agentId });
+      // 篡改演示：Agent 自己改信任档 → 必须被签名抓住
+      const forged = trustedContext.verify({ context: { ...context, trustCeiling: 0 }, agentId });
+      const wrongAgent = trustedContext.verify({ context, agentId: AGENTS.ZHOU_BUTLER });
+      return {
+        context: {
+          contextId: context.contextId,
+          agentId: context.agentId,
+          principalUserId: context.principalUserId,
+          conversation: context.conversation,
+          sender: context.sender,
+          capabilities: context.capabilities,
+          trustCeiling: context.trustCeiling,
+          candidates: context.candidates,
+          issuedAt: context.issuedAt,
+          expiresAt: context.expiresAt,
+          signed: typeof context.signature?.signature === 'string'
+        },
+        verify: { ok: verified.ok, code: verified.code ?? null },
+        forgery: { ok: forged.ok, code: forged.code ?? null },
+        crossAgent: { ok: wrongAgent.ok, code: wrongAgent.code ?? null }
+      };
+    },
+
+    /** v4：旁观与主动沉默——熟人家庭群里"记录但不打扰" */
+    presenceView() {
+      const scenarios = [
+        { channelId: CHANNEL_IDS.DIRECT_LIN_MOM, label: '家庭群（未被 @）', mentioned: false, isDirect: false },
+        { channelId: CHANNEL_IDS.DIRECT_LIN_MOM, label: '家庭群（被 @）', mentioned: true, isDirect: false },
+        { channelId: CHANNEL_IDS.DIRECT_LIN_ZHOU, label: '1:1 直接对话', mentioned: false, isDirect: true },
+        { channelId: CHANNEL_IDS.NEGOTIATION, label: '协商频道（未被点名）', mentioned: false, isDirect: false },
+        { channelId: CHANNEL_IDS.NEGOTIATION, label: '协商频道（被点名）', mentioned: true, isDirect: false }
+      ];
+      return {
+        policies: presence.policiesOf(AGENTS.LIN_BUTLER),
+        decisions: scenarios.map((scenario) => ({
+          label: scenario.label,
+          channelId: scenario.channelId,
+          result: presence.decide({ agentId: AGENTS.LIN_BUTLER, ...scenario })
+        }))
+      };
+    },
+
+    /** v4：敏感场景模型路由——家庭/法律不出端侧，工作走云端 */
+    modelRouteView() {
+      const scenarios = [
+        { label: '家庭事务（信任档=家庭）', domain: 'family', trustLevel: 1 },
+        { label: '法律咨询', domain: 'legal', trustLevel: 2 },
+        { label: '工作邮件', domain: 'work', trustLevel: 3 },
+        { label: '记忆检索', domain: 'memory', trustLevel: 3 },
+        { label: '工作邮件（显式钉本地，审计用）', domain: 'work', trustLevel: 3, explicitTier: MODEL_TIER.LOCAL }
+      ];
+      return {
+        sensitiveDomains: modelRouter.sensitiveDomains ?? null,
+        decisions: scenarios.map((scenario) => ({ label: scenario.label, ...modelRouter.route(scenario) }))
+      };
+    },
+
+    /** v4：轮次内投递——协商提案在 Agent 当前轮次内到达，不等下一次用户提示 */
+    midTurnDemo() {
+      const turn = turnInbox.beginTurn({ agentId: AGENTS.LIN_BUTLER });
+      const injected = turnInbox.inject({
+        agentId: AGENTS.LIN_BUTLER,
+        turnId: turn.id,
+        message: { from: AGENTS.ZHOU_BUTLER, kind: 'AGENT_TURN', text: '周先生方接受周五 16:00，BP 已提前提交' }
+      });
+      const drained = turnInbox.drain({ agentId: AGENTS.LIN_BUTLER, turnId: turn.id });
+      const ended = turnInbox.endTurn({ agentId: AGENTS.LIN_BUTLER, turnId: turn.id, outcome: 'COMPLETED' });
+      // 无活动轮次时：应入队而不是丢失
+      const queued = turnInbox.inject({
+        agentId: AGENTS.LIN_BUTLER,
+        message: { from: AGENTS.ZHOU_BUTLER, kind: 'AGENT_TURN', text: '（轮次外的补充信息）' }
+      });
+      return {
+        turn: { id: turn.id, state: turn.state },
+        injected: injected.delivered,
+        consumed: drained.consumed.length,
+        sample: drained.consumed[0]?.text ?? null,
+        ended,
+        queued: queued.delivered
       };
     },
 

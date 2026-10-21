@@ -580,6 +580,31 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  // ── v4：宿主能力（可信上下文 / 旁观静默 / 模型路由 / 轮次内投递）──
+  if (method === 'GET' && pathname === '/api/v2/context') {
+    try {
+      sendJson(res, 200, holder.demo.v2.contextView({ agentId: searchParams.get('agentId') ?? undefined }));
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'CONTEXT_FAILED', message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/presence') {
+    sendJson(res, 200, holder.demo.v2.presenceView());
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/model-route') {
+    sendJson(res, 200, holder.demo.v2.modelRouteView());
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/v2/turn-demo') {
+    sendJson(res, 200, holder.demo.v2.midTurnDemo());
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/v2/audit') {
     const v2 = holder.demo.v2;
     const verify = v2.signedAudit.verify();

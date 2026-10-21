@@ -213,6 +213,50 @@ test('v3：审计讨论保留异议，人格与记忆分层且 SOUL 可携带', 
   });
 });
 
+test('v4：宿主型 IM 四机制（可信上下文 / 旁观静默 / 模型路由 / 轮次内投递）', async () => {
+  await withServer(async (app) => {
+    // ① 服务端可信上下文：签名的、注入的、不可伪造的
+    const context = await json(`${app.url}/api/v2/context`);
+    assert.equal(context.status, 200);
+    assert.equal(context.body.verify.ok, true, '注入的上下文必须可验签');
+    assert.equal(context.body.context.signed, true);
+    assert.equal(context.body.forgery.ok, false, 'Agent 篡改上下文必须被抓住');
+    assert.equal(context.body.forgery.code, 'CONTEXT_FORGED');
+    assert.equal(context.body.crossAgent.ok, false, '换个 Agent 复用上下文必须被拒');
+    assert.equal(context.body.crossAgent.code, 'CONTEXT_SCOPE_MISMATCH');
+    assert.ok(context.body.context.conversation?.members?.length >= 2, '上下文自带会话与成员，Agent 不用自己查');
+
+    // ② 旁观与主动沉默：家庭群记录但不说；1:1 不受影响
+    const presence = await json(`${app.url}/api/v2/presence`);
+    assert.equal(presence.status, 200);
+    const family = presence.body.decisions.find((d) => d.label.includes('家庭群（未被 @）'));
+    assert.equal(family.result.speak, false, '家庭群未被 @ 时不该说话');
+    assert.equal(family.result.recordSilently, true, '但必须记录下来');
+    const direct = presence.body.decisions.find((d) => d.label.includes('1:1'));
+    assert.equal(direct.result.speak, true, '1:1 对话不能被沉默策略掐死');
+
+    // ③ 模型路由：家庭/法律不出端侧，显式覆盖可审
+    const routing = await json(`${app.url}/api/v2/model-route`);
+    assert.equal(routing.status, 200);
+    const byLabel = (keyword) => routing.body.decisions.find((d) => d.label.includes(keyword));
+    assert.equal(byLabel('家庭事务').tier, 'LOCAL', '家庭事务走本地模型');
+    assert.equal(byLabel('法律咨询').tier, 'LOCAL');
+    assert.equal(byLabel('工作邮件').tier, 'CLOUD');
+    const override = routing.body.decisions.find((d) => d.label.includes('显式'));
+    assert.equal(override.tier, 'LOCAL');
+    assert.equal(override.code, 'EXPLICIT_OVERRIDE', '显式覆盖必须能被审计解释');
+
+    // ④ 轮次内投递：不等下一次用户提示
+    const turn = await json(`${app.url}/api/v2/turn-demo`, { method: 'POST' });
+    assert.equal(turn.status, 200);
+    assert.equal(turn.body.injected, 'MID_TURN', '轮次进行中的消息必须是轮次内投递');
+    assert.equal(turn.body.consumed, 1, '被 runtime 在当前轮次内消费');
+    assert.match(String(turn.body.sample), /周五 16:00/);
+    assert.equal(turn.body.queued, 'QUEUED', '轮次外的消息入队而不是丢失');
+    assert.equal(turn.body.ended.state, 'CLOSED');
+  });
+});
+
 test('/api/state 暴露 v2 摘要，/v2 页面可访问', async () => {
   await withServer(async (app) => {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);
