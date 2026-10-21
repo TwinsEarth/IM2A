@@ -373,6 +373,68 @@ test('⑬ v0.0.1 产品版：未实名拦截 → 实名 → 充值 → 扣费 �
   });
 });
 
+test('⑭ v0.0.2：短信通道冷却 + 已回复只能走人工争议（账本幂等退款）', async () => {
+  await withApp({ RATE_LIMIT_PER_MIN: '0', IM2AGENT_SMS_KIND: 'dev' }, async (app) => {
+    const base = app.urls[0];
+    const post = (pathname, body, token = null) =>
+      json(`${base}${pathname}`, {
+        method: 'POST',
+        headers: token === null ? {} : { authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+
+    // ① 短信通道：首条成功（dev 记录不外发），60s 冷却内重发 → 429 OTP_COOLDOWN
+    const firstOtp = await post('/api/account/otp', { phone: '13800000002' });
+    assert.equal(firstOtp.status, 200);
+    assert.ok(firstOtp.body.devCode, 'dev 通道便于内测自测');
+    const secondOtp = await post('/api/account/otp', { phone: '13800000002' });
+    assert.equal(secondOtp.status, 429);
+    assert.equal(secondOtp.body.error, 'OTP_COOLDOWN');
+    const sms = await json(`${base}/api/sms`);
+    assert.equal(sms.body.provider.kind, 'dev');
+    assert.equal(sms.body.delivery.sent, 1, '冷却命中不应重发');
+    assert.equal(sms.body.delivery.cooldownHits, 1);
+
+    // ② 完成准入：注册 → 实名 → 充值
+    const registered = await post('/api/account/register', { phone: '13800000002', code: firstOtp.body.devCode });
+    assert.equal(registered.status, 200);
+    const token = registered.body.session.accessToken;
+    assert.equal((await post('/api/account/verify', { realName: '李四', idNumber: '110101199002022345' }, token)).status, 200);
+    assert.equal((await post('/api/wallet/topup', { amountCents: 10000, idempotencyKey: 'topup-d' }, token)).status, 200);
+
+    // ③ 发一条付费消息并让对方回复 → 自助退款窗口关闭
+    assert.equal((await post('/api/paid/send', { amountCents: 5000, messageId: 'msg-d-1' }, token)).status, 200);
+    assert.equal((await post('/api/paid/reply', { messageId: 'msg-d-1' }, token)).status, 200);
+
+    // ④ 未回复消息不能开争议（该走 §37 自助退款）
+    assert.equal((await post('/api/paid/send', { amountCents: 1000, messageId: 'msg-d-2' }, token)).status, 200);
+    const ineligible = await post('/api/dispute/open', { messageId: 'msg-d-2', reason: '想退' }, token);
+    assert.equal(ineligible.status, 409);
+    assert.equal(ineligible.body.error, 'NOT_ELIGIBLE');
+
+    // ⑤ 已回复 → 开争议 → 人工批准 → 账本恰一条幂等退款
+    const opened = await post('/api/dispute/open', { messageId: 'msg-d-1', reason: '服务未按约定提供', evidence: ['chat:msg-d-1'] }, token);
+    assert.equal(opened.status, 200);
+    assert.equal(opened.body.dispute.state, 'OPEN');
+    const approved = await post('/api/dispute/resolve', { disputeId: opened.body.dispute.id, decision: 'APPROVE', note: '同意退款' }, token);
+    assert.equal(approved.status, 200);
+    assert.equal(approved.body.dispute.state, 'APPROVED');
+    const types = approved.body.timeline.map((entry) => entry.type);
+    assert.ok(types.includes('CHARGE') && types.includes('REFUND'), `时间线应含 CHARGE→REFUND：${types.join('→')}`);
+    assert.ok(types.indexOf('CHARGE') < types.lastIndexOf('REFUND'), '退款必须在扣费之后');
+
+    const ledger = await json(`${base}/api/ledger`);
+    const refunds = ledger.body.entries.filter((entry) => entry.type === 'REFUND');
+    assert.equal(refunds.length, 1, '一条消息最多一笔退款');
+    assert.match(String(refunds[0].idempotencyKey), /^refund-dispute:/);
+
+    const replay = await post('/api/dispute/resolve', { disputeId: opened.body.dispute.id, decision: 'APPROVE' }, token);
+    assert.equal(replay.status, 409, '终态不可二次裁决');
+    const ledger2 = await json(`${base}/api/ledger`);
+    assert.equal(ledger2.body.entries.filter((entry) => entry.type === 'REFUND').length, 1, '重放不得增加退款');
+  });
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

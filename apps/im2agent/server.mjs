@@ -33,8 +33,11 @@ import { createStore, STORE_KIND } from './store.mjs';
 import { createLlm, resolveLlmConfig, LLM_MODE } from './llm.mjs';
 import { createRateLimiter, clientKey } from './ratelimit.mjs';
 import { AccountService } from '../../services/account/src/account.mjs';
+import { createSmsProvider } from '../../services/account/src/sms-provider.mjs';
+import { OtpDelivery } from '../../services/account/src/otp-delivery.mjs';
 import { Wallet } from '../../services/payment/src/wallet.mjs';
-import { createWorld, decide, previewContext, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
+import { DisputeService } from '../../services/payment/src/dispute.mjs';
+import { createWorld, decide, previewContext, recordAudit, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(HERE, 'public');
@@ -81,8 +84,19 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   const holder = { world, rt, store: storeImpl, llm: llmImpl };
   holder.limiter = createRateLimiter({ max: rt.rateLimitPerMin });
 
+  // v0.0.2：短信通道 + OTP 投递（验证码只经 otp.deliver 注入，永不出 API）
+  const smsKind = env.IM2AGENT_SMS_KIND ?? (rt.profile === PROFILE.PROD ? 'log' : 'dev');
+  const smsProvider = createSmsProvider({ kind: smsKind });
+  const otpDelivery = new OtpDelivery({
+    provider: smsProvider,
+    onAudit: (event) => recordAudit(holder.world, { source: 'otp-delivery', action: 'OTP_DELIVERY', actor: null, decision: event?.causeCode ?? event?.type ?? null, detail: event })
+  });
+
   // v0.0.1 产品版：登录/实名/付费准入 + 钱包（金额真相仍在 ledger，钱包是投影 + 策略）
-  const accounts = new AccountService({ clock: () => new Date(), otp: { devMode: true } });
+  const accounts = new AccountService({
+    clock: () => new Date(),
+    otp: { devMode: rt.profile !== PROFILE.PROD, deliver: otpDelivery.deliver }
+  });
   const wallet = new Wallet({
     clock: () => new Date(),
     ledger: world.ledger,
@@ -98,6 +112,13 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   });
   holder.accounts = accounts;
   holder.wallet = wallet;
+  holder.sms = { provider: smsProvider, delivery: otpDelivery };
+  holder.disputes = new DisputeService({
+    clock: () => new Date(),
+    ledger: world.ledger,
+    messageState: (messageId) => holder.world.state.messages.find((m) => m.id === messageId)?.state ?? null,
+    onAudit: (event) => recordAudit(holder.world, { source: 'dispute', action: 'DISPUTE_EVENT', actor: event?.actor ?? null, decision: event?.type ?? null, detail: event })
+  });
 
   const persist = () => {
     if (holder.store.kind === STORE_KIND.MEMORY) return;
@@ -385,7 +406,15 @@ async function route(req, res, holder, persist) {
     try {
       sendJson(res, 200, { ok: true, ...holder.accounts.requestOtp({ phone: body.phone }) }, holder.rt);
     } catch (error) {
-      sendJson(res, 400, { error: error?.code ?? 'OTP_FAILED', message: String(error?.message ?? error) }, holder.rt);
+      const code = error?.code ?? 'OTP_FAILED';
+      // 投递层失败对用户是"稍后重试"，对运维是告警：429 冷却/额度、502 通道故障
+      const status =
+        code === 'OTP_COOLDOWN' || code === 'OTP_DAILY_CAP'
+          ? 429
+          : code === 'OTP_DELIVERY_FAILED' || code === 'PROVIDER_UNAVAILABLE' || String(code).startsWith('SMS_')
+            ? 502
+            : 400;
+      sendJson(res, status, { error: code, message: String(error?.message ?? error) }, holder.rt);
     }
     return;
   }
@@ -508,6 +537,60 @@ async function route(req, res, holder, persist) {
       const code = error?.code ?? 'REFUND_FAILED';
       sendJson(res, code === 'REFUND_WINDOW_CLOSED' ? 409 : 400, { error: code, message: String(error?.message ?? error) }, holder.rt);
     }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/sms') {
+    if (!requireAccess(req, res, holder)) return;
+    sendJson(res, 200, { provider: holder.sms.provider.info(), delivery: holder.sms.delivery.stats() }, holder.rt);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/dispute/open') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const dispute = holder.disputes.open({
+        messageId: String(body.messageId ?? ''),
+        userId: session.session.accountId,
+        reason: String(body.reason ?? ''),
+        evidence: Array.isArray(body.evidence) ? body.evidence : []
+      });
+      persist();
+      sendJson(res, 200, { ok: true, dispute }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'DISPUTE_FAILED';
+      sendJson(res, code === 'NOT_ELIGIBLE' ? 409 : code === 'DUPLICATE_OPEN' ? 409 : 400, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/dispute/resolve') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const dispute = holder.disputes.resolve({
+        disputeId: String(body.disputeId ?? ''),
+        actorUserId: session.session.accountId,
+        decision: String(body.decision ?? '').toUpperCase(),
+        note: body.note ?? null
+      });
+      persist();
+      sendJson(res, 200, { ok: true, dispute, timeline: holder.disputes.timeline({ messageId: dispute.messageId }) }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'RESOLVE_FAILED';
+      sendJson(res, code === 'FORBIDDEN' ? 403 : code === 'NOT_FOUND' ? 404 : 409, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/dispute/timeline') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const messageId = url.searchParams.get('messageId') ?? '';
+    sendJson(res, 200, { messageId, timeline: holder.disputes.timeline({ messageId }), disputes: holder.disputes.list({}) }, holder.rt);
     return;
   }
 

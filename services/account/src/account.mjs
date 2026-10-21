@@ -77,6 +77,8 @@ export class AccountService {
   #challengesByPhone;
   /** @type {Map<string, object>} accessToken -> frozen session */
   #sessions;
+  /** @type {Function|null} 验证码投递回调（v0.0.2：真实短信通道由此注入，验证码永不离开本服务） */
+  #otpDeliver;
 
   constructor({ clock = () => new Date(), otp = {}, realName = {}, session = {} } = {}) {
     this.#clock = typeof clock === 'function' ? clock : () => new Date();
@@ -85,6 +87,8 @@ export class AccountService {
     this.#otpMaxAttempts =
       Number.isInteger(otp.maxAttempts) && otp.maxAttempts > 0 ? otp.maxAttempts : DEFAULT_OTP_MAX_ATTEMPTS;
     this.#devMode = otp.devMode === true; // 生产默认 false：devCode 绝不下发
+    // v0.0.2 §38：投递回调（短信通道）。可选；不注入时保持 v0.0.1 行为（dev 模式取 devCode）。
+    this.#otpDeliver = typeof otp.deliver === 'function' ? otp.deliver : null;
     this.#sessionTtlMs =
       Number.isFinite(session.ttlMs) && session.ttlMs > 0 ? Math.trunc(session.ttlMs) : DEFAULT_SESSION_TTL_MS;
     if (realName.provider !== undefined && realName.provider !== null && typeof realName.provider !== 'function') {
@@ -202,6 +206,26 @@ export class AccountService {
     this.#challengesByPhone.set(normalizedPhone, ids);
 
     const response = { challengeId: challenge.challengeId, expiresAt };
+    // v0.0.2：投递（真实短信）。失败会向上抛（由调用方转成 SMS_FAILED），不会静默"假装发了"
+    if (this.#otpDeliver !== null) {
+      try {
+        this.#otpDeliver({
+          phone: normalizedPhone,
+          code: challenge.code,
+          challengeId: challenge.challengeId,
+          expiresAt,
+          ttlSeconds: Math.floor(this.#otpTtlMs / 1000)
+        });
+      } catch (error) {
+        // 投递失败必须回滚挑战：否则"冷却期内重发失败"会留下一个用户永远收不到的
+        // 最新挑战，导致用户拿上一条短信的码去校验却报 OTP_INVALID（真实踩过）。
+        this.#challenges.delete(challenge.challengeId);
+        const remaining = (this.#challengesByPhone.get(normalizedPhone) ?? []).filter((id) => id !== challenge.challengeId);
+        if (remaining.length === 0) this.#challengesByPhone.delete(normalizedPhone);
+        else this.#challengesByPhone.set(normalizedPhone, remaining);
+        throw error;
+      }
+    }
     if (this.#devMode) {
       // dev 模式才回传明文验证码；生产环境该字段不存在
       response.devCode = challenge.code;

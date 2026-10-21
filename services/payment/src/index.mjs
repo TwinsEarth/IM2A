@@ -19,3 +19,11 @@ export {
   WalletError,
   Wallet,
 } from './wallet.mjs';
+
+// v0.0.2 §39 退款争议与时间线（已回复争议走人工；批准后只能经账本幂等退款）
+export {
+  DISPUTE_STATE,
+  DISPUTE_CODE,
+  DisputeError,
+  DisputeService,
+} from './dispute.mjs';

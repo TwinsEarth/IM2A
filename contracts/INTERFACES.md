@@ -1,4 +1,4 @@
-# 冻结接口契约 v1.0（FROZEN CONTRACT）
+﻿# 冻结接口契约 v1.0（FROZEN CONTRACT）
 
 > 本文件是**唯一**的模块级契约来源。所有实现必须与本文签名、错误码、状态机逐字一致。
 > 修改本文件需要 Lead 明确授权；实现方**不得**擅自改变签名或状态名。
@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R13 | 2026-10-21 | **v0.0.2 内测就绪增补**：§38 短信通道与 OTP 投递（60s 冷却 / 日上限 / 投递失败不静默 / 验证码永不离开 AccountService）、§39 退款争议与时间线（已回复争议走人工，批准后只能经账本 efund-dispute:<id> 幂等退款，不得绕过窗口改余额）；原 §38→§40 禁止事项、§39→§41 验证命令 | 加法（v1–v0.0.1 语义全保留） |
 | R12 | 2026-10-21 | **v0.0.1 产品版增补「可付费准入」**：§36 账户/手机号登录/实名（idNumber 只存 hash 与尾号掩码，未实名不得收发付费消息）、§37 钱包（充值/扣费/退款幂等·禁止先扣后退·日发送上限）；原 §36→§38 禁止事项、§37→§39 验证命令 | 加法（v1–v8 语义全保留） |
 | R11 | 2026-10-21 | **v8 增补「Context 主权」机制**：§33 Person-scoped Runtime（PERSONAL/TASK/WORKING 三层 + 可迁移 snapshot + Secret 拒绝入层）、§34 确认锁定 Context（Agent 只能 propose，人确认才 LOCKED，冲突上抛不覆写）、§35 PACT 式 scoped 授权 + 签名回执（付费只解锁 scope、不扩权）；原 §33→§36 禁止事项、§34→§37 验证命令 | 加法（v1–v7 语义全保留） |
 
@@ -1148,7 +1149,62 @@ export class Wallet {
 
 ---
 
-## 38. 禁止事项（对所有实现者）
+## 38. `services/account/src/sms-provider.mjs` + `otp-delivery.mjs`（v0.0.2 新增）
+
+**职责**：**真实短信通道与 OTP 投递策略**。v0.0.1 的 dev 验证码只能内部人用；v0.0.2 起验证码必须经可插拔通道下发，且**验证码永不离开 AccountService**（由 `otp.deliver` 回调注入）。
+
+```js
+// sms-provider.mjs
+export const SMS_CODE = Object.freeze({
+  SMS_FAILED: 'SMS_FAILED', SMS_TIMEOUT: 'SMS_TIMEOUT', SMS_REJECTED: 'SMS_REJECTED',
+  INVALID_PHONE: 'INVALID_PHONE', PROVIDER_UNAVAILABLE: 'PROVIDER_UNAVAILABLE'
+});
+export class SmsError extends Error {}
+export function createSmsProvider({ kind = 'dev', transport = null, timeoutMs = 3000, clock = () => new Date() });
+// kind: 'dev'（记录不外发，测试/演示）| 'log'（写日志，等价验证）| 'vendor'（注入 transport({phone,code,ttlSeconds}) -> {providerMessageId}）
+// 返回：{ name, kind, info(), async sendOtp({ phone, code, ttlSeconds }) -> { providerMessageId, sentAt } }
+// 失败一律抛 SmsError（不吞），且不得把 code 写进错误消息
+```
+```js
+// otp-delivery.mjs
+export const OTP_DELIVERY_CODE = Object.freeze({
+  OTP_COOLDOWN: 'OTP_COOLDOWN', OTP_DAILY_CAP: 'OTP_DAILY_CAP', OTP_DELIVERY_FAILED: 'OTP_DELIVERY_FAILED'
+});
+export class OtpDeliveryError extends Error {}
+export class OtpDelivery {
+  constructor({ provider, clock = () => new Date(), cooldownMs = 60_000, dailyCap = 5, onAudit = () => {} });
+  deliver({ phone, code, challengeId, ttlSeconds });   // 作为 AccountService 的 otp.deliver 注入
+  stats();                                             // { sent, failed, cooldownHits, dailyCapHits }
+}
+```
+**不变量**：①同一手机号 60s 内二次请求 → `OTP_COOLDOWN`（不重发）；②同一自然日超过 `dailyCap` 次 → `OTP_DAILY_CAP`；③投递失败 → `OTP_DELIVERY_FAILED`（**不得静默成功**），且失败计数可见；④**日志/错误/审计中都不得出现验证码明文**（dev provider 的记录只能在内存里给测试读）。
+
+---
+
+## 39. `services/payment/src/dispute.mjs`（v0.0.2 新增）
+
+**职责**：**退款争议与时间线举证**。§37 的钱包退款只覆盖"未回复"；已回复的争议必须走人工，且**退款只能由"已批准争议"触发**（不允许绕过窗口直接改余额）。
+
+```js
+export const DISPUTE_STATE = Object.freeze({ OPEN: 'OPEN', APPROVED: 'APPROVED', REJECTED: 'REJECTED' });
+export const DISPUTE_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', ILLEGAL_STATE: 'ILLEGAL_STATE', NOT_ELIGIBLE: 'NOT_ELIGIBLE',
+  FORBIDDEN: 'FORBIDDEN', DUPLICATE_OPEN: 'DUPLICATE_OPEN'
+});
+export class DisputeError extends Error {}
+export class DisputeService {
+  constructor({ clock = () => new Date(), ledger, messageState = () => null, onAudit = () => {} });
+  open({ messageId, userId, reason, evidence = [] });   // 仅当消息已 REPLIED/SETTLED（未回复走 §37 自助退款）→ NOT_ELIGIBLE
+  resolve({ disputeId, actorUserId, decision, note = null });  // decision: 'APPROVE' | 'REJECT'
+  timeline({ messageId });                              // -> [{ at, type, ref, amountCents? }]：CHARGE→…→REPLIED→REFUND
+  get(disputeId); list({ state = null } = {}); stats();
+}
+```
+**不变量**：①争议只能对**已回复/已结算**的消息开（否则引导去 §37 自助退款，返回 `NOT_ELIGIBLE`）；②同一消息只能有一个未决争议（`DUPLICATE_OPEN`）；③`APPROVE` 通过账本记 **`refund-dispute:<disputeId>`** 幂等退款（唯一真相仍是 §8），金额取该消息 `pay:<messageId>` 的扣费额；④`REJECT` 不动余额；⑤每个状态迁移写审计，`timeline` 必须能还原完整时间线。
+
+---
+
+## 40. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1162,7 +1218,7 @@ export class Wallet {
 
 ---
 
-## 39. 验证命令
+## 41. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1201,6 +1257,11 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.2 内测就绪新增模块（§38–§39）
+node E:\GPT\agent-im\scripts\test.mjs --filter=sms-provider
+node E:\GPT\agent-im\scripts\test.mjs --filter=otp-delivery
+node E:\GPT\agent-im\scripts\test.mjs --filter=dispute
 
 # v0.0.1 产品版新增模块（§36–§37）
 node E:\GPT\agent-im\scripts\test.mjs --filter=account

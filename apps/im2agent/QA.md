@@ -32,6 +32,10 @@
 | 26 | **扣费幂等与负余额** | 同 messageId 只扣一次；余额不足 402 且不产生消息 | ✅ | 测试 ⑬ + wallet 14 项 |
 | 27 | **退款仅未回复** | `PAID/VIEWED` 可退并回补；`REPLIED/SETTLED` → 409 `REFUND_WINDOW_CLOSED` | ✅ | 测试 ⑬（含已回复夹具反向验证） |
 | 28 | **日发送上限** | 同日累计超限 → `DAILY_CAP_EXCEEDED`，次日恢复；退款不回滚额度 | ✅ | wallet 14 项 |
+| 29 | **OTP 冷却** | 同号 60s 内重发 → 429 `OTP_COOLDOWN`，provider 不重发 | ✅ | 测试 ⑭ |
+| 30 | **投递失败不静默** | vendor 失败/超时 → `OTP_DELIVERY_FAILED`/`SMS_*`，502；且挑战回滚（防"收不到码却报 OTP_INVALID"） | ✅ | otp-delivery 13 项 + 测试 ⑭ |
+| 31 | **验证码不落日志** | dev/log/vendor 的日志、错误、审计均无 code 明文 | ✅ | sms-provider 10 项 |
+| 32 | **已回复争议只能人工** | 未回复 → `NOT_ELIGIBLE`；已回复 APPROVE → 账本恰一条 `refund-dispute:<id>`；重放 409 不增加退款 | ✅ | 测试 ⑭ + dispute 14 项 |
 
 ## 本地一键回归
 

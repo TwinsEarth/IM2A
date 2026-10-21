@@ -583,6 +583,51 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 18. v0.0.2 内测就绪（短信 + 争议）交付完整性 ─────────────────────────
+{
+  const v002Modules = [
+    ['services/account/src/sms-provider.mjs', 'services/account/test/sms-provider.test.mjs'],
+    ['services/account/src/otp-delivery.mjs', 'services/account/test/otp-delivery.test.mjs'],
+    ['services/payment/src/dispute.mjs', 'services/payment/test/dispute.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v002Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v0.0.2 短信/争议模块与测试齐备（${v002Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v002Codes = ['OTP_COOLDOWN', 'OTP_DAILY_CAP', 'OTP_DELIVERY_FAILED', 'NOT_ELIGIBLE', 'DUPLICATE_OPEN', 'SMS_FAILED'];
+  const missingCodes = v002Codes.filter((code) => !contract.includes(code) || !srcText.includes(`'${code}'`));
+  record(`v0.0.2 关键错误码契约↔实现一致（${v002Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+
+  const v002Sections = ['38', '39'];
+  const missingSections = v002Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v0.0.2 §38–§39 两节', missingSections.length === 0, missingSections.join(', '));
+
+  // 合规硬要求：争议退款必须经账本幂等键，而不是直接改余额
+  const disputeSrc = await exists(path.join(ROOT, 'services/payment/src/dispute.mjs'))
+    ? await read(path.join(ROOT, 'services/payment/src/dispute.mjs'))
+    : '';
+  record('争议退款走账本幂等键（refund-dispute:）', disputeSrc.includes('refund-dispute:'), '未发现幂等键实现');
+
+  const doc22 = path.join(ROOT, 'docs/22-v0.0.2-内测就绪-短信与争议.md');
+  if (await exists(doc22)) {
+    const t22 = await read(doc22);
+    const required = ['短信', '争议', '冷却', '验收'];
+    const missingKeywords = required.filter((word) => !t22.includes(word));
+    record('docs/22 覆盖短信通道与退款争议', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/22 v0.0.2 范围文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

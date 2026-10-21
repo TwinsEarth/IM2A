@@ -14,6 +14,20 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.2-intake — 2026-10-21
+
+**内测就绪**：把 v0.0.1 的付费闭环从"能跑"变成"能对内测用户开放"。
+
+- **§38 短信通道与 OTP 投递**（`services/account`，23 项测试）：`dev/log/vendor` 三档 provider；验证码只经 `otp.deliver` 注入、**永不离开 AccountService/日志/错误/审计**；60s 冷却、日上限（按尝试计）、投递失败 `OTP_DELIVERY_FAILED` 不静默；vendor 超时/拒绝/失败分别映射
+- **§39 退款争议与时间线**（`services/payment/src/dispute.mjs`，14 项测试）：已回复/已结算才可开争议（未回复 → `NOT_ELIGIBLE` 引导自助退）；人工 `APPROVE` 后**只能经账本 `refund-dispute:<id>` 幂等退款**（一条消息最多一笔 REFUND）；`timeline` 还原 `CHARGE→VIEWED→REPLIED→REFUND`
+- 产品端点：`/api/sms`、`/api/dispute/{open,resolve,timeline}`；OTP 冷却 429、通道故障 502
+- 文档：`docs/22-v0.0.2-内测就绪-短信与争议.md`（B1–B7 Gate、客服手册、黑产风险）
+- 契约：R13
+
+**过程中修掉一个真实缺陷**：OTP 投递失败时挑战未回滚，会留下"用户永远收不到的最新挑战"，导致用户拿上一条短信的码去注册反而 `OTP_INVALID`。已在 `requestOtp` 中回滚挑战并补测试（⑭）。
+
+验证：全量 **607/607**；verify **72/72**；im2agent **13/13**；account 38 / payment 64 零回归。
+
 ## v0.0.1-product — 2026-10-21
 
 **产品版第一个可内测闭环**（与 `v0.0.1-demo` 技术 tag 同名不同义：那个证明"能跑"，这个要求"能对真实的人收钱且能退"）。
