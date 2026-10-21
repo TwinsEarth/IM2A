@@ -59,6 +59,10 @@ node scripts/test.mjs --filter=e2e
 # 启动演示服务 + 审批态/巡视态控制台
 node apps/demo-server/server.mjs
 # 浏览器打开 http://127.0.0.1:8787
+
+# 启动「人机混合 IM」实时 Demo（浏览器 IM + 审批卡 + 真实 fleet 面板）
+node apps/im-live/server.mjs
+# 浏览器打开 http://127.0.0.1:8797（顶部切换身份：林总 / 周先生 / 林母）
 ```
 
 控制台两个态：
@@ -93,6 +97,7 @@ agent-im/
 │  └─ messaging/               人类 IM 通道：业务封装 / 64 分片保序序号 / 去重
 ├─ apps/
 │  ├─ demo-server/             演示服务（HTTP + 静态控制台）+ 业务主线 flow.mjs
+│  ├─ im-live/                 ★ 人机混合 IM 实时 Demo（浏览器聊天 + 审批卡 + fleet 面板）
 │  └─ clients-flutter/         Flutter 客户端骨架（本机无 Flutter SDK，未编译验证）
 ├─ tests/e2e.test.mjs          端到端集成测试（装配后的业务命题断言）
 ├─ scripts/test.mjs            单进程测试运行器
@@ -176,9 +181,10 @@ agent-im/
 | 编排层 7 模块（信任/注册表/门控/审批/协商/记忆/护栏） | ✅ 107 项单测 |
 | 资金与消息通道（账本/付费消息/封装/序号/去重） | ✅ 58 项单测 |
 | 端到端集成（业务主线 + HTTP 协议面 + MODIFY patch） | ✅ 8 项 |
-| 全量测试 | ✅ **173 passed / 0 failed**，exit 0 |
+| 全量测试 | ✅ **180 passed / 0 failed**，exit 0 |
 | 交付物一致性验收 | ✅ **11/11**，exit 0 |
 | 演示服务 + 审批态/巡视态控制台 | ✅ 本地可跑 |
+| 人机混合 IM 实时 Demo（`apps/im-live`） | ✅ 浏览器可用；7 项端到端测试；fleet 面板 simulated/live 双态 |
 | 技术文档集（00 总览 + 10 篇专题） | ✅ 约 3000 行 |
 | 契约文件（4 proto + OpenAPI 3.1 + 索引） | ✅ 人工自检；CI 待补 protoc/buf |
 | Flutter 客户端骨架 | ⚠ 未编译（本机无 Flutter SDK，README 已声明） |

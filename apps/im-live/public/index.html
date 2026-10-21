@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentIM · 人机混合熟人社交 Demo</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #121722; --panel-2: #171e2c; --line: #24304a;
+    --text: #e6edf7; --dim: #8b9ab3; --accent: #4f8cff; --ok: #35c48a; --warn: #f2b34b; --bad: #ee6b6b;
+    --bubble: #1b2436; --bubble-me: #1f3a66;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.55 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; height: 100vh; overflow: hidden; }
+  #app { display: grid; grid-template-rows: 52px 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header .brand { font-weight: 700; letter-spacing: .3px; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  header .spacer { flex: 1; }
+  .persona { display: flex; gap: 6px; }
+  .persona button, .ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+  .persona button.on { border-color: var(--accent); color: #cfe0ff; background: #17233a; }
+  main { display: grid; grid-template-columns: 260px 1fr 360px; min-height: 0; }
+  .col { min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--panel); }
+  .col:last-child { border-right: 0; border-left: 1px solid var(--line); }
+  .col h3 { margin: 0; padding: 12px 14px; font-size: 12px; letter-spacing: .6px; color: var(--dim); border-bottom: 1px solid var(--line); }
+  #threads, #chat, #side { overflow: auto; min-height: 0; }
+  .thread { padding: 11px 14px; border-bottom: 1px solid #1b2233; cursor: pointer; }
+  .thread:hover { background: var(--panel-2); }
+  .thread.on { background: #17233a; border-left: 3px solid var(--accent); }
+  .thread .t { display: flex; justify-content: space-between; gap: 8px; }
+  .thread .name { font-weight: 600; }
+  .thread .last { color: var(--dim); font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .thread .badge { font-size: 10px; color: var(--dim); border: 1px solid var(--line); border-radius: 99px; padding: 1px 7px; white-space: nowrap; }
+  #chat { display: flex; flex-direction: column; background: var(--bg); }
+  .chat-head { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; justify-content: space-between; gap: 8px; }
+  .chat-head .title { font-weight: 650; }
+  .chat-head .kind { color: var(--dim); font-size: 12px; }
+  .messages { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 78%; padding: 9px 12px; border-radius: 12px; background: var(--bubble); align-self: flex-start; }
+  .msg.me { align-self: flex-end; background: var(--bubble-me); }
+  .msg.agent { background: #16241d; border: 1px solid #1f3a2c; max-width: 88%; }
+  .msg .who { font-size: 11px; color: var(--dim); margin-bottom: 3px; }
+  .msg .body { white-space: pre-wrap; word-break: break-word; }
+  .msg .at { font-size: 10px; color: #61708a; margin-top: 4px; text-align: right; }
+  .composer { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+  .composer input { flex: 1; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; outline: none; }
+  .composer input:disabled { opacity: .45; }
+  .composer button { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 0 18px; cursor: pointer; font-weight: 600; }
+  .composer button:disabled { opacity: .4; cursor: not-allowed; }
+  .hint { color: var(--warn); font-size: 12px; padding: 8px 16px; border-top: 1px solid var(--line); background: #1c1a12; }
+  #side { padding: 0 0 20px; }
+  .card { margin: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .card .hd { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
+  .card .bd { padding: 10px 12px; }
+  .row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 12.5px; border-bottom: 1px dashed #1b2233; }
+  .row:last-child { border-bottom: 0; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11.5px; color: var(--dim); }
+  .pill { font-size: 11px; border-radius: 99px; padding: 1px 8px; border: 1px solid var(--line); color: var(--dim); }
+  .pill.on { color: var(--ok); border-color: var(--ok); }
+  .pill.live { color: var(--accent); border-color: var(--accent); }
+  .ticket { border: 1px solid #3b4f78; background: #141d2f; border-radius: 12px; padding: 12px; max-width: 92%; align-self: flex-start; }
+  .ticket .ttl { font-weight: 650; margin-bottom: 4px; }
+  .ticket .meta { color: var(--dim); font-size: 12px; margin-bottom: 8px; }
+  .ticket .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ticket button { border: 1px solid var(--line); background: #1b2740; color: var(--text); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+  .ticket button.ok { border-color: var(--ok); color: #b9f5d9; }
+  .ticket button.bad { border-color: var(--bad); color: #ffd0d0; }
+  .checks { columns: 1; font-size: 12px; }
+  .checks div { padding: 3px 0; color: var(--dim); }
+  .checks div.ok { color: #b9e6cd; }
+  #toast { position: fixed; right: 18px; bottom: 18px; background: #1b2740; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; max-width: 420px; font-size: 12.5px; display: none; }
+  #toast.show { display: block; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">AgentIM</div>
+    <div class="sub">人机混合熟人社交 · DSH + W2M 底层 · 可运行 Demo</div>
+    <div class="spacer"></div>
+    <div class="persona" id="personas"></div>
+    <button class="ghost" id="btn-reset" title="回到种子场景">重置</button>
+  </header>
+  <main>
+    <div class="col"><h3>会话</h3><div id="threads"></div></div>
+    <div id="chat">
+      <div class="chat-head"><div><div class="title" id="chat-title">—</div><div class="kind" id="chat-kind"></div></div><div id="chat-trust" class="pill"></div></div>
+      <div class="messages" id="messages"></div>
+      <div class="hint" id="locked-hint" hidden></div>
+      <div class="composer"><input id="input" placeholder="输入消息…" /><button id="send">发送</button></div>
+    </div>
+    <div class="col"><h3>Agent 团队 / 审批 / Fleet</h3><div id="side"></div></div>
+  </main>
+</div>
+<div id="toast"></div>
+<script>
+const state = { me: 'user-lin', thread: null, snapshot: null, fleet: null, busy: false };
+const $ = (id) => document.getElementById(id);
+
+async function api(path, init) {
+  const res = await fetch(path, { cache: 'no-store', ...(init ?? {}) });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? body.message ?? ('HTTP ' + res.status));
+  return body;
+}
+function toast(text) {
+  const el = $('toast'); el.textContent = text; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 4200);
+}
+function esc(text) {
+  return String(text ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+const TRUST_NAME = ['本人', '家庭', '信任', '已知', '陌生'];
+
+async function refresh({ keepThread = true } = {}) {
+  if (state.busy) return;
+  const query = new URLSearchParams({ user: state.me });
+  if (keepThread && state.thread) query.set('thread', state.thread);
+  state.snapshot = await api('/api/state?' + query.toString());
+  if (state.thread === null || !state.snapshot.threads.some((t) => t.id === state.thread)) {
+    state.thread = state.snapshot.activeThread?.id ?? state.snapshot.threads[0]?.id ?? null;
+  }
+  render();
+}
+async function refreshFleet() {
+  try { state.fleet = await api('/api/fleet'); } catch (error) { state.fleet = { mode: 'error', error: String(error.message ?? error), devices: [] }; }
+  renderSide();
+}
+
+function render() {
+  const snap = state.snapshot;
+  if (!snap) return;
+  renderPersonas(snap);
+  renderThreads(snap);
+  renderChat(snap);
+  renderSide();
+}
+function renderPersonas(snap) {
+  $('personas').innerHTML = snap.personas.map((p) =>
+    `<button data-user="${esc(p.userId)}" class="${p.userId === state.me ? 'on' : ''}">${esc(p.name)}</button>`).join('');
+  $('personas').querySelectorAll('button').forEach((btn) => btn.onclick = async () => {
+    state.me = btn.dataset.user; state.thread = null; await refresh({ keepThread: false });
+  });
+}
+function renderThreads(snap) {
+  $('threads').innerHTML = snap.threads.map((thread) => `
+    <div class="thread ${thread.id === state.thread ? 'on' : ''}" data-thread="${esc(thread.id)}">
+      <div class="t"><span class="name">${esc(thread.title)}</span><span class="badge">${thread.kind === 'stranger' ? '陌生人' : thread.kind === 'family' ? '家庭' : 'Agent'}</span></div>
+      <div class="last">${esc(thread.lastMessage?.text ?? '（暂无消息）')}</div>
+    </div>`).join('');
+  $('threads').querySelectorAll('.thread').forEach((el) => el.onclick = async () => { state.thread = el.dataset.thread; await refresh(); });
+}
+function renderChat(snap) {
+  const active = snap.activeThread;
+  $('chat-title').textContent = active?.title ?? '—';
+  $('chat-kind').textContent = active === null ? '' : `成员：${active.members.map((m) => snap.personas.find((p) => p.userId === m)?.name ?? m).join('、')}`;
+  const peer = active?.members.find((m) => m !== state.me) ?? null;
+  const level = peer === null ? null : (snap.trust.pairs.find((p) => p.from === state.me && p.to === peer)?.level ?? 4);
+  $('chat-trust').textContent = level === null ? 'Agent 频道' : '关系：' + TRUST_NAME[level];
+  $('chat-trust').className = 'pill ' + (level !== null && level <= 2 ? 'on' : '');
+  const box = $('messages');
+  box.innerHTML = '';
+  for (const message of active?.messages ?? []) {
+    if (message.kind === 'card' && message.ticket) {
+      const ticket = message.ticket; const payload = ticket.payload ?? {};
+      const card = document.createElement('div'); card.className = 'ticket';
+      card.innerHTML = `
+        <div class="ttl">审批卡：${esc(payload.title ?? payload.kind ?? '待审批')}</div>
+        <div class="meta">优先级 ${esc(ticket.state)} · ${payload.amountCents ? '金额 ¥' + (payload.amountCents / 100).toFixed(2) + ' · ' : ''}${esc(payload.risk ?? '')}${payload.decisionHint ? ' · ' + esc(payload.decisionHint) : ''}</div>
+        <div class="acts">
+          <button class="ok" data-act="APPROVE">通过</button>
+          <button data-act="MODIFY">修改</button>
+          <button class="bad" data-act="REJECT">驳回</button>
+        </div>`;
+      card.querySelectorAll('button').forEach((btn) => btn.onclick = () => decide(ticket.id, btn.dataset.act));
+      box.appendChild(card);
+      continue;
+    }
+    const mine = message.from === state.me;
+    const el = document.createElement('div');
+    el.className = 'msg' + (mine ? ' me' : '') + (message.kind === 'agent' ? ' agent' : '');
+    const who = mine ? '我' : (snap.personas.find((p) => p.userId === message.from)?.name ?? message.from);
+    el.innerHTML = `<div class="who">${esc(who)}${message.kind === 'agent' ? ' · Agent' : ''}</div><div class="body">${esc(message.text)}</div><div class="at">${esc(message.at)}</div>`;
+    box.appendChild(el);
+  }
+  box.scrollTop = box.scrollHeight;
+  const canSend = active?.canSend === true;
+  $('input').disabled = !canSend; $('send').disabled = !canSend;
+  const hint = $('locked-hint');
+  hint.hidden = canSend;
+  if (!canSend) hint.textContent = '该会话被信任档位锁定：陌生人来意必须先经你的 Agent 预审并审批通过（右侧审批卡）。';
+}
+function renderSide() {
+  const snap = state.snapshot; if (!snap) return;
+  const fleet = state.fleet;
+  const tickets = snap.tickets ?? [];
+  const trust = snap.trust;
+  const side = $('side');
+  side.innerHTML = `
+    <div class="card"><div class="hd"><span>待审批（${tickets.length}）</span><span class="pill">人只做最终决策</span></div><div class="bd">
+      ${tickets.length === 0 ? '<div class="mono">暂无待审批</div>' : tickets.map((t) => `
+        <div class="row"><span>${esc(t.title)}${t.amountCents ? ' ¥' + (t.amountCents / 100).toFixed(2) : ''}</span>
+        <span><button class="ghost" data-ticket="${esc(t.id)}" data-act="APPROVE">通过</button>
+        <button class="ghost" data-ticket="${esc(t.id)}" data-act="REJECT">驳回</button></span></div>`).join('')}
+    </div></div>
+    <div class="card"><div class="hd"><span>我的 Agent 团队</span><span class="pill">权限在代码层</span></div><div class="bd">
+      ${(snap.agents ?? []).map((a) => `<div class="row"><span>${esc(a.agentId.replace('agent-', ''))}<br><span class="mono">${esc(a.domain)} · 可用 ${a.allowedSkills.length} 个 Skill</span></span><span class="mono">日额度 ¥${(a.budgetRemainingCents / 100).toFixed(0)}</span></div>`).join('')}
+    </div></div>
+    <div class="card"><div class="hd"><span>信任矩阵</span><span class="pill">五档</span></div><div class="bd">
+      ${trust.pairs.map((p) => `<div class="row"><span>${esc(p.from.replace('user-', ''))} → ${esc(p.to.replace('user-', ''))}</span><span class="pill ${p.level <= 2 ? 'on' : ''}">${TRUST_NAME[p.level]}</span></div>`).join('')}
+    </div></div>
+    <div class="card"><div class="hd"><span>Fleet（DSH + W2M）</span><span class="pill ${fleet?.mode === 'live' ? 'live' : ''}">${esc(fleet?.mode ?? '…')}</span></div><div class="bd">
+      <div class="row"><span>relay</span><span class="mono">${esc(fleet?.relayUrl ?? '—')}</span></div>
+      ${(fleet?.devices ?? []).map((d) => `<div class="row"><span>${esc(d.name)}<br><span class="mono">${esc(d.machine_id ?? d.platform ?? '')}</span></span><span class="pill ${d.online ? 'on' : ''}">${d.online ? '在线' : '离线'}</span></div>`).join('')}
+      ${fleet?.note ? `<div class="mono" style="margin-top:8px">${esc(fleet.note)}</div>` : ''}
+      <div class="row" style="margin-top:6px"><button class="ghost" id="btn-fleet">刷新 fleet</button><button class="ghost" id="btn-probe" ${fleet?.mode !== 'live' ? 'disabled' : ''}>在真实机器上执行一次</button></div>
+    </div></div>
+    <div class="card"><div class="hd"><span>治理自检</span><span class="pill on">${snap.checks.passed}/${snap.checks.total}</span></div><div class="bd checks">
+      ${snap.checks.list.map((c) => `<div class="${c.ok ? 'ok' : ''}">${c.ok ? '✓' : '✗'} ${esc(c.name)}</div>`).join('')}
+    </div></div>
+    <div class="card"><div class="hd"><span>审计链（不可篡改）</span><span class="pill ${snap.auditChain?.ok ? 'on' : ''}">${snap.auditChain?.ok ? '链完整' : '链断裂'} · ${snap.auditChain?.length ?? 0} 条</span></div><div class="bd">
+      ${(snap.auditChain?.recent ?? []).slice(-8).reverse().map((a) => `<div class="row"><span class="mono">${esc(a.source)}</span><span class="mono">${esc(a.action)}${a.target ? ' → ' + esc(String(a.target).slice(0, 18)) : ''}</span></div>`).join('') || '<div class="mono">暂无</div>'}
+      <div class="mono" style="margin-top:6px">head=${esc(String(snap.auditChain?.head ?? '').slice(0, 16))}…</div>
+    </div></div>`;
+  $('btn-fleet').onclick = refreshFleet;
+  const probe = $('btn-probe');
+  if (probe) probe.onclick = async () => {
+    const device = (fleet?.devices ?? []).find((d) => d.online && d.machine_id);
+    if (!device) { toast('没有在线机器可派发'); return; }
+    probe.disabled = true; probe.textContent = '执行中…';
+    try {
+      const result = await api('/api/fleet/probe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ machineId: device.machine_id }) });
+      toast('fleet 执行：' + JSON.stringify(result).slice(0, 240));
+    } catch (error) { toast('fleet 执行失败：' + error.message); }
+    probe.disabled = false; probe.textContent = '在真实机器上执行一次';
+  };
+  side.querySelectorAll('button[data-ticket]').forEach((btn) => btn.onclick = () => decide(btn.dataset.ticket, btn.dataset.act));
+}
+async function decide(ticketId, action) {
+  try {
+    const result = await api('/api/approvals/' + encodeURIComponent(ticketId) + '/decide', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action, comment: action === 'APPROVE' ? '通过（浏览器）' : '驳回（浏览器）' })
+    });
+    toast(`审批 ${action} → ${result.state}`);
+    state.snapshot = result.stateSnapshot; render();
+  } catch (error) { toast('审批失败：' + error.message); }
+}
+async function send() {
+  const text = $('input').value.trim();
+  if (text === '' || state.thread === null) return;
+  try {
+    const result = await api('/api/message', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId: state.me, threadId: state.thread, text }) });
+    $('input').value = '';
+    state.snapshot = result.state; render();
+  } catch (error) { toast('发送失败：' + error.message); }
+}
+$('send').onclick = send;
+$('input').addEventListener('keydown', (event) => { if (event.key === 'Enter') send(); });
+$('btn-reset').onclick = async () => { await api('/api/reset', { method: 'POST' }); state.thread = null; await refresh({ keepThread: false }); await refreshFleet(); toast('已回到种子场景'); };
+refresh().then(refreshFleet).catch((error) => toast('加载失败：' + error.message));
+setInterval(() => refresh().catch(() => {}), 15000);
+</script>
+</body>
+</html>

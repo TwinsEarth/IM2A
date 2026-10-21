@@ -153,7 +153,12 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
 // ───────────────────────── 7. openapi 路径 ↔ 演示服务实现 ─────────────────────────
 {
   const spec = await read(path.join(ROOT, 'contracts/openapi/orchestrator.openapi.yaml'));
-  const server = await read(path.join(ROOT, 'apps/demo-server/server.mjs'));
+  const server = (
+    await Promise.all([
+      read(path.join(ROOT, 'apps/demo-server/server.mjs')),
+      read(path.join(ROOT, 'apps/im-live/server.mjs'))
+    ])
+  ).join('\n');
   const declared = [...spec.matchAll(/^\s{2}(\/api\/[\w{}/-]+):/gm)].map((m) => m[1]);
   const missing = declared.filter((p) => {
     // /api/intent/{id}/screen → 在 server 中应以正则或字面量出现

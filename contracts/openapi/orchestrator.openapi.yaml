@@ -357,6 +357,77 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/fleet:
+    get:
+      summary: fleet 快照（DSH + W2M relay 的在线机器；未配置 token 时为 simulated）
+      operationId: getFleet
+      responses:
+        "200":
+          description: fleet 快照
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/fleet/probe:
+    post:
+      summary: 在指定真实机器上执行一次受控命令（默认 node --version）
+      operationId: probeFleetMachine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [machineId]
+              properties:
+                machineId:
+                  type: string
+                argv:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: 派发结果（未配置 token 时 ok=false / FLEET_NOT_CONFIGURED）
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/message:
+    post:
+      summary: 在会话里发送一条消息（信任档位门控；陌生人先审批）
+      operationId: postMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, threadId, text]
+              properties:
+                userId:
+                  type: string
+                threadId:
+                  type: string
+                text:
+                  type: string
+      responses:
+        "200":
+          description: 成功，返回最新状态快照
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
 components:
   securitySchemes:
     bearerAuth:

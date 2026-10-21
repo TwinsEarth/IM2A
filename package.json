@@ -15,7 +15,9 @@
     "test:e2e": "node scripts/test.mjs --filter=tests",
     "verify": "node scripts/verify.mjs",
     "demo": "node apps/demo-server/server.mjs",
-    "demo:smoke": "node tests/e2e.test.mjs"
+    "demo:smoke": "node tests/e2e.test.mjs",
+    "demo:im": "node apps/im-live/server.mjs",
+    "test:im": "node scripts/test.mjs --filter=im-live"
   },
   "dependencies": {},
   "devDependencies": {}
