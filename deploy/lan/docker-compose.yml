@@ -1,0 +1,36 @@
+# 局域网部署：一条 `docker compose up -d` 即跑（绑 0.0.0.0，JSON 文件落盘）
+#
+# ⚠ 本机无 Docker，本文件未实际构建验证；镜像体积/健康检查需在目标机复核。
+#    镜像基于 node:24-alpine（约 130MB），不是 scratch <10MB——因为我们交付的是 Node 单进程，
+#    不是 Go 静态二进制。若必须 <10MB，请在目标机用 Go 重建（本仓库无 Go 代码）。
+services:
+  im2agent:
+    build:
+      context: ../..
+      dockerfile: deploy/lan/Dockerfile
+    container_name: im2agent
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PROFILE: lan
+      PORT: "8080"
+      HOST: 0.0.0.0
+      # 局域网形态也建议设令牌（默认自动生成，见 install.sh 或 .env）
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-change-me-lan-token}
+      STORE: jsonfile
+      STORE_FILE: /data/state.json
+      IM2AGENT_LLM_KEY: ${IM2AGENT_LLM_KEY:-}
+      IM2AGENT_LLM_BASE_URL: ${IM2AGENT_LLM_BASE_URL:-https://api.deepseek.com/v1}
+      IM2AGENT_LLM_MODEL: ${IM2AGENT_LLM_MODEL:-deepseek-chat}
+    volumes:
+      - im2agent-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  im2agent-data:
