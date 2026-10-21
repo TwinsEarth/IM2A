@@ -100,6 +100,25 @@
     </div>
   </div>
 
+  <div class="grid two" style="margin-top:16px">
+    <div class="card">
+      <h3>人格与记忆生命周期<span class="hint">SOUL 稳定，记忆会晋升/衰减/遗忘</span></h3>
+      <p class="sub">
+        人格（价值观/规则/边界/语气）与记忆分开存；记忆从 WORKING → EPISODIC → SEMANTIC 只按「时间 + 访问次数」晋升，
+        <b>模型无权自称"这条重要"</b>；遗忘是软删，审计可证"曾经存在过"。
+      </p>
+      <div id="persona"></div>
+    </div>
+    <div class="card">
+      <h3>多 Agent 结构化审计<span class="hint">discuss / audit / review，异议不可被综合掉</span></h3>
+      <p class="sub">
+        协商是"两方达成一致"，审计是"多方形成结论 + 保留异议"。结论、findings 与 <b>dissent</b> 一起进纪要，
+        只有纪要 hash 进签名链（长内容进业务库）。
+      </p>
+      <div id="discussion"></div>
+    </div>
+  </div>
+
   <div class="grid" style="margin-top:16px">
     <div class="card">
       <h3>签名审计<span class="hint">哈希链 + Ed25519：两种攻击，两层防御</span></h3>
@@ -266,9 +285,56 @@ async function negotiateTurn() {
   }
 }
 
+async function loadPersona() {
+  const data = await getJson('/api/v2/persona');
+  const soul = data.soul ?? {};
+  const stageRows = Object.entries(data.stages ?? {})
+    .map(([agentId, info]) => {
+      const by = info.byStage ?? {};
+      const cells = ['WORKING', 'EPISODIC', 'SEMANTIC', 'ARCHIVED']
+        .map((stage) => `<span class="tag ${stage === 'SEMANTIC' ? 'ok' : stage === 'ARCHIVED' ? 'warn' : 'info'}">${stage.slice(0, 4)} ${by[stage] ?? 0}</span>`)
+        .join(' ');
+      return `<div style="margin:6px 0"><span class="mono">${esc(agentId.replace('agent-', ''))}</span> ${cells}</div>`;
+    })
+    .join('');
+  $('persona').innerHTML = `
+    <div class="note violet">
+      <b>SOUL（人格基座，低频变更、必须留审计）</b><br>
+      价值观：${esc((soul.values || []).join(' / ') || '—')}<br>
+      规则：${esc((soul.rules || []).join(' / ') || '—')}<br>
+      边界：${esc((soul.boundaries || []).join(' / ') || '—')}<br>
+      语气：${esc(soul.voice || '—')}
+    </div>
+    <div style="margin-top:12px"><b style="font-size:13px">记忆分层</b>${stageRows}</div>
+    <div class="note">晋升候选 <b>${(data.promotionCandidates || []).length}</b> 条 ·
+      可携带包 v${esc(data.portableSummary?.version ?? '?')} · ${data.portableSummary?.signed ? '已签名' : '未签名'} ·
+      ${esc(data.portableSummary?.memories ?? 0)} 条记忆</div>`;
+}
+
+async function loadDiscussions() {
+  const data = await getJson('/api/v2/discussions');
+  $('discussion').innerHTML = (data.items || []).map((item) => `
+    <div style="margin-bottom:10px">
+      <div class="row" style="margin:0 0 6px">
+        <b>${esc(item.topic)}</b>
+        <span class="tag violet">${esc(item.mode)}</span>
+        <span class="tag ${item.state === 'CONCLUDED' ? 'ok' : 'warn'}">${esc(item.state)}</span>
+        <span class="tag">${esc(item.rounds)} 轮 / ${esc(item.speeches)} 次发言</span>
+      </div>
+      <div class="mono" style="color:var(--muted);font-size:11.5px">参与方：${esc((item.participants || []).map((p) => `${p.agentId.replace('agent-', '')}(${p.role || '-'})`).join('、'))}</div>
+      <div class="note" style="margin-top:8px">结论：${esc(item.conclusion || '—')}</div>
+      <div style="margin-top:8px;font-size:12.5px">
+        findings ${(item.findings || []).length} 条：${esc((item.findings || []).map((f) => `${f.id}[${f.level}] ${f.text}`).join('；') || '—')}
+      </div>
+      <div class="note bad" style="margin-top:8px">
+        <b>异议（必须原样保留）</b>：${esc((item.dissent || []).map((d) => `${d.byAgentId.replace('agent-', '')}: ${d.text}`).join('；') || '无')}
+      </div>
+    </div>`).join('') || '<div class="sub">暂无讨论</div>';
+}
+
 async function loadAll() {
   try {
-    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit()]);
+    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions()]);
   } catch (error) {
     document.querySelector('main').insertAdjacentHTML('beforeend', `<div class="note bad">加载失败：${esc(error.message)}</div>`);
   }

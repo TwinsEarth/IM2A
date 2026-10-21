@@ -8,10 +8,16 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "node scripts/quickstart.mjs",
+    "quickstart": "node scripts/quickstart.mjs",
+    "check": "node scripts/quickstart.mjs --check",
     "test": "node scripts/test.mjs",
     "test:orchestrator": "node scripts/test.mjs --filter=orchestrator",
     "test:payment": "node scripts/test.mjs --filter=payment",
     "test:messaging": "node scripts/test.mjs --filter=messaging",
+    "test:identity": "node scripts/test.mjs --filter=identity",
+    "test:gateway": "node scripts/test.mjs --filter=gateway",
+    "test:audit": "node scripts/test.mjs --filter=audit",
     "test:e2e": "node scripts/test.mjs --filter=tests",
     "verify": "node scripts/verify.mjs",
     "demo": "node apps/demo-server/server.mjs",

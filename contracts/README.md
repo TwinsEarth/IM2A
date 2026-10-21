@@ -1,7 +1,7 @@
 # 契约目录（contracts/）
 
 > 本目录是模块级与协议级契约的**唯一来源**。实现、文档、SDK、proto、openapi 都必须与这里逐字对齐。
-> 当前契约版本：**v1.0.0**（冻结于 2026-10-21）。**v2 协议面 = R4 加法修订**（新增 §11–§16 与 4 个 proto，v1 语义全部保留），索引见 §1.1。
+> 当前契约版本：**v1.0.0**（冻结于 2026-10-21）。**v2 协议面 = R4 加法修订（§11–§16 + 4 个 proto）+ R5 裁定（A1–A4：token 下发/私钥边界、unreadDelta、客户端自助 RPC、错误码与编码）**，v1 语义全部保留，索引见 §1.1。
 > **验证状态：⚠ 未编译验证。** 本机仅有 Node.js 24，无 protoc / buf / Go / Flutter；proto 与 OpenAPI 为人工严格自检的契约源码。CI 必须补齐 `buf lint`、`buf breaking`、`protoc` 编译与 OpenAPI 3.1 校验（见 §5）。
 
 ## 1. 契约索引与权威性
@@ -13,10 +13,10 @@
 | [`proto/negotiation.proto`](./proto/negotiation.proto) | Protobuf（proto3） | 内部 Agent 协商：TaskState / Intent / NegotiationTurn / NegotiationSession / NegotiationService | v1.0 | CI：buf lint + protoc |
 | [`proto/approval.proto`](./proto/approval.proto) | Protobuf（proto3） | 审批工作流：TicketState / TicketType / DecisionAction / ApprovalEvent / ApprovalService | v1.0 | CI：buf lint + protoc |
 | [`proto/paid_message.proto`](./proto/paid_message.proto) | Protobuf（proto3） | 付费消息：MessageState / BillingMode / LedgerEntry / PaidMessageService | v1.0 | CI：buf lint + protoc |
-| [`proto/agent_identity.proto`](./proto/agent_identity.proto) | Protobuf（proto3） | **v2** Agent 身份：KeyAlg / IdentityCode / AgentCard / SignedAgentCard / AgentToken / IdentityService{IssueCard,VerifyCard} | v2（R4，⚠ 未编译） | CI：buf lint + protoc + breaking |
-| [`proto/gateway.proto`](./proto/gateway.proto) | Protobuf（proto3） | **v2** Agent Gateway + 可见域：Protocol / GatewayCode / Domain / VisibilityDecision / VisibilityCode / RouteRequest·Response / AgentGateway{Route} / VisibilityService{Evaluate,Project} | v2（R4，⚠ 未编译） | CI：buf lint + protoc + breaking |
-| [`proto/channel.proto`](./proto/channel.proto) | Protobuf（proto3） | **v2** 频道与 Agent 会话：ChannelType / MemberKind / MessageKind / ChannelCode / SessionState / SessionCode / Channel / ChannelMember / ChannelService{Create,Join,Post} / AgentSession | v2（R4，⚠ 未编译） | CI：buf lint + protoc + breaking |
-| [`proto/signed_audit.proto`](./proto/signed_audit.proto) | Protobuf（proto3） | **v2** 签名审计：SignedAuditCode / AuditEntry / Checkpoint / VerifyResult / AuditService{Append,Verify} | v2（R4，⚠ 未编译） | CI：buf lint + protoc + breaking |
+| [`proto/agent_identity.proto`](./proto/agent_identity.proto) | Protobuf（proto3） | **v2** Agent 身份：KeyAlg / IdentityCode / AgentIdentity(derivedId) / AgentCard / SignedAgentCard / AgentToken / IdentityService{IssueCard,VerifyCard} | v2（R4+R5，⚠ 未编译） | CI：buf lint + protoc + breaking |
+| [`proto/gateway.proto`](./proto/gateway.proto) | Protobuf（proto3） | **v2** Agent Gateway + 可见域：Protocol / GatewayCode / Domain / VisibilityDecision / VisibilityCode / RouteRequest·Response / AgentGateway{Route} / VisibilityService{Evaluate,Project} | v2（R4+R5，⚠ 未编译） | CI：buf lint + protoc + breaking |
+| [`proto/channel.proto`](./proto/channel.proto) | Protobuf（proto3） | **v2** 频道与 Agent 会话：ChannelType / MemberKind / MessageKind / ChannelCode / SessionState / SessionCode / Channel / ChannelMember / ChannelMessage / ChannelService{Create,Join,Post,Leave,MarkRead,Unread} / AgentSession | v2（R4+R5，⚠ 未编译） | CI：buf lint + protoc + breaking |
+| [`proto/signed_audit.proto`](./proto/signed_audit.proto) | Protobuf（proto3） | **v2** 签名审计：SignedAuditCode / AuditEntry / Checkpoint / VerifyResult(head_hash + head_seq) / AuditService{Append,Verify} | v2（R4+R5，⚠ 未编译） | CI：buf lint + protoc + breaking |
 | [`openapi/orchestrator.openapi.yaml`](./openapi/orchestrator.openapi.yaml) | OpenAPI 3.1 | 编排层 HTTP 面（陌生人意图、审批决策、状态、健康检查） | v1.0.0 | CI：OpenAPI validator + 路由对照 |
 | [`../docs/03-协议设计.md`](../docs/03-协议设计.md) | Markdown | 协议语义、状态机、超时/重试、安全（**解释性**，冲突时以 INTERFACES.md 为准） | v1.0 | 人工评审 |
 | [`../docs/04-SDK与端侧设计.md`](../docs/04-SDK与端侧设计.md) | Markdown | SDK 分层、BLE 帧格式、隐私时序、Skill 清单（**解释性**） | v1.0 | 样机实测后回填 |
@@ -32,12 +32,12 @@
 
 | INTERFACES.md 节 | 模块 | proto 文件 | 附加线格式（§11–§16 未在 JS 签名单列出的类型） | 解释文档 |
 |---|---|---|---|---|
-| §11 身份 | `services/identity/src/agent-id.mjs` | [`proto/agent_identity.proto`](./proto/agent_identity.proto) | `AgentIdentity`、`IssueCard*`/`VerifyCard*` | docs/03 §12.3 |
-| §12 Agent Gateway | `services/gateway/src/agent-gateway.mjs` | [`proto/gateway.proto`](./proto/gateway.proto) | `RouteRequest`/`RouteResponse`/`NormalizedRequest` | docs/03 §12.1、§12.6 |
+| §11 身份 | `services/identity/src/agent-id.mjs` | [`proto/agent_identity.proto`](./proto/agent_identity.proto) | `AgentIdentity`（含 R5 `derived_id`）、`IssueCard*`/`VerifyCard*` | docs/03 §12.3 |
+| §12 Agent Gateway | `services/gateway/src/agent-gateway.mjs` | [`proto/gateway.proto`](./proto/gateway.proto) | `RouteRequest`/`RouteResponse`/`NormalizedRequest`；token 由平台签发（R5/A1） | docs/03 §12.1、§12.6 |
 | §13 可见域 | `services/gateway/src/visibility.mjs` | [`proto/gateway.proto`](./proto/gateway.proto)（同包，`VisibilityService`） | `VisibilityScope`/`VisibilityResource`/`Evaluate*`/`Project*` | docs/03 §12.4 |
-| §14 频道模型 | `services/messaging/src/channel.mjs` | [`proto/channel.proto`](./proto/channel.proto) | `Channel`/`ChannelMember`/`ChannelMessage`/`Post*` | docs/03 §12.2 |
+| §14 频道模型 | `services/messaging/src/channel.mjs` | [`proto/channel.proto`](./proto/channel.proto) | `Channel`/`ChannelMember`/`ChannelMessage`（A2 最小集）/`Post*`/`Leave*`/`MarkRead*`/`Unread*`（A3） | docs/03 §12.2 |
 | §15 Agent 会话 | `services/messaging/src/session.mjs` | [`proto/channel.proto`](./proto/channel.proto)（同包，`AgentSession`） | `SessionState`/`SessionCode` | docs/04 §8.3–§8.4 |
-| §16 签名审计 | `services/audit/src/{audit-log,signed-audit}.mjs` | [`proto/signed_audit.proto`](./proto/signed_audit.proto) | `AuditEntry`/`Checkpoint`/`VerifyResult` | docs/03 §12.6 |
+| §16 签名审计 | `services/audit/src/{audit-log,signed-audit}.mjs` | [`proto/signed_audit.proto`](./proto/signed_audit.proto) | `AuditEntry`/`Checkpoint`/`VerifyResult`（`head_hash`+`head_seq`，A4；签名 base64） | docs/03 §12.6 |
 
 > v2 的 4 个 proto **均未编译验证**（本机无 protoc/buf），文件头已注明"人工自检、CI 需 buf lint + protoc 编译 + breaking 检查"。v2 未新增 OpenAPI 面（网关/频道/会话为 gRPC/长连接面），OpenAPI 的 v2 补齐列为缺口（见 §6 #10）。
 
@@ -72,6 +72,8 @@
 | 会话状态 | `SESSION_STATE` 4 值 | `channel.proto: SessionState` | （不在 OpenAPI 面） |
 | 会话错误码 | `SESSION_CODE` 5 值 | `channel.proto: SessionCode` | `ErrorResponse.error` |
 | 签名审计错误码 | `SIGNED_AUDIT_CODE` 4 值 | `signed_audit.proto: SignedAuditCode` | `ErrorResponse.error` |
+| 身份自证 id | `derivedId`（R5：平台名与自证 id 共存） | `agent_identity.proto: AgentIdentity.derived_id` / `AgentCard.derived_id` | （不在 OpenAPI 面） |
+| 签名/哈希编码 | A4：签名 **base64（标准）**、hash **hex** | `SignedAgentCard.signature` / `AuditEntry.signature` / `Checkpoint.signature` vs `*.hash` | （不在 OpenAPI 面） |
 
 一致性结论（v1.0）：枚举**名称逐字一致**；proto 仅在 proto3 强制要求处引入 0 值占位（`ErrorCode.ERROR_CODE_UNSPECIFIED`、`BillingMode.BILLING_MODE_UNSPECIFIED`、`EntryType.ENTRY_TYPE_UNSPECIFIED`、`ScreeningVerdict.SCREENING_VERDICT_UNSPECIFIED`），其余首值取该领域的自然默认态（如 `TaskState.SUBMITTED=0`）。`TicketPriority` 在 INTERFACES.md 中是**小写字符串**，proto 枚举名为大写（NORMAL/URGENT/HIGH/LOW），JSON/JS 侧映射为小写——这是枚举命名规范的唯一大小写差异。
 
@@ -161,10 +163,9 @@ node tests/contracts.test.mjs      # 启动 demo-server，逐条断言 openapi p
 | 9 | `protoc` / `buf` 未在本机执行 | proto 仅人工+脚本自检 | ⚠ CI 必装：`buf lint` + breaking + OpenAPI validator |
 | 10 | v2 契约未纳入 OpenAPI | 网关/频道/会话走 gRPC + 长连接，HTTP 面尚未补齐（`/api/v2/...`） | ⚠ 待补：v2 列表/补拉/可见域投影的 HTTP 面；补齐前 Web 端不接 v2 |
 | 11 | v2 4 个 proto 未编译 | 本机无 protoc/buf | ⚠ CI 必跑 `buf lint` + `protoc` + `buf breaking`；人工自检已过（缩进/枚举显式赋值/字段号唯一/类型引用/§11–§16 逐字对照） |
-| 12 | token 与签名的编码/下发通道未冻结 | §11 未规定 sign 编码；§12 未定义 Agent 如何取得 token | ⚠ 待 Lead 裁定（docs/03 §12.7 A1/A4），裁定后回填 §11 与 proto 注释 |
-| 6 | MCP `2026-07-28`、A2A `v1.0.0` 版本与字段 | 外部规范未联网核对 | 核对官方原文后回填，标注复核日期 |
-| 7 | proto 中 `ErrorCode` 的 0 值占位 | 与"逐字一致"存在设计性偏差 | 已在 §2 声明；读取方必须拒绝 0 值 |
-| 8 | OpenAPI 中 `/api/reset` 为演示路由 | 生产不应暴露 | 网关屏蔽；标注 `x-demo-only: true` |
+| 12 | token 下发通道 / 私钥边界 / 签名编码 | 曾未冻结 | ✅ 已裁定（R5 A1/A4）：内置 mTLS 服务身份、第三方 OAuth2 consent 回跳、外部 A2A 不签发本平台 token；平台不托管第三方私钥；签名 base64、hash hex。已回填 §11/§12/§16 与 4 个 proto |
+| 13 | §12 出现 `SCOPE_VIOLATION` 命名，但 §13 无该枚举值 | 可能诱发"新造错误码" | ⚠ 按统称处理：落地码必须取 `VISIBILITY_CODE`（`VISIBILITY_DENIED`/`DOMAIN_NOT_GRANTED`/`TRUST_CEILING_EXCEEDED`/`SCOPE_EXPIRED`）；新增枚举须走变更流程 |
+| 14 | 实现与 §14 最小集字段名不一致（`senderId/senderKind/channelType` vs `fromMemberId`）；`verify()` 未返回 `headSeq` | proto 与实现漂移 | ⚠ 实现对齐项（非契约变更）：实现方按 §14/§16 对齐；集成前用 `scripts/test.mjs` 回归 |
 
 ## 7. 变更记录（CHANGELOG）
 
@@ -172,3 +173,4 @@ node tests/contracts.test.mjs      # 启动 demo-server，逐条断言 openapi p
 |---|---|---|---|
 | 1.0.0 | 2026-10-21 | 初始冻结：INTERFACES.md v1.0 + 4 个 proto + OpenAPI 1.0 + 协议/SDK 文档；人工自检通过，编译验证待 CI | Lead |
 | 1.0.0-r4 | 2026-10-21 | **v2 协议面加法**：新增 `agent_identity.proto` / `gateway.proto`（含 §13 可见域）/ `channel.proto`（含 §15 会话）/ `signed_audit.proto`，与 INTERFACES.md §11–§16 逐字对齐；docs/03 §12、docs/04 §8 修订；⚠ 4 个 proto 未编译验证，CI 待补 buf lint + protoc + breaking | Lead（R4） |
+| 1.0.0-r5 | 2026-10-21 | **A1–A4 裁定落地**：①A1 token 只能由平台签发（内置 mTLS / 第三方 consent 回跳 / 外部 A2A 不签发本平台 token）+ 私钥边界 +「身份 ≠ 准入」；②A2 `unreadDelta` 改 int32、`message` 最小集冻结、`CMD_NOT_PERSISTED` 保留；③A3 `ChannelService` 增 `Leave/MarkRead/Unread`；④A4 `UNKNOWN_ROUTE`→INVALID_ARGUMENT/400、`head_hash`+`head_seq`、签名 base64；同步 `agent_identity.proto`（`derived_id`）、`gateway.proto`、`channel.proto`、`signed_audit.proto`、docs/03 §12.3/§12.6/§12.7、docs/04 §8.1/§8.4/§8.5/§8.7 | Lead（R5） |

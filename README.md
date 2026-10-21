@@ -21,6 +21,17 @@
 > 详见 [docs/11-AI原生IM架构-v2.md](docs/11-AI原生IM架构-v2.md)、[docs/12-开源IM项目对标与取舍.md](docs/12-开源IM项目对标与取舍.md)。
 > 契约扩到 §11–§16（`contracts/INTERFACES.md` R5），新增 `services/{identity,gateway}` 与 `services/messaging/{channel,session}.mjs`、`services/audit/signed-audit.mjs`。
 > 演示页：`node apps/im-live/server.mjs` → **http://127.0.0.1:8797/v2**（Agent 网络 / 未读隔离 / 可见域矩阵 / 网关事件 / 审计篡改演示）。
+>
+> ### v3：按能力分层再补三块（人格记忆 / 讨论审计 / 细粒度审批）
+>
+> | 能力层 | 首选参考 | 我们补了什么 | 落点 |
+> |---|---|---|---|
+> | 人格与长期记忆生命周期 | nekoclaw | SOUL 与会话记忆分离；WORKING→EPISODIC→SEMANTIC 只按「时间+访问次数」晋升；遗忘为软删；跨平台可携带包（签名） | `services/orchestrator/src/persona-memory.mjs`（§17） |
+> | 陌生人协商的模式化审计 | imcodes | `DISCUSS / AUDIT / REVIEW` 多 Agent 结构化讨论；**异议原样保留**；纪要只把 hash 与证据面写入签名链 | `services/orchestrator/src/discussion-engine.mjs`（§18） |
+> | 细粒度工具审批 | MindRoom | Agent×Skill 策略：金额超限是**可批**（APPROVE），信任不足才是**不可批**（DENY） | `services/orchestrator/src/tool-policy.mjs`（§19） |
+> | 快速产品验证 | Xiajiao | 一条命令 `node scripts/quickstart.mjs` → 起服务 + 9 项自检 + 打印入口 | `scripts/quickstart.mjs` |
+>
+> 分层选型与逐项裁决（✅3 / ◐3 / 子项否决）见 [docs/13-分层选型与落地映射.md](docs/13-分层选型与落地映射.md)。
 
 ---
 
@@ -61,6 +72,11 @@
 
 ```powershell
 cd E:\GPT\agent-im
+
+# 一条命令：起服务 → 跑 9 项自检 → 打印入口 → 保持运行
+node scripts/quickstart.mjs
+# 或只自检（CI 用，exit 0/1）
+node scripts/quickstart.mjs --check
 
 # 跑全量测试（单进程，不 spawn 子进程）
 node scripts/test.mjs

@@ -15,6 +15,7 @@
 | R3 | 2026-10-21 | ①§3 澄清信任比较方向（`levelOf <= trustZoneMin` 允许）并订正"DENY 优先"概述与 7 步顺序的冲突；②§4 明确"同刻先升级、后过期"的优先级；③§5 补记已实现的加法方法 `fail()/cancel()`；④§9 明确 `MODIFY` 的 patch 语义与非可退状态 | 澄清 + 加法 |
 | R4 | 2026-10-21 | **v2.0 面向 Agent 的 IM 修订**：新增 §11 身份（Ed25519 + AgentCard）、§12 Agent Gateway（统一数据平面）、§13 可见域（读侧权限）、§14 频道模型（频道类型隔离未读）、§15 Agent 会话（Agent 作为一等客户端）、§16 签名审计（哈希链 + Ed25519）；§17 禁止事项追加 3 条 v2 铁律 | 加法（v1 语义全部保留） |
 | R5 | 2026-10-21 | §11 澄清「平台可读名 vs 自证 id」：`agentId` 允许平台名，自证性由 `derivedId` 表达并在卡片中强制校验；`createAgentIdentity` 返回 `derivedId` | 澄清（不破坏 R4 调用方） |
+| R6 | 2026-10-21 | **v3 增补**：新增 §17 人格与记忆生命周期（SOUL + 晋升/衰减/遗忘/跨平台导出）、§18 多 Agent 结构化讨论（DISCUSS/AUDIT/REVIEW）、§19 细粒度工具审批（Agent×Skill 策略）；原 §17/§18 顺延为 §20/§21 | 加法（v1/v2 语义全保留） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
 
@@ -585,7 +586,116 @@ export class SignedAuditLog {
 
 ---
 
-## 17. 禁止事项（对所有实现者）
+## 17. `services/orchestrator/src/persona-memory.mjs`（v3 新增）
+
+**职责**：Agent 的**人格文件 + 记忆生命周期**。借鉴 nekoclaw 的 `SOUL.md + MEMORY.md + 分层记忆生命周期` 与 MindRoom 的「跨平台持久记忆」：人格是稳定的，记忆是会被晋升/衰减/遗忘的，两者必须分开存、分开授权。
+
+**不变量**：
+- **SOUL 与会话记忆分离**：SOUL（价值观/规则/边界/语气）是低频变更的人格基座，写入必须留审计；记忆是高频写入且会衰老的数据。
+- **晋升不可由模型自称**：记录从 WORKING→EPISODIC→SEMANTIC 只由「时间 + 访问次数」规则决定，模型无权宣布"这条很重要"。
+- **遗忘是软删除**：`ARCHIVED`/tombstone 保留，审计可证"曾经存在过"，但 `recall` 不再返回内容。
+
+```js
+export const MEMORY_STAGE = Object.freeze({ WORKING: 'WORKING', EPISODIC: 'EPISODIC', SEMANTIC: 'SEMANTIC', ARCHIVED: 'ARCHIVED' });
+export const PERSONA_CODE = Object.freeze({
+  SOUL_INVALID: 'SOUL_INVALID', MEMORY_ISOLATED: 'MEMORY_ISOLATED', STAGE_INVALID: 'STAGE_INVALID',
+  NOT_FOUND: 'NOT_FOUND', PROMOTION_DENIED: 'PROMOTION_DENIED', TOMBSTONED: 'TOMBSTONED',
+  EXPORT_INVALID: 'EXPORT_INVALID', IMPORT_INVALID: 'IMPORT_INVALID', IMPORT_REJECTED: 'IMPORT_REJECTED'
+});
+export class PersonaError extends Error {}
+
+export class PersonaMemory {
+  constructor({ clock = () => new Date(), identity = null });   // identity 注入后 exportPortable 带签名
+  setSoul({ agentId, userId, values, rules = [], boundaries = [], voice = null });
+  //  -> { soul, changed }   values 必须是非空字符串数组，否则 SOUL_INVALID
+  soul({ agentId, userId });                                   // -> 冻结 soul | null
+  remember({ agentId, userId, content, stage = 'WORKING', tags = [], salience = 0.5, ttlMs = null });
+  recall({ agentId, requesterAgentId = agentId, userId, stage = null, query = null, limit = 10 });
+  access({ agentId, recordId });                               // 访问计数 +1（晋升唯一依据）
+  promoteEligible({ agentId, userId, nowMs = null });           // -> [{ recordId, from, to, reason }]
+  promote({ agentId, userId, recordId });                       // 仅 WORKING→EPISODIC→SEMANTIC
+  decay({ agentId, userId, nowMs = null });                     // 低 salience + 久未访问 → ARCHIVED，不删除
+  forget({ agentId, userId, recordId });                        // 软删 + tombstone
+  exportPortable({ agentId, userId });   // -> { version:'agentim-persona/1', agentId, soul, memories, tombstones, exportedAt, signature? }
+  importPortable({ bundle, expectAgentId = null });             // -> { imported, skipped, conflicts }
+  stats({ agentId, userId });
+}
+```
+**晋升/衰减规则（冻结常量，实现不得改）**：
+
+| 迁移 | 条件 |
+|---|---|
+| WORKING → EPISODIC | 创建后 ≥ 24h **且** `accesses ≥ 2` |
+| EPISODIC → SEMANTIC | 创建后 ≥ 30d **且** `accesses ≥ 5` |
+| → ARCHIVED（decay） | `salience < 0.2` **且** 距最后访问 ≥ 90d |
+
+**隔离**：`requesterAgentId !== agentId` → `MEMORY_ISOLATED`（与 §6 一致）。**跨平台迁移**：`exportPortable` 产出可携带包并（在有 `identity` 时）签名；`importPortable` 校验 version 与 agentId——**version/schema 不符 → `IMPORT_INVALID`**（拒绝导入）、**agentId 不符或签名无效 → `IMPORT_REJECTED`**（拒绝认领）、tombstone 冲突记入 `conflicts` 而不是静默覆盖。`EXPORT_INVALID` 仅用于导出侧（bundle 结构非法/无法序列化）。
+
+---
+
+## 18. `services/orchestrator/src/discussion-engine.mjs`（v3 新增）
+
+**职责**：**多 Agent 结构化讨论**（≥2 方，非两方协商）。借鉴 imcodes 的 `discuss / audit / review` 三种模式：协商是"达成一致"，讨论是"形成结论/发现/评审意见"，后者必须保留异议。
+
+**不变量**：
+- 参与者 ≥ 2 且唯一；非参与者不得发言。
+- 每人每轮发言次数有上限（默认 1），轮次有硬上限（默认 3），超限转 `ESCALATED` **而不是静默丢弃**。
+- **异议不可被"综合"掉**：`synthesize` 的 `dissent` 原样进入会议纪要；AUDIT/REVIEW 必须至少一条 `findings`，DISCUSS 必须有 `conclusion`。
+
+```js
+export const DISCUSSION_MODE = Object.freeze({ DISCUSS: 'DISCUSS', AUDIT: 'AUDIT', REVIEW: 'REVIEW' });
+export const DISCUSSION_STATE = Object.freeze({ OPEN: 'OPEN', IN_ROUND: 'IN_ROUND', SYNTHESIZING: 'SYNTHESIZING', CONCLUDED: 'CONCLUDED', ESCALATED: 'ESCALATED', ABORTED: 'ABORTED' });
+export const STANCE = Object.freeze({ SUPPORT: 'SUPPORT', OPPOSE: 'OPPOSE', QUESTION: 'QUESTION', EVIDENCE: 'EVIDENCE' });
+export const DISCUSSION_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', ILLEGAL_STATE: 'ILLEGAL_STATE', NOT_PARTICIPANT: 'NOT_PARTICIPANT',
+  MODE_INVALID: 'MODE_INVALID', PARTICIPANTS_INVALID: 'PARTICIPANTS_INVALID', ROUND_LIMIT: 'ROUND_LIMIT',
+  TURN_LIMIT: 'TURN_LIMIT', FINDINGS_REQUIRED: 'FINDINGS_REQUIRED', CONCLUSION_REQUIRED: 'CONCLUSION_REQUIRED'
+});
+export class DiscussionError extends Error {}
+
+export class DiscussionEngine {
+  constructor({ clock = () => new Date(), maxRounds = 3, maxTurnsPerParticipantPerRound = 1 });
+  open({ mode, topic, participants, ownerUserId, agenda = [] });
+  //  participants: [{ agentId, role }]，≥2 且 agentId 唯一
+  speak({ discussionId, agentId, stance, content, evidence = [], round = null });
+  nextRound({ discussionId });                                  // 开新一轮；超 maxRounds → ESCALATED
+  synthesize({ discussionId, byAgentId, conclusion, findings = [], dissent = [] });
+  escalate({ discussionId, reason }); abort({ discussionId, reason });
+  get(discussionId); list({ mode = null, state = null } = {});
+  minutes(discussionId);   // -> { topic, mode, participants, rounds:[{round, speeches}], conclusion, findings, dissent, state, openedAt, concludedAt }
+}
+```
+
+---
+
+## 19. `services/orchestrator/src/tool-policy.mjs`（v3 新增）
+
+**职责**：**细粒度工具审批策略**。借鉴 MindRoom：审批粒度不是"一个全局金额阈值"，而是"每个 Agent × 每个 Skill 一条策略"。
+
+**与 §3 的分工（不得混淆）**：`CapabilityGate` 判**权限**（这个 Agent 能不能调这个 Skill、信任够不够、预算够不够）；`ToolPolicy` 判**审批形态**（自动执行 / 必须人工批 / 直接拒 / 需双人批）。顺序：Gate → ToolPolicy → ApprovalEngine。
+
+```js
+export const POLICY_DECISION = Object.freeze({ AUTO: 'AUTO', APPROVE: 'APPROVE', DENY: 'DENY' });
+export const TOOL_POLICY_CODE = Object.freeze({
+  POLICY_MATCHED: 'POLICY_MATCHED', SKILL_NOT_COVERED: 'SKILL_NOT_COVERED', POLICY_NOT_FOUND: 'POLICY_NOT_FOUND',
+  TRUST_TOO_LOW: 'TRUST_TOO_LOW', AMOUNT_EXCEEDED: 'AMOUNT_EXCEEDED', NEEDS_SECOND_APPROVER: 'NEEDS_SECOND_APPROVER'
+});
+export class ToolPolicyError extends Error {}
+
+export class ToolPolicy {
+  constructor({ clock = () => new Date() });
+  setPolicy({ agentId, skillId, decision, maxAmountCents = null, trustLevelMax = 4, requiresDoubleApproval = false, note = null });
+  removePolicy({ agentId, skillId });         // -> boolean
+  policiesOf(agentId);                        // -> policy[]
+  evaluate({ agentId, skillId, amountCents = 0, trustLevel = 4, hasSecondApprover = false });
+  //  -> { decision, code, policy, reasons: [] }
+}
+```
+**优先级与判定（冻结）**：`skillId` 精确策略 > agent 通配策略（`skillId='*'`）> 无策略。命中后按序：`trustLevel > trustLevelMax` → `DENY/TRUST_TOO_LOW`；`maxAmountCents !== null && amountCents > maxAmountCents` → `APPROVE/AMOUNT_EXCEEDED`；`requiresDoubleApproval && !hasSecondApprover` → `APPROVE/NEEDS_SECOND_APPROVER`；否则 `policy.decision/POLICY_MATCHED`。无任何策略 → `AUTO/SKILL_NOT_COVERED`。
+
+---
+
+## 20. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -599,7 +709,7 @@ export class SignedAuditLog {
 
 ---
 
-## 18. 验证命令
+## 21. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -614,6 +724,15 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=messaging
 node E:\GPT\agent-im\scripts\test.mjs --filter=identity
 node E:\GPT\agent-im\scripts\test.mjs --filter=gateway
 node E:\GPT\agent-im\scripts\test.mjs --filter=audit
+
+# v3 新增模块（§17–§19）
+node E:\GPT\agent-im\scripts\test.mjs --filter=persona
+node E:\GPT\agent-im\scripts\test.mjs --filter=tool-policy
+node E:\GPT\agent-im\scripts\test.mjs --filter=discussion
+
+# 一条命令验证（起服务 → 自检 → 打印入口）
+node E:\GPT\agent-im\scripts\quickstart.mjs
+node E:\GPT\agent-im\scripts\quickstart.mjs --check   # CI 用，exit 0/1
 
 # 全量（Lead 集成阶段）
 node E:\GPT\agent-im\scripts\test.mjs

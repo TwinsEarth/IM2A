@@ -32,6 +32,8 @@ import {
   MESSAGE_KIND
 } from '../../services/messaging/src/channel.mjs';
 import { AgentSessionRegistry } from '../../services/messaging/src/session.mjs';
+import { PersonaMemory, MEMORY_STAGE } from '../../services/orchestrator/src/persona-memory.mjs';
+import { DiscussionEngine, DISCUSSION_MODE, STANCE } from '../../services/orchestrator/src/discussion-engine.mjs';
 
 import { USERS, AGENTS } from '../demo-server/flow.mjs';
 
@@ -182,6 +184,117 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
   });
   signedAudit.append({ source: 'agent-gateway', action: 'V2_BOOTSTRAP', actor: 'agent-platform-operator', detail: { agents: Object.keys(AGENT_PROFILES).length, channels: channels.channelsOf(USERS.LIN).length } });
 
+  // ⑩ v3：人格 + 记忆生命周期（借鉴 nekoclaw 的 SOUL/MEMORY 与 MindRoom 的持久记忆）
+  const persona = new PersonaMemory({
+    clock,
+    identity: operator,
+    onAudit: (event) => signedAudit.append({ source: 'persona-memory', action: 'PERSONA_EVENT', actor: event?.agentId ?? null, decision: event?.action ?? null, detail: event })
+  });
+  persona.setSoul({
+    agentId: AGENTS.LIN_BUTLER,
+    userId: USERS.LIN,
+    values: ['家人优先于工作', '不替主人做承诺', '钱与对外承诺必须经人批准'],
+    rules: ['涉及第三方信息必须先取授权', '陌生人议题先由过滤 Agent 预审'],
+    boundaries: ['不得代替主人签署合同', '不得对外承诺时间窗口'],
+    voice: '简洁：先结论、后依据、最后风险提示'
+  });
+  persona.remember({
+    agentId: AGENTS.LIN_FILTER,
+    userId: USERS.LIN,
+    content: '预审通过：周先生的 A 轮融资询盘，命中「接受工作/融资类询盘」规则',
+    stage: MEMORY_STAGE.EPISODIC,
+    tags: ['screen', 'pass', 'stranger'],
+    salience: 0.7
+  });
+  persona.remember({
+    agentId: AGENTS.LIN_FILTER,
+    userId: USERS.LIN,
+    content: '临时：今天 15:00 前回复周先生 BP 接收确认',
+    stage: MEMORY_STAGE.WORKING,
+    tags: ['todo'],
+    salience: 0.9
+  });
+  persona.remember({
+    agentId: AGENTS.LIN_PROCUREMENT,
+    userId: USERS.LIN,
+    content: '长期偏好：办公家具优先选含安装 + 3 年以上保修',
+    stage: MEMORY_STAGE.SEMANTIC,
+    tags: ['preference', 'procurement'],
+    salience: 0.8
+  });
+
+  // ⑪ v3：多 Agent 结构化审计（借鉴 imcodes 的 discuss/audit/review）
+  const discussions = new DiscussionEngine({ clock, maxRounds: 3 });
+  const auditDiscussion = discussions.open({
+    mode: DISCUSSION_MODE.AUDIT,
+    topic: '采购 ¥2399 人体工学椅 · 执行审计',
+    ownerUserId: USERS.LIN,
+    participants: [
+      { agentId: AGENTS.LIN_BUTLER, role: 'CHAIR' },
+      { agentId: AGENTS.LIN_PROCUREMENT, role: 'EXECUTOR' },
+      { agentId: AGENTS.LIN_FILTER, role: 'AUDITOR' }
+    ],
+    agenda: ['比价是否充分', '预算与审批是否越权', '供应商风险与改进项']
+  });
+  discussions.speak({
+    discussionId: auditDiscussion.id,
+    agentId: AGENTS.LIN_PROCUREMENT,
+    stance: STANCE.EVIDENCE,
+    content: '已比价 3 家：¥2399（含安装）/ ¥2199（不含安装）/ ¥2680（5 年保修），选择自营含安装渠道。',
+    evidence: ['quote-a', 'quote-b', 'quote-c']
+  });
+  discussions.speak({
+    discussionId: auditDiscussion.id,
+    agentId: AGENTS.LIN_FILTER,
+    stance: STANCE.QUESTION,
+    content: '金额超过该子 Agent 自动阈值 ¥500，是否已有林总审批单？'
+  });
+  discussions.speak({
+    discussionId: auditDiscussion.id,
+    agentId: AGENTS.LIN_BUTLER,
+    stance: STANCE.SUPPORT,
+    content: '审批单已由林总通过（TICKET_COMPLETED），执行合规。'
+  });
+  discussions.nextRound({ discussionId: auditDiscussion.id });
+  discussions.speak({
+    discussionId: auditDiscussion.id,
+    agentId: AGENTS.LIN_FILTER,
+    stance: STANCE.OPPOSE,
+    content: '但保修维度未纳入比价：¥2680 的 5 年保修可能更划算，建议下单价前就比较。'
+  });
+  discussions.speak({
+    discussionId: auditDiscussion.id,
+    agentId: AGENTS.LIN_PROCUREMENT,
+    stance: STANCE.SUPPORT,
+    content: '接受改进项：下单价前把保修与安装折算进比价维度。'
+  });
+  const auditConclusion = discussions.synthesize({
+    discussionId: auditDiscussion.id,
+    byAgentId: AGENTS.LIN_BUTLER,
+    conclusion: '本次采购合规、闭环；提出 1 条流程改进。',
+    findings: [
+      { id: 'F1', level: 'INFO', text: '比价 3 家，渠道自营' },
+      { id: 'F2', level: 'MINOR', text: '比价未纳入保修维度' }
+    ],
+    dissent: [{ byAgentId: AGENTS.LIN_FILTER, text: '保修维度应在下单价前纳入，而非事后补' }]
+  });
+  const auditMinutes = discussions.minutes(auditConclusion.id);
+  // 纪要只把 hash 与"证据面"写进签名链：长内容进业务库，链上锚定可举证
+  signedAudit.append({
+    source: 'discussion-engine',
+    action: 'SYNTHESIZE',
+    actor: AGENTS.LIN_BUTLER,
+    target: auditDiscussion.id,
+    decision: auditMinutes.state,
+    detail: {
+      mode: auditMinutes.mode,
+      minutesHash: sha256Hex(JSON.stringify(auditMinutes)),
+      findings: auditMinutes.findings.length,
+      dissentCount: auditMinutes.dissent.length,
+      rounds: auditMinutes.rounds.length
+    }
+  });
+
   const layer = {
     operator,
     identities,
@@ -194,6 +307,60 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     tokens,
     pushLog,
     inboxes,
+    persona,
+    discussions,
+    auditDiscussionId: auditDiscussion.id,
+
+    /** v3：人格 + 记忆生命周期视图（SOUL 与记忆分离；晋升按时间+访问次数，不由模型自称） */
+    personaView() {
+      const stages = {};
+      for (const agentId of [AGENTS.LIN_BUTLER, AGENTS.LIN_FILTER, AGENTS.LIN_PROCUREMENT]) {
+        const stat = persona.stats({ agentId, userId: USERS.LIN });
+        stages[agentId] = { byStage: stat.byStage ?? stat.stages ?? {}, total: stat.total ?? null, accesses: stat.accesses ?? 0 };
+      }
+      return {
+        soul: persona.soul({ agentId: AGENTS.LIN_BUTLER, userId: USERS.LIN }),
+        stages,
+        promotionCandidates: persona.promoteEligible({ agentId: AGENTS.LIN_FILTER, userId: USERS.LIN }),
+        portableSummary: (() => {
+          const bundle = persona.exportPortable({ agentId: AGENTS.LIN_BUTLER, userId: USERS.LIN });
+          const sig = bundle.signature ?? null;
+          return {
+            version: bundle.version,
+            memories: bundle.memories.length,
+            tombstones: (bundle.tombstones ?? []).length,
+            signed: Boolean(sig && typeof sig.signature === 'string'),
+            alg: sig?.alg ?? null
+          };
+        })(),
+        history: persona.history({}).slice(-8)
+      };
+    },
+
+    /** v3：多 Agent 结构化讨论视图（discuss / audit / review；异议原样保留） */
+    discussionView() {
+      return {
+        items: discussions.list({}).map((discussion) => {
+          const minutes = discussions.minutes(discussion.id);
+          const speeches = minutes.rounds.reduce((total, round) => total + round.speeches.length, 0);
+          return {
+            id: discussion.id,
+            mode: discussion.mode,
+            state: discussion.state,
+            topic: discussion.topic,
+            participants: discussion.participants,
+            rounds: minutes.rounds.length,
+            speeches,
+            conclusion: minutes.conclusion,
+            findings: minutes.findings,
+            dissent: minutes.dissent,
+            openings: minutes.openedAt ?? null,
+            concludedAt: minutes.concludedAt ?? null
+          };
+        }),
+        auditId: auditDiscussion.id
+      };
+    },
 
     /** 身份指纹：公钥哈希前 16 位，UI 上用来显示"这不是嘴说的身份" */
     fingerprintOf(agentId) {

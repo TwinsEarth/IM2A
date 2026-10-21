@@ -341,11 +341,11 @@ telemetry:
 
 | 形态 | 拿到 token 的方式 | 谁不能做 | 失败码 |
 |---|---|---|---|
-| 内置 | 注册流程内部签发（`issueToken`，TTL 15 min） | — | `NOT_CONFIGURED` / `UNAVAILABLE` |
-| 第三方 | 用户在其侧确认授权后，平台签发并安全回跳（⚠ **下发通道未冻结，见 docs/03 §12.7 A1**） | **Agent 不得自签 token** | `UNAUTHENTICATED` / `PRINCIPAL_MISMATCH` |
-| A2A | 网关按对端白名单注入 | 外部不得直接持有内部 token | `UNAUTHENTICATED` / `EGRESS_BLOCKED` |
+| 内置 | 注册中心以**服务身份（mTLS/内部调用）**调 `issueToken`（TTL 15 min，A1 已裁定） | Agent 进程不得自行签发 | `NOT_CONFIGURED` / `UNAVAILABLE` |
+| 第三方 | 用户 **OAuth2 授权码式 consent** → 平台签发 → 安全回跳（A1 已裁定）；token 可随时 `revokeToken` | **Agent 不得自签 token** | `UNAUTHENTICATED` / `PRINCIPAL_MISMATCH` |
+| A2A | **不签发本平台 token**：边界网关颁发受限委托令牌（默认仅 `contact` 只读 + 提交来意，禁读 memory/schedule） | 外部不得直接持有内部 token | `UNAUTHENTICATED` / `EGRESS_BLOCKED` |
 
-统一铁律：**卡片证明"你是谁"，token 证明"你代表谁、能做什么"**。两者都要，缺一即 `UNAUTHENTICATED`；`token.agentId !== card.agentId` → `TOKEN_MISMATCH`。
+统一铁律：**卡片证明"你是谁"，token 证明"你代表谁、能做什么"**——即**身份 ≠ 准入**（A1）。两者都要，缺一即 `UNAUTHENTICATED`；`token.agentId !== card.agentId` → `TOKEN_MISMATCH`。`agentId` 可为平台可读名，自证性看 `derivedId`（R5）。
 
 ### 8.2 连接模型：长连接 vs 演示 SSE + POST 上行
 
@@ -401,6 +401,8 @@ SDK 不得在 transport 之上实现权限判断；`send` 抛错时由会话层�
 | `TEXT` / `AGENT_TURN` / `APPROVAL_CARD` / `INTENT` | 是 | 是（频道内单调） | 是 | 是（按 seq） | 是（协商频道对人类恒 0） |
 | `CMD` | **否**（`stored=false`） | 否（不持久化） | **否** | **否** | 否 |
 
+- **CMD 不持久化的边界**（A2 裁定）：CMD `stored=false`、无 seq、不补拉；若调用方**显式**要求 CMD 落盘/补拉，服务端返回 `CMD_NOT_PERSISTED`——这是**设计性拒绝**，禁止静默忽略（静默会让调用方误以为已落库，比报错更危险）。
+
 - **seq 语义**：`seq` 是**频道内**单调递增（不是全局），由服务端分配；客户端只读。缺口即补拉：`GET /channels/{id}/messages?sinceSeq=N`（HTTP 面，⚠ 需复核是否并入 OpenAPI）。
 - **重连流程**：`connect` → 认证（卡片+token）→ 恢复订阅集合 → 对每个频道上报 `lastSeq` → 服务端补拉 → **CMD 一律不补**（控制指令过期即失效，重放会造成重复执行）。
 - **幂等键**（两层，互不替代）：
@@ -408,7 +410,7 @@ SDK 不得在 transport 之上实现权限判断；`send` 抛错时由会话层�
 | 层 | 键 | 窗口 | 行为 |
 |---|---|---|---|
 | 业务消息 | `bizId`（v1，§6） | 24 h | 重复投递返回首次结果并标 `duplicate:true` |
-| 频道发言 | `(channelId, seq)` | 由保留策略决定 | 同一 `seq` 重复 `Post` 返回首次结果（⚠ §14 未显式冻结该幂等语义，见 docs/03 §12.7 A2） |
+| 频道发言 | `(channelId, seq)` | 由保留策略决定 | 同一 `seq` 重复 `Post` 返回首次结果（⚠ §14 未显式冻结该幂等语义；A2 只冻结了 `message`/`unreadDelta`） |
 | 网关动作 | `(agentId, action, traceId)` | 每次请求 | 由签名审计 `auditSeq` 反查，重复成功动作不重复执行（⚠ 需复核是否要求 `idempotencyKey` 字段） |
 
 - **token 过期**：`SCOPE_EXPIRED` / `TOKEN_REVOKED` 是**不可自动重试**的会话终止态；SDK 必须重新走 §12.3 握手，**不得**用旧 token 重放积压消息。
@@ -418,8 +420,8 @@ SDK 不得在 transport 之上实现权限判断；`send` 抛错时由会话层�
 
 | SDK 方法 | 对应契约 | 幂等 | 主要错误码 |
 |---|---|---|---|
-| `identity.create()` | §11 `createAgentIdentity` | — | `INVALID_KEY` |
-| `identity.card()` / `card.sign()` | §11 `createAgentCard` / `signAgentCard` | 是 | `BAD_CARD` |
+| `identity.create()` | §11 `createAgentIdentity`（返回 `agentId` + `derivedId`，R5） | — | `INVALID_KEY` |
+| `identity.card()` / `card.sign()` | §11 `createAgentCard` / `signAgentCard`（签名 base64，A4） | 是 | `BAD_CARD` |
 | `identity.verifyCard(card)` | §11 `verifyAgentCard` / `IdentityService.VerifyCard` | 是 | `HASH_MISMATCH` / `SIGNATURE_INVALID` / `CARD_EXPIRED` |
 | `session.connect({transport, subscriptions})` | §15 `connect` | 否 | `TRANSPORT_REQUIRED` / `ALREADY_ONLINE` |
 | `session.heartbeat()` / `subscribe()` / `unsubscribe()` | §15 | 是 | `NOT_ONLINE` / `UNKNOWN_AGENT` |
@@ -447,7 +449,7 @@ SDK 不得在 transport 之上实现权限判断；`send` 抛错时由会话层�
 |---|---|---|---|
 | 1 | `SsePostTransport` 断线/重连语义 | 无浏览器端到端环境 | 用 demo-server 做断网回归，核对补拉不重放 CMD |
 | 2 | QUIC/WebTransport 适配器 | 本机无运行时 | Phase2 评估；当前只用 WS 适配器 |
-| 3 | 第三方 Agent 的 token 下发通道 | 契约未冻结（docs/03 §12.7 A1） | Lead 裁定后补 SDK 方法 `auth.redeem()` |
+| 3 | 第三方 Agent 的 token 下发通道 | ✅ 已裁定 R5（A1）：内置 mTLS 服务身份 / 第三方 OAuth2 consent 回跳 | SDK 补 `auth.redeem()`（consent 回调换 token），并在 token 过期时重新授权而非重试 |
 | 4 | `(channelId, seq)` 幂等语义 | §14 未显式冻结 | 与实现方对齐后回填 §14 或标为约定 |
 | 5 | 多实例同一 Agent 在线（租约） | §15 只保证单进程语义 | 分布式场景需频道内 leader 选举，⚠ 需复核 |
 | 6 | `sinceSeq` 补拉接口是否进 OpenAPI | 当前 HTTP 面未覆盖 | 与网关实现一并补齐 |

@@ -249,6 +249,63 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 11. v3 交付完整性（人格记忆 / 讨论模式 / 工具审批 / 一条命令验证）─────────────────────────
+{
+  const v3Modules = [
+    ['services/orchestrator/src/persona-memory.mjs', 'services/orchestrator/test/persona-memory.test.mjs'],
+    ['services/orchestrator/src/discussion-engine.mjs', 'services/orchestrator/test/discussion-engine.test.mjs'],
+    ['services/orchestrator/src/tool-policy.mjs', 'services/orchestrator/test/tool-policy.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v3Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v3 模块与测试齐备（${v3Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  // v3 状态机：契约 + 实现两方一致（proto 尚未补，已在 docs/13 登记为待补）
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v3Machines = {
+    MEMORY_STAGE: ['WORKING', 'EPISODIC', 'SEMANTIC', 'ARCHIVED'],
+    DISCUSSION_MODE: ['DISCUSS', 'AUDIT', 'REVIEW'],
+    DISCUSSION_STATE: ['OPEN', 'IN_ROUND', 'SYNTHESIZING', 'CONCLUDED', 'ESCALATED', 'ABORTED'],
+    STANCE: ['SUPPORT', 'OPPOSE', 'QUESTION', 'EVIDENCE'],
+    POLICY_DECISION: ['AUTO', 'APPROVE', 'DENY']
+  };
+  for (const [machine, values] of Object.entries(v3Machines)) {
+    const inContract = values.every((v) => contract.includes(v));
+    const inSrc = values.every((v) => srcText.includes(`'${v}'`));
+    record(`v3 状态机 ${machine} 契约↔实现一致（${values.length} 态）`, inContract && inSrc, `contract=${inContract} impl=${inSrc}`);
+  }
+
+  const quickstart = path.join(ROOT, 'scripts/quickstart.mjs');
+  const pkg = JSON.parse(await read(path.join(ROOT, 'package.json')));
+  record(
+    '一条命令验证可用（scripts/quickstart.mjs + npm start）',
+    (await exists(quickstart)) && typeof pkg.scripts?.start === 'string',
+    '缺 quickstart 或 package.json start'
+  );
+
+  const doc13 = path.join(ROOT, 'docs/13-分层选型与落地映射.md');
+  if (await exists(doc13)) {
+    const t13 = await read(doc13);
+    const projects = ['MagicChat', 'MindRoom', 'nekoclaw', 'imcodes', 'Xiajiao', 'AICQ'];
+    const missingProjects = projects.filter((name) => !t13.includes(name));
+    record(`docs/13 覆盖分层选型 ${projects.length} 个项目`, missingProjects.length === 0, missingProjects.join(', '));
+  } else {
+    record('docs/13 分层选型文档存在', false, '缺文件');
+  }
+
+  const v3Sections = ['17', '18', '19'];
+  const missingSections = v3Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v3 §17–§19 三节', missingSections.length === 0, missingSections.join(', '));
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

@@ -179,6 +179,40 @@ test('网关是唯一入口：未知 Agent 无法发起协商；下线后不再�
   });
 });
 
+test('v3：审计讨论保留异议，人格与记忆分层且 SOUL 可携带', async () => {
+  await withServer(async (app) => {
+    // ── 多 Agent 结构化审计（imcodes 的 audit 模式）──
+    const discussions = await json(`${app.url}/api/v2/discussions`);
+    assert.equal(discussions.status, 200);
+    const audit = discussions.body.items[0];
+    assert.equal(audit.mode, 'AUDIT');
+    assert.equal(audit.state, 'CONCLUDED');
+    assert.ok(audit.rounds >= 2, '至少两轮');
+    assert.ok(audit.speeches >= 4, '多方发言');
+    assert.ok(audit.findings.length >= 1, 'AUDIT 必须有 findings');
+    assert.equal(audit.dissent.length, 1, '异议必须原样保留');
+    assert.match(audit.dissent[0].text, /保修/, '异议内容不得被"综合"掉');
+
+    // ── 人格与记忆生命周期（nekoclaw / MindRoom）──
+    const persona = await json(`${app.url}/api/v2/persona`);
+    assert.equal(persona.status, 200);
+    assert.ok(persona.body.soul.values.includes('家人优先于工作'), 'SOUL 是稳定人格基座');
+    assert.ok(persona.body.soul.boundaries.length >= 1, 'SOUL 有边界');
+    assert.ok(Object.keys(persona.body.stages).length >= 3, '记忆按 Agent 分层统计');
+    assert.equal(persona.body.portableSummary.version, 'agentim-persona/1');
+    assert.equal(persona.body.portableSummary.signed, true, '跨平台可携带包应签名');
+
+    // ── 纪要只把 hash 与证据面写进签名链 ──
+    const auditChain = await json(`${app.url}/api/v2/audit`);
+    const synth = auditChain.body.entries.find((entry) => entry.action === 'SYNTHESIZE');
+    assert.ok(synth, '讨论结论必须有签名审计条目');
+    assert.equal(synth.hasSignature, true);
+    assert.ok(synth.detail?.minutesHash, '链上只锚纪要 hash');
+    assert.equal(synth.detail?.dissentCount, 1, '异议计数进证据面');
+    assert.ok(!JSON.stringify(synth.detail ?? {}).includes('保修维度应在下单价前纳入'), '长内容不进哈希链');
+  });
+});
+
 test('/api/state 暴露 v2 摘要，/v2 页面可访问', async () => {
   await withServer(async (app) => {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);

@@ -570,6 +570,16 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  if (method === 'GET' && pathname === '/api/v2/discussions') {
+    sendJson(res, 200, holder.demo.v2.discussionView());
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/persona') {
+    sendJson(res, 200, holder.demo.v2.personaView());
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/v2/audit') {
     const v2 = holder.demo.v2;
     const verify = v2.signedAudit.verify();
@@ -587,7 +597,8 @@ async function route(req, res, holder, fleetOverride) {
         prevHash: entry.prevHash,
         signer: entry.signer ?? null,
         hasSignature: typeof entry.signature === 'string' && entry.signature.length > 0,
-        signatureHead: typeof entry.signature === 'string' ? entry.signature.slice(0, 24) : null
+        signatureHead: typeof entry.signature === 'string' ? entry.signature.slice(0, 24) : null,
+        detail: entry.detail ?? null
       }))
     });
     return;

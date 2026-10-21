@@ -1,5 +1,5 @@
 // 模块职责：Agent 编排层 barrel 汇总导出（demo-server/flow.mjs 与前端控制台逐字 import 这些命名导出）。
-// 契约来源：contracts/INTERFACES.md §1–§7。
+// 契约来源：contracts/INTERFACES.md §1–§7（v1）、§17–§19（v3：人格记忆 / 讨论模式 / 工具审批）。
 // 关键不变量：本文件不含任何业务逻辑，只做 re-export；契约签名与各模块实现一一对应，不在此层改写任何语义。
 //
 // 注意：GATE_CODE 中的 MONTHLY_CAP 为「预留码」——生产按月预算（Phase2 启用），
@@ -11,3 +11,9 @@ export * from './approval-engine.mjs';
 export * from './negotiation-engine.mjs';
 export * from './memory-store.mjs';
 export * from './egress-guard.mjs';
+// v3：人格与记忆生命周期（§17）
+export * from './persona-memory.mjs';
+// v3：多 Agent 结构化讨论（§18，discuss/audit/review）
+export * from './discussion-engine.mjs';
+// v3：细粒度工具审批（§19，Agent × Skill 策略）
+export * from './tool-policy.mjs';
