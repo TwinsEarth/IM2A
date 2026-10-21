@@ -37,7 +37,9 @@ function countsOf(data) {
     tickets: Array.isArray(data.tickets) ? data.tickets.length : 0,
     messages: Array.isArray(data.messages) ? data.messages.length : 0,
     ledger: Array.isArray(data.ledger) ? data.ledger.length : 0,
-    audit: Array.isArray(data.audit) ? data.audit.length : 0
+    audit: Array.isArray(data.audit) ? data.audit.length : 0,
+    accounts: Array.isArray(data.accounts?.accounts) ? data.accounts.accounts.length : 0,
+    orders: Array.isArray(data.payments?.orders) ? data.payments.orders.length : 0
   };
 }
 
@@ -60,9 +62,11 @@ export function migrateStateFile({ file, dryRun = false } = {}) {
   if (current === SCHEMA_VERSION) {
     return { status: 'CURRENT', file, schemaVersion: current, counts: countsOf(data) };
   }
-  if (current !== undefined) {
+  const isLegacy = current === undefined;
+  const isOlder = Number.isInteger(current) && current < SCHEMA_VERSION;
+  if (!isLegacy && !isOlder) {
     // 0 或未来版本都不猜测：显式拒绝，由人判断
-    throw new MigrationError(`不支持从 schema=${String(current)} 迁移到 ${SCHEMA_VERSION}（仅支持缺失 schemaVersion 的 v0.0.x 数据）`, 'UNSUPPORTED');
+    throw new MigrationError(`不支持从 schema=${String(current)} 迁移到 ${SCHEMA_VERSION}（仅支持缺失或更旧的整数 schema）`, 'UNSUPPORTED');
   }
 
   const before = countsOf(data);
@@ -78,7 +82,8 @@ export function migrateStateFile({ file, dryRun = false } = {}) {
   const backupSha256 = sha256(readFileSync(backupFile));
 
   // 2) 原子改写：schemaVersion 放最前，业务字段原样保留
-  const next = { schemaVersion: SCHEMA_VERSION, ...data };
+  // 顺序很重要：schemaVersion 必须在展开之后（否则旧值会覆盖新值，1→2 迁移会失败）
+  const next = { ...data, schemaVersion: SCHEMA_VERSION };
   const tmp = `${file}.tmp-${process.pid}`;
   writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf8');
   renameSync(tmp, file);

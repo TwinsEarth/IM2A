@@ -18,7 +18,7 @@ export const USER_NAMES = Object.freeze({ [USERS.LIN]: '林总', [USERS.ZHOU]: '
 const now = () => new Date().toISOString();
 
 /** 建一个可序列化的世界（jsonfile 存储直接落这个对象；memory 存储进程内保存） */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export function createWorld({ restored = null } = {}) {
   if (restored !== null && typeof restored === 'object') {
@@ -26,21 +26,44 @@ export function createWorld({ restored = null } = {}) {
     const schema = restored.schemaVersion;
     if (schema !== SCHEMA_VERSION) {
       throw new DomainError(
-        `数据 schema 不匹配：文件 ${schema === undefined ? '缺失' : schema}，当前需要 ${SCHEMA_VERSION}；请先执行迁移（见 docs/30）`,
+        `数据 schema 不匹配：文件 ${schema === undefined ? '缺失' : schema}，当前需要 ${SCHEMA_VERSION}；请先执行迁移：node scripts/migrate-state.mjs --file <state.json>`,
         'SCHEMA_MISMATCH'
       );
     }
     // 从 store 恢复：审计链用持久化的记录重建（链尾/序号延续），其余状态原样接续
     const audit = new AuditLog({ records: restored.audit ?? [] });
+    // v0.1.2：账本必须回放——否则钱包/对账读到空账本，余额"重启归零"
+    const persistedEntries = Array.isArray(restored.ledger) ? restored.ledger : [];
+    let replayIndex = 0;
+    const ledger = new Ledger({
+      clock: () => new Date(persistedEntries[Math.min(replayIndex, persistedEntries.length - 1)]?.at ?? Date.now())
+    });
+    for (const entry of persistedEntries) {
+      replayIndex += 1;
+      try {
+        ledger.post({
+          idempotencyKey: entry.idempotencyKey,
+          type: entry.type,
+          userId: entry.userId,
+          amountCents: entry.amountCents,
+          ref: entry.ref ?? null
+        });
+      } catch {
+        // 历史坏条目不能挡住启动：跳过并保留原始投影，但绝不静默改写已入账事实
+      }
+    }
     return {
-      ledger: new Ledger({}),
+      ledger,
       audit,
+      // 产品域（账户/订单）由上层服务自行导入；domain 只负责透传
+      extras: { accounts: restored.accounts ?? null, payments: restored.payments ?? null },
       state: {
         agents: restored.agents ?? [],
         trust: restored.trust ?? {},
         tickets: restored.tickets ?? [],
         messages: restored.messages ?? [],
-        ledger: restored.ledger ?? [],
+        // 展示用投影：以回放后的账本为准（回放失败时仍可用持久化投影）
+        ledger: ledger.entries({}).length > 0 ? ledger.entries({}) : (restored.ledger ?? []),
         audit: (restored.audit ?? []).map((record) => ({ ...record }))
       }
     };
@@ -123,10 +146,13 @@ export function recordAudit(world, entry) {
   return record;
 }
 
-/** 序列化：交给 store 持久化（含审计链与账本投影 + schema 版本） */
-export function serialize(world) {
+/** 序列化：交给 store 持久化（含审计链与账本投影 + schema 版本 + 产品域状态） */
+export function serialize(world, extras = {}) {
   return {
     schemaVersion: SCHEMA_VERSION,
+    // v0.1.2：产品域（账户/会话/支付订单）必须持久化，否则重启丢账号、丢订单
+    accounts: extras.accounts ?? null,
+    payments: extras.payments ?? null,
     agents: world.state.agents,
     trust: world.state.trust,
     tickets: world.state.tickets,

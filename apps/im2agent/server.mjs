@@ -215,10 +215,15 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
     payments: holder.payments
   });
 
+  // v0.1.2：恢复产品域状态（账户/会话/订单）——否则重启后账号与订单全丢
+  if (world.extras?.accounts) accounts.importState(world.extras.accounts);
+  if (world.extras?.payments) holder.payments.importState(world.extras.payments);
+
   const persist = () => {
     if (holder.store.kind === STORE_KIND.MEMORY) return;
-    holder.store.write(serialize(holder.world));
+    holder.store.write(serialize(holder.world, { accounts: accounts.exportState(), payments: holder.payments.exportState() }));
   };
+  holder.persist = persist;
 
   // 多端同步：SSE 推送（客户端也可用 1s 轮询兜底，见 client/README）
   holder.sseClients = new Set();
@@ -890,7 +895,7 @@ async function route(req, res, holder, persist) {
     const body = await readJson(req);
     try {
       // 备份前先把当前状态写入 store（memory 存储下 persist() 会跳过，但备份必须能读到快照）
-      holder.store.write(serialize(holder.world));
+      holder.store.write(serialize(holder.world, { accounts: holder.accounts.exportState(), payments: holder.payments.exportState() }));
       const created = holder.backup.create({ label: body.label ?? null });
       sendJson(res, 200, { ok: true, backup: created }, holder.rt);
     } catch (error) {
@@ -984,6 +989,7 @@ async function route(req, res, holder, persist) {
         orderId: body.orderId ?? null,
         description: body.description ?? null
       });
+      persist(); // v0.1.2：下单必须落盘，否则重启丢订单（订单是资金链起点）
       sendJson(res, 200, { ok: true, order }, holder.rt);
     } catch (error) {
       sendJson(res, 400, { error: error?.code ?? 'INTENT_FAILED', message: String(error?.message ?? error) }, holder.rt);

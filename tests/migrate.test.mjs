@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { migrateStateFile, MigrationError } from '../scripts/migrate-state.mjs';
+import { SCHEMA_VERSION } from '../apps/im2agent/domain.mjs';
 
 function withFile(content, fn) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'im2a-migrate-'));
@@ -36,11 +37,11 @@ test('迁移：缺 schemaVersion 的旧数据 → 加版本、数据条数不变
   withFile(legacyState, ({ dir, file }) => {
     const result = migrateStateFile({ file });
     assert.equal(result.status, 'MIGRATED');
-    assert.equal(result.schemaVersion, 1);
-    assert.deepEqual(result.counts, { agents: 1, tickets: 2, messages: 1, ledger: 1, audit: 2 });
+    assert.equal(result.schemaVersion, SCHEMA_VERSION);
+    assert.deepEqual(result.counts, { agents: 1, tickets: 2, messages: 1, ledger: 1, audit: 2, accounts: 0, orders: 0 });
 
     const migrated = JSON.parse(readFileSync(file, 'utf8'));
-    assert.equal(migrated.schemaVersion, 1, 'schemaVersion 写在文件里');
+    assert.equal(migrated.schemaVersion, SCHEMA_VERSION, 'schemaVersion 写在文件里');
     assert.deepEqual(migrated.tickets, legacyState.tickets, '业务字段原样保留');
     assert.deepEqual(migrated.trust, legacyState.trust);
 
@@ -48,7 +49,7 @@ test('迁移：缺 schemaVersion 的旧数据 → 加版本、数据条数不变
     const backup = JSON.parse(readFileSync(result.backup, 'utf8'));
     assert.equal(backup.schemaVersion, undefined, '备份保留迁移前原样');
     assert.equal(result.backupSha256.length, 64);
-    assert.ok(readdirSync(dir).some((name) => name.includes('.pre-1.bak')));
+    assert.ok(readdirSync(dir).some((name) => name.includes('.pre-' + SCHEMA_VERSION + '.bak')));
   });
 });
 
@@ -58,7 +59,7 @@ test('迁移幂等：已迁移文件再跑 → CURRENT，不重复备份/改写'
     assert.equal(first.status, 'MIGRATED');
     const second = migrateStateFile({ file });
     assert.equal(second.status, 'CURRENT');
-    assert.equal(second.schemaVersion, 1);
+    assert.equal(second.schemaVersion, SCHEMA_VERSION);
   });
 });
 
@@ -73,8 +74,20 @@ test('dry-run：只报告不写盘（文件与备份都不变）', () => {
   });
 });
 
+test('迁移：schema 1 → 当前版本（旧整数 schema 也支持升级）', () => {
+  withFile({ ...legacyState, schemaVersion: 1 }, ({ dir, file }) => {
+    const result = migrateStateFile({ file });
+    assert.equal(result.status, 'MIGRATED');
+    assert.equal(result.schemaVersion, SCHEMA_VERSION);
+    const migrated = JSON.parse(readFileSync(file, 'utf8'));
+    assert.equal(migrated.schemaVersion, SCHEMA_VERSION);
+    assert.deepEqual(migrated.tickets, legacyState.tickets, '升级不改业务字段');
+    assert.ok(readdirSync(dir).some((name) => name.includes('.pre-' + SCHEMA_VERSION + '.bak')), '升级必须留备份');
+  });
+});
+
 test('拒绝未来/未知 schema：不猜测降级，文件不动', () => {
-  withFile({ ...legacyState, schemaVersion: 2 }, ({ dir, file }) => {
+  withFile({ ...legacyState, schemaVersion: SCHEMA_VERSION + 1 }, ({ dir, file }) => {
     const before = readFileSync(file, 'utf8');
     assert.throws(() => migrateStateFile({ file }), (error) => error instanceof MigrationError && error.code === 'UNSUPPORTED');
     assert.equal(readFileSync(file, 'utf8'), before);

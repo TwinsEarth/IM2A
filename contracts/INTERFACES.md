@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R23 | 2026-10-21 | **v0.1.2 缺陷修复增补**：数据 schema 升到 2，持久化覆盖**产品域**（账户/手机号索引/会话、支付订单与 txn 防重放索引），并在恢复时**回放账本**（否则钱包/对账读空账本，余额重启归零）；明确 moderation/disputes 仍为内存态（列为已知缺口） | 加法（schema 1→2 可迁移） |
 | R22 | 2026-10-21 | **v0.1.1 缺陷修复增补**：§51 追加数据迁移工具约定（先备份→原子改写→加载核对→失败回滚；CURRENT 幂等、未来 schema UNSUPPORTED、启动时不自动迁移） | 加法（语义不变，补实现） |
 | R21 | 2026-10-21 | **v0.1.0 发布候选增补**：§51 版本契约与数据 schema（/api/version、schemaVersion 不匹配必须显式 SCHEMA_MISMATCH、CAPABILITIES 是声明不是证明、版本号与 tag 一致）、§52 一键发布检查（全量测试/verify/quickstart/deploy-lint/内置验收；任一失败即失败并归档失败现场）；禁止事项与验证命令顺延为 §53/§54 | 加法（v1–v0.0.9 语义全保留） |
 | R20 | 2026-10-21 | **v0.0.9 支付与对账增补**：§49 支付渠道抽象与回调验签（HMAC-SHA256 验原始 body、时间窗防重放、providerTxnId 幂等、金额强校验、未实现渠道不静默降级）、§50 日切对账（逐笔列出 missing/mismatched；只读；空日 ok）；禁止事项与验证命令顺延为 §51、§52 | 加法（v1–v0.0.8 语义全保留） |
@@ -1482,6 +1483,8 @@ export function buildInfo(env = process.env);       // -> { version, contractRev
 export const SCHEMA_VERSION = 1;
 ```
 **不变量**：①`GET /api/version` 公开可读且字段与 `buildInfo` 一致；②`/api/health` 同时返回 `version` 与 `schemaVersion`；③**数据 schema 不匹配必须显式失败**（`SCHEMA_MISMATCH`），迁移由人执行并留审计；④`CAPABILITIES` 是**声明**，不是证明——文档必须说明每项由哪些 Gate 验证；⑤版本号与 git tag 必须一致（发布检查脚本核对）。
+
+**持久化范围（v0.1.2 起）**：`schemaVersion=2` 持久化 **账户/手机号索引/会话 + 支付订单与 txn 索引 + 账本**（恢复时回放账本，保证钱包余额与对账一致）。**审核案与争议仍只在内存**（重启丢失），属已知缺口，不得对外声称「完整持久化」。
 
 **迁移工具（v0.1.1 补）**：`scripts/migrate-state.mjs` —— `--file <state.json>` / `--dry-run`。
 ①**先备份**（`<file>.pre-<schema>.bak`，返回 sha256）再改写；②改写用 tmp+rename 原子替换；③改写后必须用 §51 的 `createWorld` 实际加载一次并**核对数据条数**（agents/tickets/messages/audit/ledger），核对失败自动回滚备份；④已是当前 schema → `CURRENT` 幂等；未来 schema → `UNSUPPORTED`（不猜测降级）；⑤迁移是**显式人工动作**，服务启动时永不自动迁移。

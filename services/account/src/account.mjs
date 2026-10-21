@@ -183,6 +183,28 @@ export class AccountService {
 
   // ── 公开 API（契约 §36）────────────────────────────────────────────────────
 
+  /** v0.1.2：导出可持久化状态（账号/手机号索引/会话）。**OTP challenge 不导出**（短命且含明文验证码） */
+  exportState() {
+    return {
+      accounts: [...this.#accounts.values()].map((account) => ({ ...account })),
+      phoneIndex: [...this.#phoneIndex.entries()],
+      sessions: [...this.#sessions.values()].map((session) => ({ ...session }))
+    };
+  }
+
+  /** v0.1.2：从持久化状态恢复（只恢复账号/索引/会话；challenge 一律重建） */
+  importState(state = {}) {
+    if (state === null || typeof state !== 'object' || !Array.isArray(state.accounts)) {
+      throw new TypeError('importState 需要 { accounts: [] }');
+    }
+    this.#accounts = new Map(state.accounts.map((account) => [account.id, freezeAccount(account)]));
+    this.#phoneIndex = new Map(Array.isArray(state.phoneIndex) ? state.phoneIndex : []);
+    this.#sessions = new Map(
+      (Array.isArray(state.sessions) ? state.sessions : []).map((session) => [session.accessToken, Object.freeze({ ...session })])
+    );
+    return { accounts: this.#accounts.size, sessions: this.#sessions.size };
+  }
+
   /** 生成一次性验证码挑战；只有 devMode 才返回 devCode（生产绝不下发） */
   requestOtp({ phone } = {}) {
     const normalizedPhone = normalizePhone(phone);

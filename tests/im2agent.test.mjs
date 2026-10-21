@@ -720,6 +720,49 @@ test('⑲ v0.1.0 版本契约与数据 schema 闸门', async () => {
   });
 });
 
+test('⑳ v0.1.2 重启持久化：账户/会话/余额/订单不丢（账本回放）', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), 'im2a-restart-'));
+  const env = {
+    PROFILE: 'lan',
+    PORT: '0',
+    STORE: 'jsonfile',
+    STORE_FILE: path.join(dataDir, 'state.json'),
+    RATE_LIMIT_PER_MIN: '0',
+    ADMIN_TOKEN: 'restart-token-123',
+    VIEWER_TOKEN: 'restart-view-123'
+  };
+  try {
+    const first = await startServer({ env });
+    const base1 = first.urls[0];
+    const otp = await json(`${base1}/api/account/otp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '13800000041' }) });
+    const registered = await json(`${base1}/api/account/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '13800000041', code: otp.body.devCode }) });
+    const token = registered.body.session.accessToken;
+    const auth = { 'content-type': 'application/json', authorization: `Bearer ${token}` };
+    await json(`${base1}/api/account/verify`, { method: 'POST', headers: auth, body: JSON.stringify({ realName: '重启测试', idNumber: '110101199007077890' }) });
+    const topup = await json(`${base1}/api/wallet/topup`, { method: 'POST', headers: auth, body: JSON.stringify({ amountCents: 5000, idempotencyKey: 'restart-1' }) });
+    assert.equal(topup.body.balance.availableCents, 5000);
+    const intent = await json(`${base1}/api/pay/intent`, { method: 'POST', headers: auth, body: JSON.stringify({ amountCents: 2000, orderId: 'ord-restart' }) });
+    assert.equal(intent.body.order.state, 'INTENT');
+    await first.close();
+
+    // 重启：同一数据文件、新进程内实例
+    const second = await startServer({ env });
+    try {
+      const wallet = await json(`${second.urls[0]}/api/wallet`, { headers: { authorization: `Bearer ${token}` } });
+      assert.equal(wallet.status, 200, '重启后会话应仍有效（会话被持久化）');
+      assert.equal(wallet.body.balance.availableCents, 5000, '重启后余额不得归零（账本需回放）');
+      const orders = await json(`${second.urls[0]}/api/pay/orders`, { headers: { 'x-admin-token': 'restart-token-123' } });
+      assert.equal(orders.body.orders.length, 1, '支付订单应持久化');
+      assert.equal(orders.body.orders[0].orderId, 'ord-restart');
+    } finally {
+      await second.close();
+    }
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

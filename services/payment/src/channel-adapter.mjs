@@ -249,6 +249,25 @@ export class PaymentIntentService {
     return Object.freeze({ ok: true, order: this.#view(record), ledgerEntry: entry, duplicate });
   }
 
+  /** v0.1.2：导出可持久化状态（订单 + providerTxnId 防重放索引） */
+  exportState() {
+    return {
+      orders: this.#order.map((orderId) => ({ ...this.#orders.get(orderId) })),
+      txnToOrder: [...this.#txnToOrder.entries()]
+    };
+  }
+
+  /** v0.1.2：从持久化状态恢复（恢复后幂等索引仍生效，重放回调不会二次入账） */
+  importState(state = {}) {
+    if (state === null || typeof state !== 'object' || !Array.isArray(state.orders)) {
+      throw new TypeError('importState 需要 { orders: [] }');
+    }
+    this.#orders = new Map(state.orders.map((record) => [record.orderId, record]));
+    this.#order = state.orders.map((record) => record.orderId);
+    this.#txnToOrder = new Map(Array.isArray(state.txnToOrder) ? state.txnToOrder : []);
+    return { orders: this.#orders.size };
+  }
+
   get(orderId) {
     return this.#view(this.#require(orderId));
   }

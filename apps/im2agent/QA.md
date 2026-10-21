@@ -70,6 +70,10 @@
 | 64 | **版本可读** | `/api/version` 返回 `0.1.0 / R21 / schema 1`，`/api/health` 同源 | ✅ | 测试 ⑲ |
 | 65 | **schema 不匹配显式失败** | 旧/缺 schema 数据 → `SCHEMA_MISMATCH`，不静默迁移 | ✅ | 测试 ⑲ |
 | 66 | **发布检查可执行** | `node scripts/release-check.mjs` 五步全绿才允许打 tag；报告落盘 | ✅ | 实测 5/5 PASS |
+| 67 | **重启不丢会话/账户** | jsonfile 实例重启后同一 token 仍 200 | ✅ | 测试 ⑳ |
+| 68 | **重启不丢余额** | 账本回放后 `/api/wallet` 余额仍 5000 | ✅ | 测试 ⑳ |
+| 69 | **重启不丢订单** | `/api/pay/orders` 重启后仍 1 条且状态 INTENT | ✅ | 测试 ⑳ |
+| 70 | **schema 1→2 可迁移** | 旧文件迁移后加载成功、条数不变、有备份 | ✅ | migrate 6/6 |
 
 ## 本地一键回归
 

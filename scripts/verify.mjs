@@ -904,6 +904,22 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   record('v0.1.1 迁移工具与测试存在', (await exists(path.join(ROOT, 'scripts/migrate-state.mjs'))) && (await exists(path.join(ROOT, 'tests/migrate.test.mjs'))), '缺 migrate-state.mjs / 测试');
   record('契约含迁移工具约定（v0.1.1 补）', (await read(path.join(ROOT, 'contracts/INTERFACES.md'))).includes('迁移工具（v0.1.1 补）'), '缺迁移约定');
   record('release-check 实现了版本↔tag 检查', (await read(path.join(ROOT, 'scripts/release-check.mjs'))).includes("'tag', '--points-at', 'HEAD'"), '缺 tag 检查');
+  // v0.1.2 缺陷修复：产品域持久化 + 账本回放 + intent 落盘
+  const domainV012 = await read(path.join(ROOT, 'apps/im2agent/domain.mjs'));
+  record('domain 恢复时回放账本（v0.1.2）', domainV012.includes('回放') && domainV012.includes('persistedEntries'), '缺账本回放');
+  record('契约明确持久化范围（v0.1.2 起）', (await read(path.join(ROOT, 'contracts/INTERFACES.md'))).includes('持久化范围（v0.1.2 起）'), '缺持久化范围段落');
+  record('账户服务支持状态导出/导入', (await read(path.join(ROOT, 'services/account/src/account.mjs'))).includes('exportState()') && (await read(path.join(ROOT, 'services/account/src/account.mjs'))).includes('importState('), '缺 exportState/importState');
+  record('支付服务支持状态导出/导入', (await read(path.join(ROOT, 'services/payment/src/channel-adapter.mjs'))).includes('exportState()') && (await read(path.join(ROOT, 'services/payment/src/channel-adapter.mjs'))).includes('importState('), '缺 exportState/importState');
+  record('下单路径落盘（intent → persist）', (await read(path.join(ROOT, 'apps/im2agent/server.mjs'))).includes('persist(); // v0.1.2：下单必须落盘'), '下单未落盘');
+  const doc32 = path.join(ROOT, 'docs/32-v0.1.2-缺陷修复与0.1.x停止条件.md');
+  if (await exists(doc32)) {
+    const t32 = await read(doc32);
+    const required = ['持久化', '停止条件', '缺口'];
+    const missingKeywords = required.filter((word) => !t32.includes(word));
+    record('docs/32 覆盖持久化修复与 0.1.x 停止条件', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/32 v0.1.2 缺陷说明存在', false, '缺文件');
+  }
 
   const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
   record('契约含 v0.1.0 §51–§52', contract.includes('## 51. `apps/im2agent/version.mjs`') && contract.includes('## 52. `scripts/release-check.mjs`'), '缺 §51/§52');
@@ -912,12 +928,14 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   const versionSrc = await exists(path.join(ROOT, 'apps/im2agent/version.mjs')) ? await read(path.join(ROOT, 'apps/im2agent/version.mjs')) : '';
   const versionMatch = /VERSION = '([0-9][0-9.]*)'/.exec(versionSrc);
   const revisionMatch = /CONTRACT_REVISION = '(R[0-9]+)'/.exec(versionSrc);
+  const schemaMatch = /SCHEMA_VERSION = ([0-9]+)/.exec(versionSrc);
   const versionOk =
     versionMatch !== null &&
     /^0\.1\.[0-9]+$/.test(versionMatch[1]) &&
     revisionMatch !== null &&
-    versionSrc.includes('SCHEMA_VERSION = 1');
-  record(`版本三元组自洽（${versionMatch?.[1] ?? '?'} / ${revisionMatch?.[1] ?? '?'} / 1）`, versionOk, '版本三元组不符');
+    schemaMatch !== null &&
+    Number(schemaMatch[1]) >= 1;
+  record(`版本三元组自洽（${versionMatch?.[1] ?? '?'} / ${revisionMatch?.[1] ?? '?'} / ${schemaMatch?.[1] ?? '?'}）`, versionOk, '版本三元组不符');
   const domainSrc = await exists(path.join(ROOT, 'apps/im2agent/domain.mjs')) ? await read(path.join(ROOT, 'apps/im2agent/domain.mjs')) : '';
   record('数据 schema 校验落在 domain 层', domainSrc.includes('SCHEMA_MISMATCH') && domainSrc.includes('schemaVersion'), '缺 schema 校验');
   record('CAPABILITIES 是声明（文档需对应 Gate）', versionSrc.includes('CAPABILITIES') && contract.includes('声明'), '缺能力声明口径');
