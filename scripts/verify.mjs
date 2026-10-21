@@ -745,6 +745,43 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 22. v0.0.6 验收工具化交付完整性 ─────────────────────────
+{
+  const v006Modules = [
+    ['services/acceptance/src/preflight.mjs', 'services/acceptance/test/preflight.test.mjs'],
+    ['services/acceptance/src/runner.mjs', 'services/acceptance/test/runner.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v006Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v0.0.6 预检/执行器模块与测试齐备（${v006Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v006Codes = ['TARGET_UNREACHABLE', 'AUTH_FAILED', 'STORE_NOT_DURABLE', 'PROVIDER_NOT_CONFIGURED', 'MANUAL', 'SKIP'];
+  const missingCodes = v006Codes.filter((code) => !contract.includes(code) && !srcText.includes(code));
+  record(`v0.0.6 关键状态/错误码契约↔实现存在（${v006Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+
+  record('契约含 v0.0.6 §45–§46 两节', contract.includes('## 45. `services/acceptance/src/preflight.mjs`') && contract.includes('## 46. `services/acceptance/src/runner.mjs`'), '缺 §45/§46');
+  record('v0.0.6 明确不可自动化标 MANUAL', contract.includes('MANUAL'), '缺 MANUAL 表述');
+
+  const doc26 = path.join(ROOT, 'docs/26-v0.0.6-真实环境验收Runbook.md');
+  if (await exists(doc26)) {
+    const t26 = await read(doc26);
+    const required = ['预检', '验收', 'Gate', '人工'];
+    const missingKeywords = required.filter((word) => !t26.includes(word));
+    record('docs/26 覆盖预检/验收/人工 Gate', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/26 v0.0.6 验收 Runbook 存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

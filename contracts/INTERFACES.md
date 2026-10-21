@@ -1,4 +1,4 @@
-# 冻结接口契约 v1.0（FROZEN CONTRACT）
+﻿# 冻结接口契约 v1.0（FROZEN CONTRACT）
 
 > 本文件是**唯一**的模块级契约来源。所有实现必须与本文签名、错误码、状态机逐字一致。
 > 修改本文件需要 Lead 明确授权；实现方**不得**擅自改变签名或状态名。
@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R17 | 2026-10-21 | **v0.0.6 验收工具化增补**：§45 上线前预检（可达/鉴权/持久存储/真实依赖/时钟偏移；只读）、§46 验收执行器（本机 Gate → 真实目标可执行；不可自动化显式 MANUAL；异常记 FAIL 不中断；SKIP/MANUAL 不影响 ok）；原 §45→§47 禁止事项、§46→§48 验证命令 | 加法（v1–v0.0.5 语义全保留） |
 | R16 | 2026-10-21 | **v0.0.5 内测保障增补**：§43 外部依赖熔断与降级（OPEN 快速失败不调用主方 / 半开只探测一次 / 降级必须标记 usedFallback 与原因码 / 不静默返回空值）、§44 数据备份与恢复（sha256 校验后才 restore、restore 不自动应用、轮转不删最新、文件级备份边界写清）；原 §43→§45 禁止事项、§44→§46 验证命令 | 加法（v1–v0.0.4 语义全保留） |
 | R15 | 2026-10-21 | **v0.0.4 可观测性增补**：§41 运营指标与告警（付费漏斗/审核时效/机审失败率/退款率；告警规则为纯函数，默认五条阈值）、§42 全链审计追溯（按 messageId 串起审核→扣费→回复→退款；**缺环显式列出而非隐藏**）；原 §41→§43 禁止事项、§42→§44 验证命令 | 加法（v1–v0.0.3 语义全保留） |
 | R14 | 2026-10-21 | **v0.0.3 审核链增补**：§40 付费消息审核（机审 PASS/FLAG/BLOCK + 人审队列 + 申诉改判；机审不可用 fail-closed；只有 APPROVED/APPEAL_GRANTED 可投递与扣费；审核状态机与 §4 审批引擎分离）；原 §40→§41 禁止事项、§41→§42 验证命令 | 加法（v1–v0.0.2 语义全保留） |
@@ -1333,7 +1334,44 @@ export class BackupService {
 
 ---
 
-## 45. 禁止事项（对所有实现者）
+## 45. `services/acceptance/src/preflight.mjs`（v0.0.6 新增）
+
+**职责**：**上线前预检**。把"能不能开始验收"变成机器判定：目标可达、鉴权正确、存储持久、外部依赖不是 dev、目标时钟不漂、Node 版本达标。预检不过就不该跑验收——否则后面的 Gate 失败都是噪音。
+
+```js
+export const PREFLIGHT_CODE = Object.freeze({
+  TARGET_UNREACHABLE: 'TARGET_UNREACHABLE', AUTH_FAILED: 'AUTH_FAILED', NODE_TOO_OLD: 'NODE_TOO_OLD',
+  STORE_NOT_DURABLE: 'STORE_NOT_DURABLE', PROVIDER_NOT_CONFIGURED: 'PROVIDER_NOT_CONFIGURED',
+  CLOCK_SKEW: 'CLOCK_SKEW', TLS_INSECURE: 'TLS_INSECURE'
+});
+export class PreflightError extends Error {}
+export async function runPreflight({ target, token = null, fetchImpl = null, minNodeMajor = 22, expectDurable = true, requireRealProviders = false, clock = () => new Date() });
+// -> { ok, checks: [{ id, ok, severity, detail }], target, node, generatedAt }
+```
+**判定（冻结）**：①目标不可达/非 200 → `ok:false`；②健康检查放行但管理面鉴权必须真验：无 token → 401、错误 token → 401、正确 token → 200（任一不符 `AUTH_FAILED`）；③`STORE=memory` 而 `expectDurable` → `STORE_NOT_DURABLE`（内测验收不允许内存存储）；④`requireRealProviders` 时 `/api/sms` 的主通道仍是 `dev` → `PROVIDER_NOT_CONFIGURED`；⑤`Date` 响应头与本机时间差 >5 分钟 → `CLOCK_SKEW`；⑥预检**只读**，不写任何状态。
+
+---
+
+## 46. `services/acceptance/src/runner.mjs`（v0.0.6 新增）
+
+**职责**：**验收执行器**。把 docs/21–25 里"本机已验证"的 Gate 变成**对真实目标可执行**的检查，输出可归档的报告；不能自动化的显式标 `MANUAL`，不假装通过。
+
+```js
+export const GATE_STATUS = Object.freeze({ PASS: 'PASS', FAIL: 'FAIL', SKIP: 'SKIP', MANUAL: 'MANUAL' });
+export class AcceptanceRunner {
+  constructor({ target, token = null, viewerToken = null, fetchImpl = null, clock = () => new Date(), prefix = '' });
+  register({ id, name, tier, run });        // run(ctx) -> { ok, detail? } | throw
+  async run({ only = null, includeManual = false });
+  // -> { ok, target, startedAt, finishedAt, results: [{ id, name, tier, status, detail, ms }], summary: { pass, fail, skip, manual } }
+}
+export const DEFAULT_GATES;                  // 见下：健康/鉴权/角色/审计/存储/指标/备份/外部依赖
+```
+**默认 Gate（冻结语义）**：`G-HEALTH`（`/healthz`=OK）、`G-AUTH`（无 token 401、有 token 200）、`G-ROLE`（viewer 读 200、写 403；无 viewer token → `SKIP`）、`G-AUDIT`（审计链 ok）、`G-STORE`（非 memory）、`G-METRICS`（漏斗数值有限、无 NaN）、`G-BACKUP`（创建→列出→验签，失败 `FAIL`）、`G-PROVIDERS`（短信/机审非 dev；未配置 → `SKIP` 并说明）。
+**不变量**：①每个 Gate 超时/异常 → `FAIL` 并保留 `detail`，**不得中断整轮**；②`only` 过滤与结果顺序稳定；③`ok` 仅在**无 FAIL** 时为 true（SKIP/MANUAL 不影响）；④执行器**不在目标上创建业务数据**（备份 Gate 除外，且需在报告里标注副作用）；⑤报告必须含开始/结束时间与 target，可归档。
+
+---
+
+## 47. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1347,7 +1385,7 @@ export class BackupService {
 
 ---
 
-## 46. 验证命令
+## 48. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1386,6 +1424,10 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.6 验收工具化新增模块（§45–§46）
+node E:\GPT\agent-im\scripts\test.mjs --filter=preflight
+node E:\GPT\agent-im\scripts\test.mjs --filter=acceptance
 
 # v0.0.5 内测保障新增模块（§43–§44）
 node E:\GPT\agent-im\scripts\test.mjs --filter=provider-guard

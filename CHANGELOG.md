@@ -14,6 +14,21 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.6-acceptance — 2026-10-21
+
+**验收工具化**：把"本机全绿"变成"对真实目标可验收、可归档"。
+
+- **§45 上线前预检**（`services/acceptance/src/preflight.mjs`，8 项测试）：目标可达、**鉴权三态真验**（无 token 401 / 错 token 401 / 对 token 200）、Node 版本、存储非 memory、外部依赖非 dev、时钟偏移、TLS/WARN；**只读**（测试断言前后目标状态条数不变）
+- **§46 验收执行器**（`runner.mjs`，7 项测试）：8 个默认 Gate（HEALTH/AUTH/ROLE/AUDIT/STORE/METRICS/BACKUP/PROVIDERS）；单 Gate 异常/超时 → `FAIL` 且不中断；`SKIP/MANUAL` 不影响 ok；报告含 target/起止时间/每条耗时，可归档
+- **CLI**：`node scripts/accept.mjs --target <url> --token <ADMIN_TOKEN> [--viewer-token] [--require-real-providers] [--only] [--report-dir]`，输出 JSON+Markdown 报告
+- 文档：`docs/26-v0.0.6-真实环境验收Runbook.md`（33 条业务 Gate 的自动/人工账：**当前 2 自动 / 31 人工**；验收当日 T-1/T0/T+1 流程）
+- 契约：R17
+
+**实测**：对 `PROFILE=lan` 真实 HTTP 目标跑 CLI → 预检通过、`PASS 7 · FAIL 0 · SKIP 1`（G-PROVIDERS 因短信仍是 dev 被显式 SKIP），报告落盘。
+**过程中修掉**：CLI 在 fetch 仍持有 socket 时 `process.exit()` 触发 Windows libuv 断言崩溃 → 改为设置 `process.exitCode` 让事件循环自然收敛。
+
+验证：全量 **692/692**；verify **94/94**；preflight 8 · runner 7 · im2agent 16。
+
 ## v0.0.5-resilience — 2026-10-21
 
 **内测保障**：不加业务功能，只保证"挂了能降级、坏了能恢复、出事有话说"。

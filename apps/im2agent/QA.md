@@ -50,6 +50,10 @@
 | 44 | **机审故障 fail-closed** | 机审熔断 → `HUMAN_PENDING` 且 `machineUnavailable=true`，绝不自动放行 | ✅ | 测试 ⑰ |
 | 45 | **备份可验签** | 备份带 sha256；篡改任一字节 → `HASH_MISMATCH`；缺失 → `NOT_FOUND` | ✅ | backup 11 项 |
 | 46 | **恢复不自动应用** | `restore` 只返回数据，运行时状态不变（`applied:false`） | ✅ | 测试 ⑰ + backup 11 项 |
+| 47 | **预检鉴权三态** | 无 token→401、错 token→401、对 token→200（任一不符 `AUTH_FAILED`） | ✅ | preflight 8 项 |
+| 48 | **预检只读** | 预检前后目标 audit/ledger/tickets 条数不变 | ✅ | preflight 8 项 |
+| 49 | **验收可执行** | `scripts/accept.mjs` 对真实 HTTP 目标跑 8 Gate 并输出可归档报告 | ✅ | 本机 lan 实例：PASS 7 / SKIP 1 |
+| 50 | **不可自动化显式 MANUAL** | 33 条业务 Gate 中仅 2 条自动（D1/E4），其余标人工签，不口头通过 | ⚠ 需真实环境 | docs/26 §3 |
 
 ## 本地一键回归
 
