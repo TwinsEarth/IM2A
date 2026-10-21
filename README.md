@@ -189,6 +189,7 @@ agent-im/
 | 演示服务 + 审批态/巡视态控制台 | ✅ 本地可跑 |
 | 人机混合 IM 实时 Demo（`apps/im-live`） | ✅ 浏览器可用；8 项端到端测试；fleet 面板 simulated/live 双态 |
 | Agent 大模型燃料（DeepSeek-V4.1-Flash） | ✅ OpenAI 兼容接入 + 离线降级 + 出口护栏前置；7 项单测（注入 fetch，不依赖真网） |
+| Agent Runtime + W2M Skill 执行层 | ✅ DSH 风格 规划→权限→Skill→起草→护栏 闭环；10 项单测；fleet.devices/fleet.run 走真实 relay |
 | 技术文档集（00 总览 + 10 篇专题） | ✅ 约 3000 行 |
 | 契约文件（4 proto + OpenAPI 3.1 + 索引） | ✅ 人工自检；CI 待补 protoc/buf |
 | Flutter 客户端骨架 | ⚠ 未编译（本机无 Flutter SDK，README 已声明） |

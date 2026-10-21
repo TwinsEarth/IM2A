@@ -215,18 +215,18 @@ test('Agent 接入真实模型协议：注入 LLM stub 后回复来自 llm，状
     assert.equal(last.kind, 'agent');
     assert.match(last.text, /真实模型草稿/);
     assert.equal(last.engine.source, 'llm');
-    assert.equal(requests.length, 1, '一次人类消息触发一次模型调用');
+    assert.equal(requests.length, 2, '一次人类消息 = 一次规划 + 一次起草（均走同一模型端点）');
     assert.equal(requests[0].body.model, 'deepseek-v4.1-flash');
     assert.equal(requests[0].url.endsWith('/chat/completions'), true);
     assert.equal(sent.body.state.llm.mode, 'live');
-    assert.equal(sent.body.state.llm.calls, 1);
-    assert.equal(sent.body.state.llm.totalTokens, 42);
+    assert.equal(sent.body.state.llm.calls, 2);
+    assert.equal(sent.body.state.llm.totalTokens, 84);
 
     const status = await json(`${app.url}/api/llm`);
     assert.equal(status.status, 200);
     assert.equal(status.body.mode, 'live');
     assert.equal(status.body.model, 'deepseek-v4.1-flash');
-    assert.equal(status.body.calls, 1);
+    assert.equal(status.body.calls, 2);
   } finally {
     await app.close();
   }

@@ -35,7 +35,9 @@ import {
 } from '../demo-server/flow.mjs';
 import { TRUST_LEVELS } from '../../services/orchestrator/src/trust-zone.mjs';
 import { AuditLog } from '../../services/audit/src/audit-log.mjs';
-import { createLlm, draftAgentReply } from './llm.mjs';
+import { createLlm } from './llm.mjs';
+import { createSkillExecutor } from './skills.mjs';
+import { createAgentRuntime } from './agent-runtime.mjs';
 import { TICKET_STATE } from '../../services/orchestrator/src/approval-engine.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -51,12 +53,21 @@ const FLEET = Object.freeze({
 const PERSONA_ORDER = Object.freeze([USERS.LIN, USERS.ZHOU, USERS.MOM]);
 
 // ─────────────────────────── 聊天演示世界 ───────────────────────────
-function buildDemo(llm) {
+function buildDemo(llm, skills) {
   const world = createWorld();
   seedScenario(world);
   world.checks = probeChecks();
 
-  const demo = { world, seq: 0, threads: [], events: [], auditLog: new AuditLog({ clock: world.clock }), llm };
+  const demo = {
+    world,
+    seq: 0,
+    threads: [],
+    events: [],
+    auditLog: new AuditLog({ clock: world.clock }),
+    llm,
+    skills,
+    runtime: createAgentRuntime({ llm, guard: world.egress, registry: world.registry, trustMatrix: world.trustMatrix, skills, capabilityGate: world.gate })
+  };
   demo.threads = [
     {
       id: 'th-lin-mom',
@@ -221,8 +232,15 @@ async function dispatchProbe(machineId, argv) {
 }
 
 // ─────────────────────────── HTTP 服务 ───────────────────────────
-export function createApp({ fleet = null, llm = null } = {}) {
-  const holder = { demo: buildDemo(llm ?? createLlm()) };
+export function createApp({ fleet = null, llm = null, skills = null } = {}) {
+  const llmClient = llm ?? createLlm();
+  const skillExecutor = skills ?? createSkillExecutor({
+    relayUrl: FLEET.relayUrl,
+    operatorToken: FLEET.operatorToken,
+    deviceToken: FLEET.deviceToken,
+    dispatchProbe: (machineId, argv) => (fleet !== null && typeof fleet === 'function' ? fleet({ probe: true, machineId, argv }) : dispatchProbe(machineId, argv))
+  });
+  const holder = { demo: buildDemo(llmClient, skillExecutor) };
   const fleetOverride = fleet;
   const server = createServer(async (req, res) => {
     try {
@@ -234,8 +252,8 @@ export function createApp({ fleet = null, llm = null } = {}) {
   return { server, holder, getState: () => stateFor(holder.demo, USERS.LIN, 'th-lin-agent') };
 }
 
-export function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm = null } = {}) {
-  const app = createApp({ fleet, llm });
+export function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm = null, skills = null } = {}) {
+  const app = createApp({ fleet, llm, skills });
   return new Promise((resolve, reject) => {
     app.server.once('error', reject);
     app.server.listen(port, host, () => {
@@ -309,8 +327,13 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  if (method === 'GET' && pathname === '/api/runtime') {
+    sendJson(res, 200, { version: holder.demo.runtime ? 'im-live-agent-runtime/1' : null, stats: holder.demo.runtime?.stats() ?? null, catalog: holder.demo.runtime?.catalog() ?? [], skills: holder.demo.skills?.stats() ?? null });
+    return;
+  }
+
   if (method === 'POST' && pathname === '/api/reset') {
-    holder.demo = buildDemo(holder.demo.llm);
+    holder.demo = buildDemo(holder.demo.llm, holder.demo.skills);
     sendJson(res, 200, { ok: true, state: stateFor(holder.demo, USERS.LIN, 'th-lin-agent') });
     return;
   }
@@ -370,6 +393,7 @@ function stateFor(demo, user, requestedThread) {
     audit: snap.audit.slice(-20),
     auditChain: { ok: integrity.ok, length: integrity.length, head: integrity.head, trimmed: integrity.trimmed, recent: demo.auditLog.records({ limit: 12 }) },
     llm: demo.llm.stats(),
+    runtime: { version: 'im-live-agent-runtime/1', stats: demo.runtime.stats(), catalog: demo.runtime.catalog() },
     fleet: null, // 由 /api/fleet 单独提供，避免 poll 拖慢状态接口
     serverNow: new Date().toISOString()
   };
@@ -428,31 +452,27 @@ async function maybeAgentReply(demo, thread, userId, text) {
   const pending = demo.world.approvals.listPending(USERS.LIN).length;
   const peer = peerOf(thread, userId);
   const level = demo.world.trustMatrix.levelOf({ userId, targetId: peer });
-  const drafted = await draftAgentReply({
-    role,
+  const ran = await demo.runtime.runTurn({
+    agentId: role,
+    ownerUserId: userId,
+    peerUserId: peer,
     userText: text,
-    guard: demo.world.egress,
-    llm: demo.llm,
-    context: {
-      userId,
-      senderName: USER_PROFILES[userId]?.name ?? userId,
-      threadTitle: thread.title,
-      pendingCount: pending,
-      trustZone: String(level),
-      recentMessages: thread.messages.slice(-6).map((m) => ({ from: m.from, text: m.text }))
-    }
+    context: { userId, senderName: USER_PROFILES[userId]?.name ?? userId, threadTitle: thread.title, pendingCount: pending, trustZone: String(level), recentMessages: thread.messages.slice(-6).map((m) => ({ from: m.from, text: m.text })) }
   });
-  if (drafted.ok !== true) {
-    const note = makeMessage(demo, AGENTS.LIN_BUTLER, 'Agent 草稿被出口护栏拦截（内容不展示），已写入审计链。', 'agent');
-    thread.messages.push(note);
-    recordAudit(demo, { source: 'egress-guard', action: 'AGENT_DRAFT_BLOCKED', actor: role, target: thread.id, decision: 'BLOCK', detail: { matched: drafted.matched ?? null } });
-    return { ok: false, blocked: true };
+  for (const call of ran.toolCalls ?? []) {
+    recordAudit(demo, { source: 'skill', action: call.allowed ? 'SKILL_CALL' : 'SKILL_DENIED', actor: role, target: thread.id, decision: call.allowed ? 'ALLOW' : 'DENY', detail: { skillId: call.skillId, reason: call.reason ?? null } });
   }
-  const reply = makeMessage(demo, role, drafted.content, 'agent', null, {
-    engine: { source: drafted.source, model: drafted.model, latencyMs: drafted.latencyMs, tokens: drafted.usage?.totalTokens ?? 0, review: drafted.review === true }
+  if (ran.ok !== true) {
+    const note = makeMessage(demo, AGENTS.LIN_BUTLER, ran.blocked === true ? 'Agent 草稿被出口护栏拦截（内容不展示），已写入审计链。' : 'Agent 本轮未能生成回复（已记录原因）。', 'agent');
+    thread.messages.push(note);
+    recordAudit(demo, { source: 'egress-guard', action: ran.blocked === true ? 'AGENT_DRAFT_BLOCKED' : 'AGENT_FAILED', actor: role, target: thread.id, decision: ran.reason ?? null, detail: { matched: ran.matched ?? null } });
+    return { ok: false, blocked: ran.blocked === true, reason: ran.reason ?? null };
+  }
+  const reply = makeMessage(demo, role, ran.reply, 'agent', null, {
+    engine: { source: ran.engine.source, model: ran.engine.model, latencyMs: ran.engine.latencyMs, tokens: ran.engine.tokens, planner: ran.planner?.source ?? null, tools: (ran.toolCalls ?? []).map((c) => ({ skillId: c.skillId, allowed: c.allowed, reason: c.reason ?? null, result: c.result ?? null })) }
   });
   thread.messages.push(reply);
-  recordAudit(demo, { source: 'llm', action: 'AGENT_REPLY', actor: role, target: thread.id, detail: { engine: drafted.source, model: drafted.model, latencyMs: drafted.latencyMs, tokens: drafted.usage?.totalTokens ?? 0 } });
+  recordAudit(demo, { source: 'agent-runtime', action: 'AGENT_REPLY', actor: role, target: thread.id, detail: { engine: ran.engine.source, planner: ran.planner?.source ?? null, tools: (ran.toolCalls ?? []).map((c) => c.skillId) } });
   return { ok: true, messageId: reply.id, engine: reply.engine };
 }
 

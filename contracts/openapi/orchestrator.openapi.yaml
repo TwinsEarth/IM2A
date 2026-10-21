@@ -441,6 +441,19 @@ paths:
                 type: object
                 additionalProperties: true
 
+  /api/runtime:
+    get:
+      summary: Agent Runtime 状态（规划器统计 / Skill 目录 / W2M 执行层统计）
+      operationId: getAgentRuntime
+      responses:
+        "200":
+          description: Runtime 版本、轮次/工具调用/拒绝统计与 Skill 目录
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
 components:
   securitySchemes:
     bearerAuth:

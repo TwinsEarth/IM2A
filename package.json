@@ -18,7 +18,9 @@
     "demo:smoke": "node tests/e2e.test.mjs",
     "demo:im": "node apps/im-live/server.mjs",
     "test:im": "node scripts/test.mjs --filter=im-live",
-    "test:llm": "node scripts/test.mjs --filter=llm"
+    "test:llm": "node scripts/test.mjs --filter=llm",
+    "test:runtime": "node scripts/test.mjs --filter=runtime",
+    "test:skills": "node scripts/test.mjs --filter=runtime"
   },
   "dependencies": {},
   "devDependencies": {}

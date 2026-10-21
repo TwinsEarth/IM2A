@@ -112,7 +112,7 @@ function bootstrapActors(world) {
     ownerUserId: USERS.LIN,
     kind: AGENT_KIND.BUTLER,
     domain: 'butler',
-    allowedSkills: ['calendar.propose_slot', 'mail.read', 'im.reply', 'stranger.screen', 'procurement.purchase'],
+    allowedSkills: ['calendar.propose_slot', 'mail.read', 'im.reply', 'stranger.screen', 'procurement.purchase', 'fleet.devices', 'fleet.run'],
     destructiveSkills: ['procurement.purchase', 'bank.transfer'],
     trustZoneMin: TRUST_LEVELS.KNOWN, // 总管可对"已知"及以上档位行事
     budgetCentsPerDay: 20000, // 200 元/天
@@ -137,7 +137,7 @@ function bootstrapActors(world) {
     kind: AGENT_KIND.SUBAGENT,
     domain: 'procurement',
     parentId: AGENTS.LIN_BUTLER,
-    allowedSkills: ['procurement.purchase', 'supplier.compare'],
+    allowedSkills: ['procurement.purchase', 'supplier.compare', 'procurement.compare'],
     destructiveSkills: ['procurement.purchase'],
     trustZoneMin: TRUST_LEVELS.TRUSTED, // 采购只对信任档以内的人/商行事
     budgetCentsPerDay: 500000, // ¥5000/天：单笔 ¥2399 在额度内，但超过自动审批阈值 ¥500

@@ -181,7 +181,8 @@ function renderChat(snap) {
     const el = document.createElement('div');
     el.className = 'msg' + (mine ? ' me' : '') + (message.kind === 'agent' ? ' agent' : '');
     const who = mine ? '我' : (snap.personas.find((p) => p.userId === message.from)?.name ?? message.from);
-    const engineTag = message.engine ? (message.engine.source === 'llm' ? ` · LLM ${message.engine.latencyMs ?? 0}ms` : ' · 离线模板') : '';
+    const tools = Array.isArray(message.engine?.tools) ? message.engine.tools : [];
+    const engineTag = message.engine ? (message.engine.source === 'llm' ? ` · LLM ${message.engine.latencyMs ?? 0}ms` : ' · 离线模板') + (tools.length > 0 ? ` · ${tools.map((x) => x.skillId + (x.allowed ? (x.result?.ok ? '✓' : '✗') : '⛔')).join(', ')}` : '') : '';
     el.innerHTML = `<div class="who">${esc(who)}${message.kind === 'agent' ? ' · Agent' : ''}${esc(engineTag)}</div><div class="body">${esc(message.text)}</div><div class="at">${esc(message.at)}</div>`;
     box.appendChild(el);
   }
@@ -219,6 +220,12 @@ function renderSide() {
     </div></div>
     <div class="card"><div class="hd"><span>治理自检</span><span class="pill on">${snap.checks.passed}/${snap.checks.total}</span></div><div class="bd checks">
       ${snap.checks.list.map((c) => `<div class="${c.ok ? 'ok' : ''}">${c.ok ? '✓' : '✗'} ${esc(c.name)}</div>`).join('')}
+    </div></div>
+    <div class="card"><div class="hd"><span>Agent Runtime · DSH 风格</span><span class="pill">规划→门控→Skill</span></div><div class="bd">
+      <div class="row"><span>轮次 / Skill 调用 / 拒绝</span><span class="mono">${snap.runtime?.stats?.turns ?? 0} / ${snap.runtime?.stats?.toolCalls ?? 0} / ${snap.runtime?.stats?.denied ?? 0}</span></div>
+      <div class="row"><span>规划器</span><span class="mono">LLM ${snap.runtime?.stats?.llmPlans ?? 0} · 规则 ${snap.runtime?.stats?.offlinePlans ?? 0}</span></div>
+      <div class="row"><span>Skill 目录</span><span class="mono">${(snap.runtime?.catalog ?? []).map((s) => s.id).join(' · ')}</span></div>
+      <div class="mono" style="margin-top:6px">W2M 工具经权限门控后由 Skill 层执行；模型只能建议 tool 名，不能改白名单</div>
     </div></div>
     <div class="card"><div class="hd"><span>LLM 引擎 · DeepSeek-V4.1-Flash</span><span class="pill ${snap.llm?.mode === 'live' ? 'live' : ''}">${esc(snap.llm?.mode ?? '…')}</span></div><div class="bd">
       <div class="row"><span>model</span><span class="mono">${esc(snap.llm?.model ?? '—')}</span></div>
