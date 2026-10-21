@@ -1,0 +1,168 @@
+// ============================================================================
+// 模块职责：Agent <-> Agent 内部结构化协商（Phase0 起）。8 态任务状态机、
+//           带轮次/Token 预算的 NegotiationTurn、会话与 Agreement Artifact。
+// 契约来源：contracts/INTERFACES.md §5 negotiation-engine.mjs（冻结）。
+// 验证状态：⚠ 未编译验证（本机无 protoc/buf）。CI 必须补 buf lint / buf breaking。
+// 关键不变量：
+//   1. 协商中间态绝不产生人类可见通知；只有终止时才产出 Artifact。
+//   2. 轮次/Token 双硬上限（maxRounds=5 / maxTokens=4000），超限转
+//      INPUT_REQUIRED 上抛人类，不抛异常、不静默丢弃。
+//   3. 每一轮发出前必须过 egress-guard（见 docs/03 §10.5）。
+// 编译前提：protoc -I contracts/proto -I <well-known-types 目录>。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.negotiation.v1;
+
+import "google/protobuf/struct.proto";
+import "common.proto";
+
+// 8 态任务状态机。与 INTERFACES.md §5 TASK_STATE 逐字一致：
+// SUBMITTED / WORKING / INPUT_REQUIRED / AUTH_REQUIRED /
+// COMPLETED / FAILED / CANCELED / REJECTED。
+// 首值 SUBMITTED=0 即"会话刚打开"的自然默认值，因此不使用 UNSPECIFIED 占位。
+enum TaskState {
+  SUBMITTED = 0;
+  WORKING = 1;
+  INPUT_REQUIRED = 2;
+  AUTH_REQUIRED = 3;
+  COMPLETED = 4;
+  FAILED = 5;
+  CANCELED = 6;
+  REJECTED = 7;
+}
+
+// 协商意图。与 INTERFACES.md §5 INTENT 逐字一致。
+enum Intent {
+  PROPOSE = 0;
+  COUNTER = 1;
+  ACCEPT = 2;
+  REJECT = 3;
+  REQUEST_INFO = 4;
+  REQUEST_AUTH = 5;
+}
+
+// 会话终止原因。字符串值与 INTERFACES.md 完全一致；UNSPECIFIED 对应 JS 的 null。
+enum TerminalReason {
+  TERMINAL_REASON_UNSPECIFIED = 0;
+  MAX_ROUNDS = 1;      // terminalReason = 'MAX_ROUNDS'
+  TOKEN_BUDGET = 2;    // terminalReason = 'TOKEN_BUDGET'
+}
+
+// 会话产出物类型。当前契约只定义 AGREEMENT。
+enum ArtifactType {
+  AGREEMENT = 0;
+}
+
+// 协商参与方。Agent 是执行主体，User 是授权主体（人机混合的落点）。
+message Party {
+  string agent_id = 1;  // agent-*
+  string user_id = 2;   // user-*
+}
+
+// 一次协商轮次。payload 为业务结构化内容（价格、时间、对象引用等），
+// 不含人类可见正文；正文只出现在 Artifact.summary。
+message NegotiationTurn {
+  string turn_id = 1;                                    // t-*
+  string session_id = 2;                                 // neg-*
+  string from_agent_id = 3;
+  Intent intent = 4;
+  uint32 round = 5;                                      // 0 表示首轮 PROPOSE
+  google.protobuf.Struct payload = 6;
+  uint32 tokens = 7;                                     // 本轮消耗，累加进会话预算
+  string at = 8;                                         // ISO-8601
+  agentim.contracts.common.v1.TraceContext trace = 9;
+}
+
+// 协商终止产出物。仅在 COMPLETED 时非空。
+message NegotiationArtifact {
+  ArtifactType type = 1;
+  string summary = 2;                                    // 人类可读摘要（经 egress-guard）
+  google.protobuf.Struct payload = 3;
+  string at = 4;
+}
+
+// 协商会话全量快照。turns 只追加，engine 内部以不可变对象返回。
+message NegotiationSession {
+  string id = 1;                                         // neg-*
+  string topic = 2;
+  TaskState state = 3;
+  uint32 round = 4;
+  uint32 tokens = 5;
+  Party initiator = 6;
+  Party responder = 7;
+  repeated NegotiationTurn turns = 8;
+  optional TerminalReason terminal_reason = 9;           // proto3 optional 提供存在性
+  NegotiationArtifact artifact = 10;
+  uint32 max_rounds = 11;                                // 默认 5
+  uint32 max_tokens = 12;                                // 默认 4000
+  uint32 max_seconds = 13;                               // 默认 300
+  string created_at = 14;
+  string updated_at = 15;
+  agentim.contracts.common.v1.TraceContext trace = 16;
+}
+
+// ---------------------------------------------------------------------------
+// RPC 请求 / 响应
+// ---------------------------------------------------------------------------
+
+message OpenNegotiationRequest {
+  string initiator_agent_id = 1;
+  string initiator_user_id = 2;
+  string responder_agent_id = 3;
+  string responder_user_id = 4;
+  string topic = 5;
+  google.protobuf.Struct payload = 6;
+  agentim.contracts.common.v1.TraceContext trace = 7;
+}
+
+message SubmitTurnRequest {
+  string session_id = 1;
+  string from_agent_id = 2;
+  Intent intent = 3;
+  google.protobuf.Struct payload = 4;
+  uint32 tokens = 5;
+  agentim.contracts.common.v1.TraceContext trace = 6;
+}
+
+message SubmitTurnResponse {
+  NegotiationSession session = 1;
+  NegotiationTurn turn = 2;
+}
+
+message GetNegotiationRequest {
+  string session_id = 1;
+}
+
+message ListNegotiationsRequest {
+  optional TaskState state = 1;                          // 空 => 全部
+  uint32 limit = 2;                                      // 默认 50
+}
+
+message ListNegotiationsResponse {
+  repeated NegotiationSession sessions = 1;
+}
+
+message GetArtifactRequest {
+  string session_id = 1;
+}
+
+message WatchNegotiationRequest {
+  string session_id = 1;
+  uint32 after_round = 2;                                // 从该轮之后开始推送
+}
+
+// ---------------------------------------------------------------------------
+// 服务定义。错误通过 gRPC status + `x-contract-error-bin`（ErrorDetail）返回：
+//   ILLEGAL_STATE / WRONG_AGENT / INTENT_INVALID / NOT_FOUND / EGRESS_BLOCKED
+// ---------------------------------------------------------------------------
+service NegotiationService {
+  rpc Open(OpenNegotiationRequest) returns (NegotiationSession);
+  rpc Turn(SubmitTurnRequest) returns (SubmitTurnResponse);
+  rpc Get(GetNegotiationRequest) returns (NegotiationSession);
+  rpc List(ListNegotiationsRequest) returns (ListNegotiationsResponse);
+  rpc GetArtifact(GetArtifactRequest) returns (NegotiationArtifact);
+  // 仅服务端内部观测（运维/回放）；不得直接映射为人类 IM 推送。
+  rpc Watch(WatchNegotiationRequest) returns (stream NegotiationSession);
+}

@@ -1,0 +1,22 @@
+{
+  "name": "agent-im-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI 人机混合熟人社交 IM 平台 —— 技术文档 + 可运行参考实现（零依赖 Node ESM）",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node scripts/test.mjs",
+    "test:orchestrator": "node scripts/test.mjs --filter=orchestrator",
+    "test:payment": "node scripts/test.mjs --filter=payment",
+    "test:messaging": "node scripts/test.mjs --filter=messaging",
+    "test:e2e": "node scripts/test.mjs --filter=tests",
+    "verify": "node scripts/verify.mjs",
+    "demo": "node apps/demo-server/server.mjs",
+    "demo:smoke": "node tests/e2e.test.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

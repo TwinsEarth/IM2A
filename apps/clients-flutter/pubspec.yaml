@@ -1,0 +1,21 @@
+name: agent_im_client
+description: 人机混合 IM 客户端最小骨架（审批态 / 巡视态），契约见 contracts/INTERFACES.md v1.0。
+publish_to: "none"
+# ⚠ 版本号需复核：本机无 Flutter/Dart 环境，未执行 flutter pub get，以下约束均未实际解析验证。
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"          # ⚠ 需复核：以团队统一 Flutter 稳定版为准
+  flutter: ">=3.19.0"            # ⚠ 需复核
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0                   # ⚠ 需复核：仅用于 GET /api/state 与 POST 动作
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,1072 @@
+# ============================================================================
+# 模块职责：编排层 REST 契约（陌生人付费消息 / 审批决策 / 状态快照 / 健康检查）
+# 契约权威：contracts/INTERFACES.md v1.0（冻结）；本文件是其 HTTP 投影。
+# 验证状态：⚠ 未编译验证 —— 本机无 OpenAPI validator。CI 必须执行
+#           OpenAPI 3.1 校验（如 redocly lint / spectral）并与 demo-server 路由逐条对照。
+# 对齐状态（2026-10-21 快照 R2：9 条路径全部已在 demo-server 实现）：
+#   - GET  /api/health、GET /api/state、POST /api/approvals/{id}/decide、POST /api/reset
+#   - POST /api/intent、/api/intent/{id}/screen|pay|view|reply（低层协议面，用于脚本/手工演示）
+#     演示服务对 senderUserId / receiverUserId / senderAgentId / payerUserId / viewerUserId
+#     提供默认值（周先生 → 林总），生产必须由鉴权上下文推导，不接受客户端传入。
+#   - 错误体采用 demo-server 现形：{ error: <code>, message }（扁平），error 取值来自下方 ErrorCode。
+#     动作非法 → INVALID_ARGUMENT(400)，兜底异常 → INTERNAL(500)。
+# ============================================================================
+
+openapi: 3.1.0
+
+info:
+  title: Agent IM Orchestrator API
+  version: 1.0.0
+  summary: 人机混合熟人社交 IM —— 编排层 REST 面（陌生人付费消息 + 审批工作流）
+  description: |
+    本契约是 contracts/INTERFACES.md v1.0 的 HTTP 投影，权威语义以 INTERFACES.md 为准：
+    - 金额一律整数分（字段以 Cents 结尾），时间戳一律 ISO-8601（字段以 At 结尾）；
+    - 状态名逐字使用 INTERFACES.md 的枚举字符串；
+    - 陌生人付费消息流程为：submitIntent -> screen -> pay -> view -> reply -> settle；
+      未 screen 不得 pay（NEEDS_SCREENING），BLOCK 后不可 pay（NOT_PAYABLE）。
+    本文件未经 OpenAPI validator 校验（⚠ 需复核），CI 必须补齐。
+  contact:
+    name: Agent IM Platform
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://127.0.0.1:{port}
+    description: 本地 demo-server（PORT 环境变量或 CLI 参数，默认 8787）
+    variables:
+      port:
+        default: "8787"
+        description: 默认端口来自 apps/demo-server/server.mjs
+
+tags:
+  - name: system
+    description: 健康检查与演示重置
+  - name: intent
+    description: 陌生人付费消息（INTENT -> AWAITING_PAYMENT -> PAID -> VIEWED -> REPLIED -> SETTLED）
+  - name: approvals
+    description: 审批工作流（人工决策）
+  - name: state
+    description: 全量状态快照（控制台轮询）
+
+x-contract-source: contracts/INTERFACES.md#v1.0
+x-verification-status: NOT_COMPILED
+x-verification-required:
+  - openapi 3.1 validator（CI）
+  - 与 apps/demo-server/server.mjs 路由逐条对照（CI）
+  - 错误码与 INTERFACES.md 错误类逐项对照（人工 + CI）
+
+paths:
+  /api/health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: 健康检查
+      description: 返回进程存活、待审批数量与治理自检通过数。demo-server 已实现。
+      responses:
+        "200":
+          description: 服务健康
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/state:
+    get:
+      tags: [state]
+      operationId: getState
+      summary: 全量状态快照
+      description: |
+        控制台轮询用。返回审批单、付费消息、协商会话、Agent、信任、账本、邮箱、
+        出口拦截、trace、自检与审计的聚合快照。demo-server 已实现。
+        x-verification-note: 生产 API 应拆为分页资源；快照仅用于演示与运维。
+      responses:
+        "200":
+          description: 当前世界快照
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StateSnapshot"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/intent:
+    post:
+      tags: [intent]
+      operationId: submitIntent
+      x-contract-method: contracts/INTERFACES.md#9 PaidMessageService.submitIntent
+      x-implementation-status: IMPLEMENTED
+      summary: 提交陌生人来意（此时一分钱未扣）
+      description: |
+        对应 `PaidMessageService.submitIntent`。创建消息并进入 INTENT 状态；
+        必须先过目标用户 Agent 预审（/screen PASS）才能进入 AWAITING_PAYMENT。
+        幂等：同一 idempotencyKey 重复提交应返回首次结果（409 或 200 + duplicate=true，
+        以实现为准，⚠ 需复核）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitIntentRequest"
+            example:
+              senderUserId: user-zhou
+              senderAgentId: agent-zhou-butler
+              receiverUserId: user-lin
+              topic: A 轮融资沟通（20 分钟）
+              summary: 周先生希望就 A 轮融资沟通 20 分钟，双方 Agent 已达成时间与材料一致。
+              billingMode: VIEW_REPLY_PAY
+              amountCents: 5000
+              idempotencyKey: intent:zhou-bp-2026-001
+      responses:
+        "201":
+          description: 已创建（state=INTENT）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    $ref: "#/components/schemas/PaidMessageView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/intent/{id}/screen:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+    post:
+      tags: [intent]
+      operationId: screenIntent
+      x-contract-method: contracts/INTERFACES.md#9 PaidMessageService.screen
+      x-implementation-status: IMPLEMENTED
+      summary: 目标侧 Agent 预审结论（PASS / BLOCK）
+      description: |
+        对应 `screen({ messageId, verdict })`。PASS -> AWAITING_PAYMENT，BLOCK -> REFUSED。
+        预审必须在付费之前完成；未预审直接 pay 返回 NEEDS_SCREENING。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScreenRequest"
+      responses:
+        "200":
+          description: 预审已记录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    $ref: "#/components/schemas/PaidMessageView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/intent/{id}/pay:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+    post:
+      tags: [intent]
+      operationId: payIntent
+      x-contract-method: contracts/INTERFACES.md#9 PaidMessageService.pay
+      x-implementation-status: IMPLEMENTED
+      summary: 支付（两档计费，幂等键 pay:<messageId>）
+      description: |
+        对应 `pay({ messageId, payerUserId })`。同一 messageId 重复调用返回 charged=false，
+        不得二次扣费（账本幂等键 pay:<messageId>）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayRequest"
+      responses:
+        "200":
+          description: 支付结果（重复支付时 charged=false）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/intent/{id}/view:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+    post:
+      tags: [intent]
+      operationId: viewIntent
+      x-contract-method: contracts/INTERFACES.md#9 PaidMessageService.view
+      x-implementation-status: IMPLEMENTED
+      summary: 接收方查看（PAID -> VIEWED）
+      description: 对应 `view({ messageId, viewerUserId })`；VIEW_REPLY_PAY 模式在此动作触发计费语义的可见性。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewRequest"
+      responses:
+        "200":
+          description: 已查看
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    $ref: "#/components/schemas/PaidMessageView"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/intent/{id}/reply:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+    post:
+      tags: [intent]
+      operationId: replyIntent
+      x-contract-method: contracts/INTERFACES.md#9 PaidMessageService.reply
+      x-implementation-status: IMPLEMENTED
+      summary: 接收方回复（VIEWED -> REPLIED）
+      description: 对应 `reply({ messageId, replyText })`；replyText 允许为空（仅表意"已回复"）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplyRequest"
+      responses:
+        "200":
+          description: 已回复
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    $ref: "#/components/schemas/PaidMessageView"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/approvals/{id}/decide:
+    parameters:
+      - $ref: "#/components/parameters/ApprovalId"
+    post:
+      tags: [approvals]
+      operationId: decideApproval
+      x-contract-method: contracts/INTERFACES.md#4 ApprovalEngine.decide
+      x-implementation-status: IMPLEMENTED
+      summary: 人对审批单做决策（APPROVE / MODIFY / REJECT）
+      description: |
+        对应 `decide({ ticketId, actorUserId, action, patch, comment })`。
+        - demo-server 当前从审批单票主推导 actorUserId；生产必须显式传 actorUserId，非票主返回 FORBIDDEN。
+        - 终态或非法迁移返回 ILLEGAL_TRANSITION（HTTP 409）；不存在返回 NOT_FOUND（404）；
+        - 过期返回 EXPIRED_TICKET（HTTP 410）；
+        - demo-server 的 action 校验错误码为 `INVALID_ARGUMENT`（已与 ErrorCode 统一）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideRequest"
+            example:
+              actorUserId: user-lin
+              action: APPROVE
+              comment: 通过，约周五 16:00
+      responses:
+        "200":
+          description: 决策已生效（APPROVE/MODIFY 会推进执行：扣费、查看、回复、结算）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecideResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "410":
+          $ref: "#/components/responses/Gone"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/reset:
+    post:
+      tags: [system]
+      operationId: resetDemoWorld
+      x-demo-only: true
+      x-implementation-status: IMPLEMENTED
+      summary: 重置演示世界（仅 demo-server）
+      description: 回到种子场景。生产环境不存在此路由，网关必须屏蔽。
+      responses:
+        "200":
+          description: 已重置
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, state]
+                properties:
+                  ok:
+                    type: boolean
+                  state:
+                    $ref: "#/components/schemas/StateSnapshot"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        生产环境必须启用（审批决策与付费操作）。demo-server 为本地演示，未实现鉴权。
+        ⚠ 需复核：正式方案见 docs/03-协议设计.md §10.2 任务级授权令牌。
+
+  parameters:
+    MessageId:
+      name: id
+      in: path
+      required: true
+      description: 付费消息 ID（msg-*）
+      schema:
+        type: string
+        pattern: "^msg-[A-Za-z0-9._-]+$"
+    ApprovalId:
+      name: id
+      in: path
+      required: true
+      description: 审批单 ID（tkt-*）
+      schema:
+        type: string
+        pattern: "^tkt-[A-Za-z0-9._-]+$"
+
+  responses:
+    BadRequest:
+      description: 参数不合法（INVALID_ARGUMENT / INVALID_AMOUNT / INVALID_TYPE / MISSING_FIELD / BAD_BIZ_TYPE / SELF_MESSAGE）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: 权限不足（FORBIDDEN / TRUST_TOO_LOW / SKILL_NOT_ALLOWED / PERMISSION_DENIED / PAYER_MISMATCH）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: 资源不存在（NOT_FOUND / AGENT_UNKNOWN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: 状态冲突（ILLEGAL_STATE / ILLEGAL_TRANSITION / NOT_PAYABLE / NEEDS_SCREENING / AGENT_EXISTS）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Gone:
+      description: 已过期（EXPIRED_TICKET / EXPIRED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unprocessable:
+      description: 内容未通过护栏（EGRESS_BLOCKED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: 限额（DAILY_CAP_EXCEEDED / BUDGET_EXCEEDED / MONTHLY_CAP / RATE_LIMITED）
+      headers:
+        Retry-After:
+          description: 建议重试秒数
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: 内部错误（INTERNAL）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: 熔断/依赖不可用（UNAVAILABLE / DEADLINE_EXCEEDED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # ── 枚举（与 INTERFACES.md 逐字一致） ───────────────────────────────────
+    ErrorCode:
+      type: string
+      description: 跨协议统一错误码；与 contracts/proto/common.proto 的 ErrorCode 枚举一一对应。
+      enum:
+        - INVALID_LEVEL
+        - NOT_FOUND
+        - AGENT_EXISTS
+        - AGENT_UNKNOWN
+        - OWNER_REQUIRED
+        - PARENT_REQUIRED
+        - SKILL_NOT_ALLOWED
+        - TRUST_TOO_LOW
+        - BUDGET_EXCEEDED
+        - MONTHLY_CAP
+        - AMOUNT_THRESHOLD
+        - DESTRUCTIVE_ACTION
+        - ILLEGAL_TRANSITION
+        - FORBIDDEN
+        - EXPIRED_TICKET
+        - ILLEGAL_STATE
+        - WRONG_AGENT
+        - INTENT_INVALID
+        - MEMORY_ISOLATED
+        - LAYER_INVALID
+        - EGRESS_BLOCKED
+        - INVALID_AMOUNT
+        - INVALID_TYPE
+        - KEY_REQUIRED
+        - DAILY_CAP_EXCEEDED
+        - NOT_PAYABLE
+        - NEEDS_SCREENING
+        - SELF_MESSAGE
+        - PAYER_MISMATCH
+        - BAD_BIZ_TYPE
+        - MISSING_FIELD
+        - UNAUTHENTICATED
+        - PERMISSION_DENIED
+        - RATE_LIMITED
+        - INTERNAL
+        - DEADLINE_EXCEEDED
+        - UNAVAILABLE
+        - INVALID_ARGUMENT
+
+    BillingMode:
+      type: string
+      description: 计费模式；数值语义见 INTERFACES.md §9 BILLING（SEND_PAY=1 / VIEW_REPLY_PAY=2）。
+      enum: [SEND_PAY, VIEW_REPLY_PAY]
+
+    MessageState:
+      type: string
+      description: 付费消息状态；与 INTERFACES.md §9 MSG_STATE 逐字一致。
+      enum:
+        - INTENT
+        - AWAITING_PAYMENT
+        - REFUSED
+        - PAID
+        - VIEWED
+        - REPLIED
+        - SETTLED
+        - REFUNDED
+        - EXPIRED
+
+    TicketState:
+      type: string
+      description: 审批单状态；与 INTERFACES.md §4 TICKET_STATE 逐字一致。
+      enum:
+        - PENDING
+        - REVIEWING
+        - APPROVED
+        - REJECTED
+        - MODIFIED
+        - EXECUTING
+        - COMPLETED
+        - FAILED
+        - EXPIRED
+
+    TicketType:
+      type: string
+      enum: [NEGOTIATION, PAYMENT, SKILL_CALL, EXTERNAL_ACTION]
+
+    TicketPriority:
+      type: string
+      description: 排序为 urgent > high > normal > low，再按 deadline 升序。
+      enum: [urgent, high, normal, low]
+
+    DecisionAction:
+      type: string
+      enum: [APPROVE, MODIFY, REJECT]
+
+    TrustLevel:
+      type: string
+      description: 五档信任；与 INTERFACES.md §1 一致（0–4）。
+      enum: [SELF, FAMILY, TRUSTED, KNOWN, STRANGER]
+
+    # ── 通用对象 ─────────────────────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      description: |
+        错误体。demo-server 现形为扁平 { error, message }；生产可追加 details/traceId。
+        error 必须是 ErrorCode 之一。
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+          description: 人类可读说明（不保证稳定，不得用于判断逻辑）
+        details:
+          type: object
+          additionalProperties: true
+        traceId:
+          type: string
+        path:
+          type: string
+          description: 404 时回显请求路径（demo-server 现形）
+
+    PaidMessageView:
+      type: object
+      description: 付费消息视图；字段与 INTERFACES.md §9 返回对象及 demo-server 快照一致。
+      required: [id, senderUserId, receiverUserId, topic, summary, state, billingMode, amountCents, createdAt]
+      properties:
+        id:
+          type: string
+          description: msg-*
+        senderUserId:
+          type: string
+        senderAgentId:
+          type: string
+        receiverUserId:
+          type: string
+        topic:
+          type: string
+        summary:
+          type: string
+        state:
+          $ref: "#/components/schemas/MessageState"
+        billingMode:
+          $ref: "#/components/schemas/BillingMode"
+        amountCents:
+          type: integer
+          format: int64
+          description: 整数分
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: [string, "null"]
+          format: date-time
+        paidAt:
+          type: [string, "null"]
+          format: date-time
+        replyText:
+          type: [string, "null"]
+
+    LedgerEntryView:
+      type: object
+      description: 不可变账本条目；与 INTERFACES.md §8 一致。
+      required: [id, idempotencyKey, type, userId, amountCents, at]
+      properties:
+        id:
+          type: string
+        idempotencyKey:
+          type: string
+        type:
+          type: string
+          enum: [CHARGE, REFUND, SETTLE]
+        userId:
+          type: string
+        amountCents:
+          type: integer
+          format: int64
+        ref:
+          type: [string, "null"]
+        meta:
+          type: object
+          additionalProperties: true
+        at:
+          type: string
+          format: date-time
+
+    SubmitIntentRequest:
+      type: object
+      required:
+        - senderUserId
+        - senderAgentId
+        - receiverUserId
+        - topic
+        - summary
+        - billingMode
+        - amountCents
+        - idempotencyKey
+      properties:
+        senderUserId:
+          type: string
+        senderAgentId:
+          type: string
+        receiverUserId:
+          type: string
+        topic:
+          type: string
+          maxLength: 120
+        summary:
+          type: string
+          description: 经出口护栏后的摘要；不得含身份证/银行卡等敏感信息。
+          maxLength: 4000
+        billingMode:
+          $ref: "#/components/schemas/BillingMode"
+        amountCents:
+          type: integer
+          format: int64
+          minimum: 1
+        idempotencyKey:
+          type: string
+          description: 提交幂等键（客户端生成，全局唯一）
+          minLength: 1
+
+    ScreenRequest:
+      type: object
+      required: [verdict]
+      properties:
+        verdict:
+          type: string
+          description: 目标用户 Agent 预审结论
+          enum: [PASS, BLOCK]
+
+    PayRequest:
+      type: object
+      required: [payerUserId]
+      properties:
+        payerUserId:
+          type: string
+
+    ViewRequest:
+      type: object
+      required: [viewerUserId]
+      properties:
+        viewerUserId:
+          type: string
+
+    ReplyRequest:
+      type: object
+      properties:
+        replyText:
+          type: [string, "null"]
+          maxLength: 4000
+
+    PayResponse:
+      type: object
+      required: [message, charged]
+      properties:
+        message:
+          $ref: "#/components/schemas/PaidMessageView"
+        charged:
+          type: boolean
+          description: 首次扣费为 true；重复支付为 false（不得二次扣费）
+        entry:
+          allOf:
+            - $ref: "#/components/schemas/LedgerEntryView"
+          description: 首次扣费条目；重复支付时返回首次条目
+
+    DecideRequest:
+      type: object
+      required: [action]
+      properties:
+        actorUserId:
+          type: string
+          description: 决策人；demo-server 省略时从票主推导，生产必填
+        action:
+          $ref: "#/components/schemas/DecisionAction"
+        patch:
+          type: [object, "null"]
+          description: MODIFY 时的修正补丁
+          additionalProperties: true
+        comment:
+          type: [string, "null"]
+          maxLength: 1000
+
+    DecideResponse:
+      type: object
+      description: demo-server 现形响应；快照字段用于控制台即时刷新。
+      required: [ok, ticketId, state]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        ticketId:
+          type: string
+        state:
+          $ref: "#/components/schemas/TicketState"
+        result:
+          type: [object, "null"]
+          additionalProperties: true
+          description: 执行结果（如 charged/messageId）
+        messageState:
+          oneOf:
+            - $ref: "#/components/schemas/MessageState"
+            - type: "null"
+        snapshot:
+          $ref: "#/components/schemas/StateSnapshot"
+
+    HealthResponse:
+      type: object
+      required: [ok, service, pendingApprovals, checks, generatedAt]
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+          example: agent-im-demo
+        pendingApprovals:
+          type: integer
+          minimum: 0
+        checks:
+          type: string
+          description: 治理自检通过数，形如 "12/12"
+          example: 12/12
+        generatedAt:
+          type: string
+          format: date-time
+
+    # ── 状态快照 ─────────────────────────────────────────────────────────
+    StateSnapshot:
+      type: object
+      description: demo-server 聚合快照（apps/demo-server/flow.mjs snapshot()）。
+      additionalProperties: true
+      required: [meta, approvals, pendingCount, messages, negotiations, agents, trust, ledger]
+      properties:
+        meta:
+          $ref: "#/components/schemas/SnapshotMeta"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/TicketView"
+        pendingCount:
+          type: integer
+          minimum: 0
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaidMessageView"
+        negotiations:
+          type: array
+          items:
+            $ref: "#/components/schemas/NegotiationView"
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentView"
+        trust:
+          $ref: "#/components/schemas/TrustView"
+        ledger:
+          $ref: "#/components/schemas/LedgerView"
+        mailboxes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MailboxView"
+        blocked:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        trace:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        checks:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        audit:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    SnapshotMeta:
+      type: object
+      required: [generatedAt, users, checksPassed, checksTotal]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        users:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        checksPassed:
+          type: integer
+          minimum: 0
+        checksTotal:
+          type: integer
+          minimum: 0
+
+    TicketView:
+      type: object
+      required: [id, userId, sourceAgentId, ticketType, state, priority, createdAt, deadline]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        sourceAgentId:
+          type: string
+        ticketType:
+          $ref: "#/components/schemas/TicketType"
+        state:
+          $ref: "#/components/schemas/TicketState"
+        priority:
+          $ref: "#/components/schemas/TicketPriority"
+        createdAt:
+          type: string
+          format: date-time
+        deadline:
+          type: string
+          format: date-time
+        traceId:
+          type: [string, "null"]
+        payload:
+          type: object
+          additionalProperties: true
+        patch:
+          type: [object, "null"]
+          additionalProperties: true
+
+    NegotiationView:
+      type: object
+      required: [id, topic, state, round, tokens]
+      properties:
+        id:
+          type: string
+        topic:
+          type: string
+        state:
+          type: string
+          description: 8 态 TaskState（SUBMITTED/WORKING/INPUT_REQUIRED/AUTH_REQUIRED/COMPLETED/FAILED/CANCELED/REJECTED）
+        round:
+          type: integer
+          minimum: 0
+        tokens:
+          type: integer
+          minimum: 0
+        initiatorAgentId:
+          type: string
+        responderAgentId:
+          type: string
+        terminalReason:
+          type: [string, "null"]
+          enum: [MAX_ROUNDS, TOKEN_BUDGET, null]
+        artifact:
+          oneOf:
+            - $ref: "#/components/schemas/NegotiationArtifactView"
+            - type: "null"
+        turns:
+          type: array
+          items:
+            $ref: "#/components/schemas/NegotiationTurnView"
+
+    NegotiationArtifactView:
+      type: object
+      required: [type, summary, at]
+      properties:
+        type:
+          type: string
+          enum: [AGREEMENT]
+        summary:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        at:
+          type: string
+          format: date-time
+
+    NegotiationTurnView:
+      type: object
+      required: [at, fromAgentId, intent]
+      properties:
+        at:
+          type: string
+          format: date-time
+        fromAgentId:
+          type: string
+        intent:
+          type: string
+          enum: [PROPOSE, COUNTER, ACCEPT, REJECT, REQUEST_INFO, REQUEST_AUTH]
+        payload:
+          type: object
+          additionalProperties: true
+        tokens:
+          type: integer
+          minimum: 0
+        stateAfter:
+          type: [string, "null"]
+
+    AgentView:
+      type: object
+      required: [agentId, ownerUserId, kind, allowedSkills, trustZoneMin]
+      properties:
+        agentId:
+          type: string
+        ownerUserId:
+          type: string
+        kind:
+          type: string
+          enum: [butler, subagent, skill]
+        domain:
+          type: [string, "null"]
+        parentId:
+          type: [string, "null"]
+        allowedSkills:
+          type: array
+          items:
+            type: string
+        destructiveSkills:
+          type: array
+          items:
+            type: string
+        trustZoneMin:
+          type: integer
+          minimum: 0
+          maximum: 4
+          description: 该 Agent 允许作用的最低信任要求；允许条件 levelOf <= trustZoneMin（数值越大信任越低，4=对任何人开放）。
+        budgetCentsPerDay:
+          type: integer
+          format: int64
+          minimum: 0
+        approvalThresholdCents:
+          type: integer
+          format: int64
+          minimum: 0
+        budgetRemainingCents:
+          type: integer
+          format: int64
+          minimum: 0
+
+    TrustView:
+      type: object
+      required: [pairs, names]
+      properties:
+        pairs:
+          type: array
+          items:
+            type: object
+            required: [from, to, level]
+            properties:
+              from:
+                type: string
+              to:
+                type: string
+              level:
+                type: integer
+                minimum: 0
+                maximum: 4
+        names:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrustLevel"
+
+    LedgerView:
+      type: object
+      required: [entries, stats]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerEntryView"
+        stats:
+          type: object
+          required: [count, charged, refunded, settled]
+          properties:
+            count:
+              type: integer
+            charged:
+              type: integer
+            refunded:
+              type: integer
+            settled:
+              type: integer
+
+    MailboxView:
+      type: object
+      required: [userId, envelopes]
+      properties:
+        userId:
+          type: string
+        envelopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnvelopeView"
+
+    EnvelopeView:
+      type: object
+      description: 人类 IM 业务封装（INTERFACES.md §10 envelope.mjs），bizSeq 会话内保序。
+      required: [bizType, bizId, payload]
+      properties:
+        bizType:
+          type: string
+          enum: [APPROVAL_CARD, STRANGER_INTENT, AGENT_DIGEST, NORMAL_TEXT, SYSTEM_NOTICE]
+        bizId:
+          type: string
+        bizSeq:
+          type: [integer, "null"]
+          minimum: 1
+        at:
+          type: string
+          format: date-time
+        traceId:
+          type: [string, "null"]
+        trustZone:
+          oneOf:
+            - $ref: "#/components/schemas/TrustLevel"
+            - type: "null"
+        agentContext:
+          type: [object, "null"]
+          additionalProperties: true
+        payload:
+          type: object
+          additionalProperties: true

@@ -1,0 +1,179 @@
+// ============================================================================
+// 模块职责：陌生人付费消息协议（Phase0 起）。先 Agent 预审、后付费；两档计费；
+//           消息状态机与账本条目（幂等键 pay:<messageId>）。
+// 契约来源：contracts/INTERFACES.md §8 ledger.mjs / §9 paid-message.mjs（冻结）。
+// 验证状态：⚠ 未编译验证（本机无 protoc/buf）。CI 必须补 buf lint / buf breaking。
+// 关键不变量：
+//   1. INTENT -> AWAITING_PAYMENT 只允许在 screen('PASS') 之后；BLOCK => REFUSED，
+//      付费永不能绕过过滤（金额字段不能先于预审出现于可支付态）。
+//   2. 同一 messageId 重复 pay() 返回 charged=false，账本幂等键 pay:<messageId>，
+//      exactly-once 由 Ledger 的 idempotencyKey 全局唯一保证。
+//   3. 金额为整数分；refund 只允许 PAID | VIEWED；REPLIED 之后退款走人工。
+//   4. payerUserId 必须 === senderUserId，否则 PAYER_MISMATCH。
+//   5. refuse() 允许 INTENT | AWAITING_PAYMENT -> REFUSED（目标用户/其代理拒绝，不扣费）。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.paid.v1;
+
+import "google/protobuf/struct.proto";
+import "common.proto";
+
+// 付费消息状态。与 INTERFACES.md §9 MSG_STATE 逐字一致。
+// 首值 INTENT=0 即提交意图的自然默认值。
+enum MessageState {
+  INTENT = 0;
+  AWAITING_PAYMENT = 1;
+  REFUSED = 2;
+  PAID = 3;
+  VIEWED = 4;
+  REPLIED = 5;
+  SETTLED = 6;
+  REFUNDED = 7;
+  EXPIRED = 8;
+}
+
+// 计费模式。数值与 INTERFACES.md §9 BILLING = { SEND_PAY: 1, VIEW_REPLY_PAY: 2 }
+// 完全一致；0 为 proto3 必需的占位。
+enum BillingMode {
+  BILLING_MODE_UNSPECIFIED = 0;
+  SEND_PAY = 1;
+  VIEW_REPLY_PAY = 2;
+}
+
+// 目标用户 Agent 的预审结论。字符串与 screen({ verdict }) 的 'PASS' | 'BLOCK' 一致。
+enum ScreeningVerdict {
+  SCREENING_VERDICT_UNSPECIFIED = 0;
+  PASS = 1;
+  BLOCK = 2;
+}
+
+// 账本条目类型。与 INTERFACES.md §8 ENTRY_TYPE 逐字一致。
+enum EntryType {
+  ENTRY_TYPE_UNSPECIFIED = 0;
+  CHARGE = 1;
+  REFUND = 2;
+  SETTLE = 3;
+}
+
+// 付费消息。
+message PaidMessage {
+  string id = 1;                                         // msg-*
+  string sender_user_id = 2;
+  string sender_agent_id = 3;
+  string receiver_user_id = 4;
+  string topic = 5;
+  string summary = 6;                                    // 经 egress-guard 的摘要
+  BillingMode billing_mode = 7;
+  int64 amount_cents = 8;                                // 整数分
+  MessageState state = 9;
+  string idempotency_key = 10;                           // 提交幂等键（客户端生成）
+  ScreeningVerdict screening_verdict = 11;
+  string reply_text = 12;                                // REPLIED 后非空
+  string created_at = 13;
+  string paid_at = 14;
+  string viewed_at = 15;
+  string replied_at = 16;
+  string settled_at = 17;
+  string refunded_at = 18;
+  agentim.contracts.common.v1.TraceContext trace = 19;
+}
+
+// 不可变账本条目。重复投递返回首次结果且 duplicate=true，绝不产生第二条。
+message LedgerEntry {
+  string id = 1;                                         // entry-*
+  string idempotency_key = 2;
+  EntryType type = 3;
+  string user_id = 4;
+  int64 amount_cents = 5;
+  string ref = 6;                                        // 业务引用，如 msg-*
+  google.protobuf.Struct meta = 7;
+  string at = 8;
+}
+
+// ---------------------------------------------------------------------------
+// RPC 请求 / 响应
+// ---------------------------------------------------------------------------
+
+message SubmitIntentRequest {
+  string sender_user_id = 1;
+  string sender_agent_id = 2;
+  string receiver_user_id = 3;
+  string topic = 4;
+  string summary = 5;
+  BillingMode billing_mode = 6;
+  int64 amount_cents = 7;
+  string idempotency_key = 8;
+  agentim.contracts.common.v1.TraceContext trace = 9;
+}
+
+message ScreenRequest {
+  string message_id = 1;
+  ScreeningVerdict verdict = 2;
+}
+
+message PayRequest {
+  string message_id = 1;
+  string payer_user_id = 2;                              // 必须 === sender_user_id，否则 PAYER_MISMATCH
+}
+
+message PayResponse {
+  PaidMessage message = 1;
+  bool charged = 2;                                      // 重复支付 => false
+  LedgerEntry entry = 3;                                 // 首次扣费条目；重复时为首次条目
+}
+
+message RefuseRequest {
+  string message_id = 1;
+  string reason = 2;                                     // 目标用户/其代理的拒绝理由，可空
+}
+
+message ViewRequest {
+  string message_id = 1;
+  string viewer_user_id = 2;
+}
+
+message ReplyRequest {
+  string message_id = 1;
+  string reply_text = 2;                                 // 允许为空（仅表意"已回复"）
+}
+
+message SettleRequest {
+  string message_id = 1;
+}
+
+message RefundRequest {
+  string message_id = 1;
+  string reason = 2;
+}
+
+message GetPaidMessageRequest {
+  string message_id = 1;
+}
+
+message ListPaidMessagesRequest {
+  string receiver_user_id = 1;                           // 空 => 全部（仅运维）
+  optional MessageState state = 2;
+}
+
+message ListPaidMessagesResponse {
+  repeated PaidMessage messages = 1;
+}
+
+// ---------------------------------------------------------------------------
+// 服务定义。错误：NOT_FOUND / ILLEGAL_STATE / DAILY_CAP_EXCEEDED / NOT_PAYABLE /
+// NEEDS_SCREENING / SELF_MESSAGE / PAYER_MISMATCH / INVALID_AMOUNT / KEY_REQUIRED。
+// ---------------------------------------------------------------------------
+service PaidMessageService {
+  rpc SubmitIntent(SubmitIntentRequest) returns (PaidMessage);
+  rpc Screen(ScreenRequest) returns (PaidMessage);
+  rpc Pay(PayRequest) returns (PayResponse);
+  rpc Refuse(RefuseRequest) returns (PaidMessage);       // INTENT|AWAITING_PAYMENT -> REFUSED，不扣费
+  rpc View(ViewRequest) returns (PaidMessage);
+  rpc Reply(ReplyRequest) returns (PaidMessage);
+  rpc Settle(SettleRequest) returns (PaidMessage);
+  rpc Refund(RefundRequest) returns (PaidMessage);
+  rpc Get(GetPaidMessageRequest) returns (PaidMessage);
+  rpc List(ListPaidMessagesRequest) returns (ListPaidMessagesResponse);
+}

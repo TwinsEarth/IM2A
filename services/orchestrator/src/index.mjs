@@ -1,0 +1,13 @@
+// 模块职责：Agent 编排层 barrel 汇总导出（demo-server/flow.mjs 与前端控制台逐字 import 这些命名导出）。
+// 契约来源：contracts/INTERFACES.md §1–§7。
+// 关键不变量：本文件不含任何业务逻辑，只做 re-export；契约签名与各模块实现一一对应，不在此层改写任何语义。
+//
+// 注意：GATE_CODE 中的 MONTHLY_CAP 为「预留码」——生产按月预算（Phase2 启用），
+// §3 的 7 步判定顺序中没有对应步骤，CapabilityGate 当前不会产生该码，调用方不要把它当可达分支处理。
+export * from './trust-zone.mjs';
+export * from './agent-registry.mjs';
+export * from './capability-gate.mjs';
+export * from './approval-engine.mjs';
+export * from './negotiation-engine.mjs';
+export * from './memory-store.mjs';
+export * from './egress-guard.mjs';

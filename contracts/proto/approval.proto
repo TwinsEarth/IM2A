@@ -1,0 +1,211 @@
+// ============================================================================
+// 模块职责：审批工作流协议（Phase0 起）。外层 9 态状态机 + 内层只追加事件溯源，
+//           覆盖审批单创建、人工决策、执行、失败与超时升级。
+// 契约来源：contracts/INTERFACES.md §4 approval-engine.mjs（冻结）。
+// 验证状态：⚠ 未编译验证（本机无 protoc/buf）。CI 必须补 buf lint / buf breaking。
+// 关键不变量：
+//   1. 状态迁移只允许白名单：PENDING -> REVIEWING | APPROVED | MODIFIED |
+//      REJECTED | EXPIRED；REVIEWING -> APPROVED | MODIFIED | REJECTED | EXPIRED；
+//      APPROVED/MODIFIED -> EXECUTING | EXPIRED；EXECUTING -> COMPLETED | FAILED。
+//   2. 事件溯源只追加，seq 单调递增；ticket.state 必须等于事件折叠结果。
+//   3. 非票主决策一律 FORBIDDEN；过期后决策一律 EXPIRED_TICKET；
+//      escalateOverdue 对同一 (ticket, level) 幂等。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.approval.v1;
+
+import "google/protobuf/struct.proto";
+import "common.proto";
+
+// 审批单状态。与 INTERFACES.md §4 TICKET_STATE 逐字一致。
+// 首值 PENDING=0 即新建审批单的自然默认值，不使用 UNSPECIFIED 占位。
+enum TicketState {
+  PENDING = 0;
+  REVIEWING = 1;
+  APPROVED = 2;
+  REJECTED = 3;
+  MODIFIED = 4;
+  EXECUTING = 5;
+  COMPLETED = 6;
+  FAILED = 7;
+  EXPIRED = 8;
+}
+
+// 审批单类型。与 INTERFACES.md §4 TICKET_TYPE 逐字一致。
+enum TicketType {
+  NEGOTIATION = 0;
+  PAYMENT = 1;
+  SKILL_CALL = 2;
+  EXTERNAL_ACTION = 3;
+}
+
+// 人工决策动作。与 INTERFACES.md decide({ action }) 的字符串逐字一致。
+enum DecisionAction {
+  APPROVE = 0;
+  MODIFY = 1;
+  REJECT = 2;
+}
+
+// 审批优先级。INTERFACES.md 中为小写字符串 'urgent' | 'high' | 'normal' | 'low'，
+// 排序规则 urgent > high > normal > low，再按 deadline 升序。
+// 枚举数值不代表优先级顺序，比较必须走显式 rank 表。
+enum TicketPriority {
+  NORMAL = 0;
+  URGENT = 1;
+  HIGH = 2;
+  LOW = 3;
+}
+
+// 超时升级通道。与 INTERFACES.md 默认 escalation.channels = ['watch', 'sms'] 一致。
+enum EscalationChannel {
+  WATCH = 0;
+  SMS = 1;
+}
+
+// 事件类型（事件溯源用；INTERFACES.md 只约定事件对象形状，类型名为协议层定义）。
+enum ApprovalEventType {
+  APPROVAL_EVENT_UNSPECIFIED = 0;
+  TICKET_CREATED = 1;
+  STATE_CHANGED = 2;
+  DECIDED = 3;
+  ESCALATED = 4;
+  EXECUTION_STARTED = 5;
+  EXECUTION_COMPLETED = 6;
+  EXECUTION_FAILED = 7;
+}
+
+// 审批单。字段与 INTERFACES.md create() 返回对象逐项对应。
+message ApprovalTicket {
+  string id = 1;                                         // tkt-*
+  string user_id = 2;                                    // 票主，唯一有权 decide
+  string source_agent_id = 3;
+  TicketType ticket_type = 4;
+  TicketState state = 5;
+  google.protobuf.Struct payload = 6;
+  google.protobuf.Struct patch = 7;                      // MODIFIED 时的人工修正补丁
+  string comment = 8;
+  TicketPriority priority = 9;
+  string created_at = 10;                                // ISO-8601
+  string deadline = 11;                                  // ISO-8601
+  uint32 deadline_ms = 12;                               // 创建参数，默认 30 * 60e3
+  uint32 escalation_level = 13;                          // 0 = 未升级；1 = watch；2 = sms
+  string trace_id = 14;
+  // 协议层补充（乐观并发，v1.1 才进入 INTERFACES.md；读取方须容忍 0）
+  optional uint64 revision = 15;
+}
+
+// 只追加的审批事件。ticket.state 由事件按 seq 折叠得到。
+message ApprovalEvent {
+  string event_id = 1;                                   // evt-*
+  string ticket_id = 2;
+  uint64 seq = 3;                                        // 从 1 开始单调递增
+  ApprovalEventType type = 4;
+  optional TicketState from_state = 5;                   // TICKET_CREATED 时为空
+  optional TicketState to_state = 6;
+  string actor_user_id = 7;                              // system / user-*
+  google.protobuf.Struct detail = 8;                     // decide 的 patch/comment 等
+  uint32 escalation_level = 9;
+  string at = 10;                                        // ISO-8601
+  agentim.contracts.common.v1.TraceContext trace = 11;
+}
+
+// 一次超时升级记录，对应 escalateOverdue() 返回数组元素。
+message Escalation {
+  string ticket_id = 1;
+  uint32 level = 2;                                      // 1 = watch，2 = sms
+  EscalationChannel channel = 3;
+  string at = 4;
+}
+
+// ---------------------------------------------------------------------------
+// RPC 请求 / 响应
+// ---------------------------------------------------------------------------
+
+message CreateTicketRequest {
+  string user_id = 1;
+  string source_agent_id = 2;
+  TicketType ticket_type = 3;
+  google.protobuf.Struct payload = 4;
+  uint32 deadline_ms = 5;                                // 0 => 默认 30 * 60e3
+  TicketPriority priority = 6;
+  agentim.contracts.common.v1.TraceContext trace = 7;
+}
+
+message GetTicketRequest {
+  string ticket_id = 1;
+}
+
+message ListPendingRequest {
+  string user_id = 1;
+}
+
+message ListPendingResponse {
+  repeated ApprovalTicket tickets = 1;                   // 已按 priority + deadline 排序
+}
+
+message DecideRequest {
+  string ticket_id = 1;
+  string actor_user_id = 2;
+  DecisionAction action = 3;
+  google.protobuf.Struct patch = 4;                      // MODIFY 必填语义，由服务端校验
+  string comment = 5;
+  optional uint64 revision = 6;                          // 乐观并发；为空则不校验
+}
+
+message DecideResponse {
+  ApprovalTicket ticket = 1;
+  ApprovalEvent event = 2;
+}
+
+message BeginExecutionRequest {
+  string ticket_id = 1;
+}
+
+message CompleteRequest {
+  string ticket_id = 1;
+  google.protobuf.Struct result = 2;
+}
+
+message FailRequest {
+  string ticket_id = 1;
+  string error = 2;
+}
+
+message EscalateOverdueRequest {
+  optional uint64 now_ms = 1;                            // 空 => 服务端注入的 clock
+}
+
+message EscalateOverdueResponse {
+  repeated Escalation escalations = 1;                   // 重复调用不重复升级
+}
+
+message ListEventsRequest {
+  optional string ticket_id = 1;                         // 空 => 全部事件
+}
+
+message ListEventsResponse {
+  repeated ApprovalEvent events = 1;
+}
+
+message WatchEventsRequest {
+  optional string ticket_id = 1;
+  uint64 after_seq = 2;
+}
+
+// ---------------------------------------------------------------------------
+// 服务定义。错误：NOT_FOUND / ILLEGAL_TRANSITION / FORBIDDEN / EXPIRED_TICKET。
+// ---------------------------------------------------------------------------
+service ApprovalService {
+  rpc Create(CreateTicketRequest) returns (ApprovalTicket);
+  rpc Get(GetTicketRequest) returns (ApprovalTicket);
+  rpc ListPending(ListPendingRequest) returns (ListPendingResponse);
+  rpc Decide(DecideRequest) returns (DecideResponse);
+  rpc BeginExecution(BeginExecutionRequest) returns (ApprovalTicket);
+  rpc Complete(CompleteRequest) returns (ApprovalTicket);
+  rpc Fail(FailRequest) returns (ApprovalTicket);
+  rpc EscalateOverdue(EscalateOverdueRequest) returns (EscalateOverdueResponse);
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+  rpc WatchEvents(WatchEventsRequest) returns (stream ApprovalEvent);
+}

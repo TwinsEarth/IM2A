@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentIM · 人机混合熟人社交 IM</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #131a23;
+    --panel-2: #182130;
+    --line: #22303f;
+    --text: #e6edf6;
+    --muted: #8b9bb0;
+    --accent: #4da3ff;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 20px;
+    padding: 14px 22px; background: rgba(11,15,20,.92);
+    border-bottom: 1px solid var(--line); backdrop-filter: blur(6px);
+  }
+  .brand { font-weight: 700; letter-spacing: .3px; }
+  .brand span { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 12px; }
+  .tabs { display: flex; gap: 6px; margin-left: auto; }
+  .tabs button {
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    padding: 7px 16px; border-radius: 999px; cursor: pointer; font-size: 13px;
+  }
+  .tabs button.active { color: #04121f; background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .meta { color: var(--muted); font-size: 12px; min-width: 260px; text-align: right; }
+  main { padding: 20px 22px 60px; max-width: 1400px; margin: 0 auto; }
+  .bar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin-bottom: 18px; color: var(--muted); font-size: 12.5px;
+  }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; }
+  .pill.ok { color: var(--ok); border-color: #1c4637; }
+  .pill.warn { color: var(--warn); border-color: #4a3a12; }
+  .btn { cursor: pointer; border-radius: 8px; padding: 8px 16px; font-size: 13px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--ok); color: #04120c; border-color: var(--ok); font-weight: 600; }
+  .btn.danger { background: transparent; color: var(--bad); border-color: #4a1d1d; }
+  .btn.small { padding: 5px 12px; font-size: 12px; }
+  .grid { display: grid; gap: 16px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .card h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; letter-spacing: .2px; }
+  .card h3 .hint { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .approval { border-left: 3px solid var(--warn); }
+  .approval.urgent { border-left-color: var(--bad); }
+  .approval.done { border-left-color: var(--ok); opacity: .78; }
+  .approval-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .approval-title { font-size: 16px; font-weight: 600; margin: 0; }
+  .badge {
+    font-size: 11px; padding: 2px 9px; border-radius: 6px;
+    border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+  }
+  .badge.high { color: var(--warn); border-color: #4a3a12; }
+  .badge.urgent { color: var(--bad); border-color: #4a1d1d; }
+  .badge.state-PENDING { color: var(--warn); border-color: #4a3a12; }
+  .badge.state-COMPLETED { color: var(--ok); border-color: #1c4637; }
+  .badge.state-REJECTED { color: var(--bad); border-color: #4a1d1d; }
+  .kv { display: grid; grid-template-columns: 104px 1fr; gap: 6px 12px; margin: 14px 0; font-size: 13px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; word-break: break-word; }
+  .quote {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; margin: 10px 0; font-size: 13px; color: #cfe0f2;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .amount { color: var(--warn); font-variant-numeric: tabular-nums; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #a8c0da; }
+  .timeline { list-style: none; padding: 0; margin: 0; }
+  .timeline li { border-left: 2px solid var(--line); padding: 0 0 12px 14px; position: relative; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -5px; top: 6px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--accent);
+  }
+  .timeline .t-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+  .timeline .t-body { color: var(--muted); font-size: 12.5px; }
+  .pipeline { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  .step {
+    font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  .step.on { color: #04121f; background: var(--ok); border-color: var(--ok); font-weight: 600; }
+  .step.cur { color: var(--warn); border-color: var(--warn); }
+  .check-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+  .check-row .mark { width: 16px; flex: none; }
+  .check-row .mark.ok { color: var(--ok); }
+  .check-row .mark.ng { color: var(--bad); }
+  .check-row .nm { flex: 1; }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .two-col { grid-template-columns: 1.15fr .85fr; }
+  @media (max-width: 1000px) { .two-col { grid-template-columns: 1fr; } }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 30px 0 10px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">AgentIM<span>人机混合熟人社交 IM · 审批态 / 巡视态</span></div>
+  <div class="tabs">
+    <button data-tab="approval" class="active">审批态</button>
+    <button data-tab="oversight">巡视态</button>
+  </div>
+  <div class="meta" id="meta">加载中…</div>
+</header>
+
+<main>
+  <section id="view-approval">
+    <div class="bar" id="approval-bar"></div>
+    <div class="grid" id="approval-list"></div>
+  </section>
+
+  <section id="view-oversight" hidden>
+    <div class="bar" id="oversight-bar"></div>
+    <div class="grid two-col">
+      <div class="card"><h3>Agent 团队<span class="hint">权限在代码层声明，不靠提示词</span></h3><div id="agents"></div></div>
+      <div class="card"><h3>信任矩阵<span class="hint">五档：本人 / 家庭 / 信任 / 已知 / 陌生</span></h3><div id="trust"></div></div>
+    </div>
+    <div class="grid two-col" style="margin-top:16px">
+      <div class="card"><h3>Agent 协商时间线<span class="hint">走独立 gRPC 通道，全程不打扰人</span></h3><div id="negotiation"></div></div>
+      <div class="card"><h3>陌生人付费消息<span class="hint">先预审 → 后付费，付费不能绕过过滤</span></h3><div id="messages"></div></div>
+    </div>
+    <div class="grid two-col" style="margin-top:16px">
+      <div class="card"><h3>治理有效性自检<span class="hint">12 项可执行证据，不是 PPT</span></h3><div id="checks"></div></div>
+      <div class="card"><h3>出口护栏拦截<span class="hint">Agent 外发内容统一过审</span></h3><div id="blocked"></div></div>
+    </div>
+    <div class="grid two-col" style="margin-top:16px">
+      <div class="card"><h3>不可变账本<span class="hint">幂等键保证恰好一次扣费</span></h3><div id="ledger"></div></div>
+      <div class="card"><h3>执行轨迹与审计<span class="hint">可解释性的最小实现</span></h3><div id="trace"></div></div>
+    </div>
+  </section>
+
+  <footer>演示服务 · 零依赖 Node ESM · 数据仅存内存，重启即重置</footer>
+</main>
+
+<script>
+const TICKET_STATE = { PENDING:'待审批', REVIEWING:'审阅中', APPROVED:'已通过', REJECTED:'已驳回', MODIFIED:'已修改',
+  EXECUTING:'执行中', COMPLETED:'已完成', FAILED:'失败', EXPIRED:'已过期' };
+const MSG_STATE = { INTENT:'意向', AWAITING_PAYMENT:'待付费', REFUSED:'已拒绝', PAID:'已付费', VIEWED:'已查看',
+  REPLIED:'已回复', SETTLED:'已结算', REFUNDED:'已退款', EXPIRED:'已过期' };
+const TASK_STATE = { SUBMITTED:'已提交', WORKING:'协商中', INPUT_REQUIRED:'待补充信息', AUTH_REQUIRED:'待授权',
+  COMPLETED:'已完成', FAILED:'失败', CANCELED:'已取消', REJECTED:'已拒绝' };
+const TRUST_NAMES = ['本人','家庭','信任','已知','陌生'];
+const MSG_FLOW = ['INTENT','AWAITING_PAYMENT','PAID','VIEWED','REPLIED','SETTLED'];
+
+let state = null;
+let tab = 'approval';
+let busy = false;
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const yuan = (cents) => (Number(cents || 0) / 100).toFixed(2);
+const shortTime = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso) : d.toLocaleTimeString('zh-CN', { hour12: false });
+};
+
+async function refresh() {
+  if (busy) return;
+  try {
+    const res = await fetch('/api/state', { cache: 'no-store' });
+    state = await res.json();
+    render();
+  } catch (err) {
+    $('meta').textContent = '连接失败：' + err.message;
+  }
+}
+
+async function decide(ticketId, action) {
+  if (busy) return;
+  busy = true;
+  try {
+    const res = await fetch(`/api/approvals/${encodeURIComponent(ticketId)}/decide`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action })
+    });
+    const body = await res.json();
+    if (body.snapshot) state = body.snapshot;
+    else if (body.error) alert(`决策失败：${body.error}`);
+    render();
+  } catch (err) {
+    alert('决策失败：' + err.message);
+  } finally {
+    busy = false;
+  }
+}
+
+function render() {
+  if (!state) return;
+  const meta = state.meta;
+  $('meta').innerHTML = `${meta.checksPassed}/${meta.checksTotal} 项治理自检通过 · 待审批 <b style="color:var(--warn)">${state.pendingCount}</b> · ${shortTime(meta.generatedAt)}`;
+  renderApprovals();
+  if (tab === 'oversight') renderOversight();
+}
+
+function renderApprovals() {
+  const items = state.approvals;
+  const pending = items.filter((t) => ['PENDING','REVIEWING'].includes(t.state));
+  const done = items.filter((t) => !['PENDING','REVIEWING'].includes(t.state));
+
+  $('approval-bar').innerHTML =
+    `<span class="pill warn">待你决策 ${pending.length} 项</span>` +
+    `<span class="pill">今日 Agent 已自主完成的事务由子 Agent 处理，只有越过阈值/边界的才到这</span>` +
+    `<span class="pill ok">目标：30 秒完成一次有效决策</span>`;
+
+  const cards = [...pending, ...done].map((t) => approvalCard(t, ['PENDING','REVIEWING'].includes(t.state)));
+  $('approval-list').innerHTML = cards.length ? cards.join('') : '<div class="card empty">暂无审批事项。</div>';
+}
+
+function approvalCard(t, isPending) {
+  const p = t.payload || {};
+  const cls = ['card', 'approval'];
+  if (t.priority === 'urgent') cls.push('urgent');
+  if (!isPending) cls.push('done');
+
+  const head = `
+    <div class="approval-head">
+      <p class="approval-title">${esc(p.kind === 'STRANGER_INTENT' ? '陌生人付费消息待审批' : p.kind === 'PROCUREMENT_PURCHASE' ? '采购待审批' : '待审批事项')}</p>
+      <span class="badge ${esc(t.priority)}">${t.priority === 'high' ? '重要' : t.priority === 'urgent' ? '紧急' : '普通'}</span>
+      <span class="badge state-${esc(t.state)}">${esc(TICKET_STATE[t.state] || t.state)}</span>
+      <span class="badge">${esc(t.ticketType)}</span>
+    </div>`;
+
+  let body = '';
+  if (p.kind === 'STRANGER_INTENT') {
+    body = `
+      <dl class="kv">
+        <dt>发起子 Agent</dt><dd class="mono">${esc(t.sourceAgentId)}</dd>
+        <dt>来意来源</dt><dd>${esc(p.senderName)}（当前信任档：<b>陌生</b>）</dd>
+        <dt>协商结果</dt><dd>双方 Agent 已完成 ${esc(p.negotiation?.rounds ?? 0)} 轮反提案：${esc(p.negotiation?.artifact || '—')}</dd>
+        <dt>预审结论</dt><dd>${esc(p.screening?.verdict)} · 命中规则「${esc(p.screening?.rule)}」</dd>
+        <dt>计费模式</dt><dd>看到且回复才扣费 · <span class="amount">¥${yuan(p.amountCents)}</span></dd>
+        <dt>风险等级</dt><dd>${esc(p.risk)}</dd>
+      </dl>
+      <div class="quote">${esc(p.summary)}</div>
+      <div class="quote" style="border-color:#3b3320;color:var(--warn)">建议：${esc(p.decisionHint)}</div>`;
+  } else {
+    body = `
+      <dl class="kv">
+        <dt>发起子 Agent</dt><dd class="mono">${esc(t.sourceAgentId)}</dd>
+        <dt>事项</dt><dd>${esc(p.item || '—')}</dd>
+        <dt>金额</dt><dd><span class="amount">¥${yuan(p.amountCents)}</span></dd>
+        <dt>门控原因</dt><dd>${esc(p.gateCode)} — 金额超过该子 Agent 的自动审批阈值</dd>
+        <dt>风险等级</dt><dd>${esc(p.risk)}</dd>
+      </dl>
+      ${(p.alternatives || []).map((a) => `<div class="quote">备选：${esc(a.vendor)} ¥${yuan(a.amountCents)} · ${esc(a.note)}</div>`).join('')}
+      <div class="quote" style="border-color:#3b3320;color:var(--warn)">建议：${esc(p.decisionHint)}</div>`;
+  }
+
+  const actions = isPending
+    ? `<div class="actions">
+         <button class="btn primary" onclick="decide('${esc(t.id)}','APPROVE')">通过并执行</button>
+         <button class="btn danger" onclick="decide('${esc(t.id)}','REJECT')">驳回</button>
+         <span style="color:var(--muted);font-size:12px;align-self:center">截止 ${shortTime(t.deadline)} · 超时先推手表、再推短信</span>
+       </div>`
+    : '';
+
+  return `<div class="${cls.join(' ')}">${head}${body}${actions}</div>`;
+}
+
+function renderOversight() {
+  const s = state;
+  $('oversight-bar').innerHTML =
+    `<span class="pill">Agent ${s.agents.length} 个</span>` +
+    `<span class="pill">账本条目 ${s.ledger.entries.length}</span>` +
+    `<span class="pill">协商会话 ${s.negotiations.length}</span>` +
+    `<span class="pill ok">拦截 ${s.blocked.length} 条</span>`;
+
+  $('agents').innerHTML = `<table><thead><tr><th>Agent</th><th>角色</th><th>最低信任要求</th><th>自动阈值</th><th>当日余额</th></tr></thead><tbody>${
+    s.agents.map((a) => `<tr>
+      <td class="mono">${esc(a.agentId.replace('agent-',''))}</td>
+      <td>${esc(a.kind === 'butler' ? '总管' : a.domain)}</td>
+      <td>${esc(TRUST_NAMES[a.trustZoneMin] || a.trustZoneMin)}</td>
+      <td class="num">¥${yuan(a.approvalThresholdCents)}</td>
+      <td class="num">¥${yuan(a.budgetRemainingCents)}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+
+  $('trust').innerHTML = `<table><thead><tr><th>关系</th><th>档位</th><th>Agent 可自主</th><th>需审批</th></tr></thead><tbody>${
+    s.trust.pairs.map((p) => `<tr>
+      <td>${esc(p.from.replace('user-',''))} → ${esc(p.to.replace('user-',''))}</td>
+      <td><b>${esc(s.trust.names[p.level] || p.level)}</b></td>
+      <td>${esc(autonomyOf(p.level))}</td>
+      <td>${esc(approvalOf(p.level))}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+
+  $('negotiation').innerHTML = s.negotiations.map((n) => `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <b>${esc(n.topic)}</b>
+        <span class="badge">${esc(TASK_STATE[n.state] || n.state)}</span>
+        <span class="badge">反提案 ${esc(n.round)} 轮</span>
+        <span class="badge">token ${esc(n.tokens)}</span>
+      </div>
+      <ul class="timeline">${n.turns.map((t) => `
+        <li>
+          <div class="t-head"><span class="mono">${esc(t.fromAgentId.replace('agent-',''))}</span>
+            <span class="badge">${esc(t.intent)}</span>
+            <span style="color:var(--muted);font-size:12px">${shortTime(t.at)}</span></div>
+          <div class="t-body">${esc(summarizeTurn(t))}</div>
+        </li>`).join('')}</ul>
+      ${n.artifact ? `<div class="quote">产出方案：${esc(n.artifact.summary)}</div>` : ''}
+    </div>`).join('') || '<div class="empty">无协商会话</div>';
+
+  $('messages').innerHTML = s.messages.map((m) => {
+    const idx = MSG_FLOW.indexOf(m.state);
+    const steps = MSG_FLOW.map((st, i) =>
+      `<span class="step ${idx >= i ? 'on' : ''} ${idx === i ? 'cur' : ''}">${esc(MSG_STATE[st])}</span>`).join('');
+    const extra = idx < 0 ? `<span class="step cur">${esc(MSG_STATE[m.state] || m.state)}</span>` : '';
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <b>${esc(m.topic)}</b>
+        <span class="badge">${m.billingMode === 2 ? '看到且回复才扣费' : '发送即扣费'}</span>
+        <span class="amount">¥${yuan(m.amountCents)}</span>
+      </div>
+      <div class="pipeline">${steps}${extra}</div>
+      <div style="color:var(--muted);font-size:12.5px">${esc(m.senderUserId.replace('user-',''))} → ${esc(m.receiverUserId.replace('user-',''))} · 当前 <b>${esc(MSG_STATE[m.state] || m.state)}</b></div>
+    </div>`;
+  }).join('') || '<div class="empty">暂无付费消息</div>';
+
+  $('checks').innerHTML = s.checks.map((c) => `
+    <div class="check-row">
+      <span class="mark ${c.ok ? 'ok' : 'ng'}">${c.ok ? '✔' : '✘'}</span>
+      <span class="nm">${esc(c.name)}</span>
+      <span class="mono" style="color:${c.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(c.actual)}</span>
+    </div>`).join('');
+
+  $('blocked').innerHTML = s.blocked.length
+    ? s.blocked.map((b) => `<div class="quote" style="border-color:#4a1d1d">
+        <b style="color:var(--bad)">${esc(b.verdict)}</b> · ${esc(b.note)}<br>
+        <span class="mono">命中：${esc((b.matched || []).join(', '))} · ${shortTime(b.at)}</span></div>`).join('')
+    : '<div class="empty">今日无拦截</div>';
+
+  const entries = s.ledger.entries.slice().reverse();
+  $('ledger').innerHTML = `<div style="margin-bottom:8px;color:var(--muted);font-size:12.5px">
+      条目 ${esc(s.ledger.stats?.count ?? entries.length)} · 扣费 ${esc(s.ledger.stats?.charged ?? 0)} · 退款 ${esc(s.ledger.stats?.refunded ?? 0)} · 结算 ${esc(s.ledger.stats?.settled ?? 0)}
+    </div><table><thead><tr><th>时间</th><th>类型</th><th>用户</th><th>金额</th><th>幂等键</th></tr></thead><tbody>${
+    entries.slice(0, 12).map((e) => `<tr>
+      <td>${shortTime(e.at)}</td>
+      <td>${esc(e.type)}</td>
+      <td class="mono">${esc(String(e.userId).replace('user-',''))}</td>
+      <td class="num">¥${yuan(e.amountCents)}</td>
+      <td class="mono" style="font-size:11px">${esc(e.idempotencyKey)}</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+
+  const rows = [
+    ...s.blocked.map((b) => ({ at: b.at, kind: 'BLOCK', text: `${b.verdict}：${b.note}` })),
+    ...s.trace.map((t) => ({ at: t.at, kind: t.act, text: t.detail }))
+  ].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 14);
+  $('trace').innerHTML = `<table><tbody>${rows.map((r) => `<tr>
+      <td style="width:56px;color:var(--muted)">${shortTime(r.at)}</td>
+      <td style="width:150px"><span class="badge">${esc(r.kind)}</span></td>
+      <td style="color:#cfe0f2">${esc(r.text)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function autonomyOf(level) {
+  return ['全部','日程协调、家庭采购、物业事务','预约日程、留言转达','接收留言并摘要','仅接收结构化来意'][level] || '—';
+}
+function approvalOf(level) {
+  return ['—','大额支出、对外承诺','查看工作子 Agent','所有对外回复','付费后查看'][level] || '—';
+}
+function summarizeTurn(t) {
+  const p = t.payload || {};
+  if (p.propose) return `提议：${p.propose}`;
+  if (p.counter) return `反提案：${p.counter}`;
+  if (p.provide || p.accept) return `补充：${p.provide || ''} ${p.accept ? '· 接受 ' + p.accept : ''}`;
+  if (p.summary) return `达成：${p.summary}`;
+  return JSON.stringify(p).slice(0, 120);
+}
+
+document.querySelectorAll('.tabs button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    tab = btn.dataset.tab;
+    document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b === btn));
+    $('view-approval').hidden = tab !== 'approval';
+    $('view-oversight').hidden = tab !== 'oversight';
+    render();
+  });
+});
+
+window.decide = decide;
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

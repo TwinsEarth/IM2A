@@ -1,0 +1,153 @@
+// ============================================================================
+// 模块职责：跨协议公共类型（五档信任、Agent 类型、统一错误码、门控裁决、
+//           TraceContext、Money、审计事件）。
+// 契约来源：contracts/INTERFACES.md v1.0（冻结，修改需 Lead 授权）。
+// 验证状态：⚠ 未编译验证。本机无 protoc / buf / Go 工具链；本文件为人工逐项
+//           自检的契约源码，CI 必须补 `buf lint` + `buf breaking`（见 README）。
+// 关键不变量：
+//   1. 枚举名与 INTERFACES.md 中的字符串逐字一致（大小写敏感）。
+//   2. 金额只用整数分（int64 amount_cents），禁止浮点。
+//   3. 时间戳只用 ISO-8601 字符串，proto 字段名以 _at 结尾。
+//   4. proto3 字段用 snake_case；proto3 JSON 映射后自动得到契约要求的 camelCase
+//      （trace_id -> traceId / amount_cents -> amountCents），无需手写转换。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.common.v1;
+
+import "google/protobuf/struct.proto";
+
+// 五档信任矩阵。数值与 INTERFACES.md §1 TRUST_LEVELS 完全一致：
+// SELF=0 / FAMILY=1 / TRUSTED=2 / KNOWN=3 / STRANGER=4。
+// 语义：数值越大信任越低（SELF 最亲、STRANGER 最疏）。门控判定的允许条件是
+// `levelOf <= trustZoneMin`（见 INTERFACES.md §3 第 3 步），不是"低于"。
+// 注意：SELF=0 同时是 proto3 默认值，因此调用方必须显式赋值；缺省即 SELF
+// 在任何 gRPC 服务端都必须被拒绝（信任档只能由 trust-zone.mjs 产出）。
+enum TrustLevel {
+  SELF = 0;
+  FAMILY = 1;
+  TRUSTED = 2;
+  KNOWN = 3;
+  STRANGER = 4;
+}
+
+// Agent 类型。与 INTERFACES.md §2 AGENT_KIND 逐字一致。
+enum AgentKind {
+  BUTLER = 0;
+  SUBAGENT = 1;
+  SKILL = 2;
+}
+
+// 权限门控裁决。与 INTERFACES.md §3 DECISION 逐字一致：
+// DENY 优先于 REQUIRE_APPROVAL 优先于 ALLOW。
+enum GateDecision {
+  ALLOW = 0;
+  REQUIRE_APPROVAL = 1;
+  DENY = 2;
+}
+
+// 跨协议统一错误码。■ 标记的 code 来自 INTERFACES.md 各模块的错误类；
+// 其余为协议传输层映射（非模块契约，见 docs/03 §7）。
+// 命名说明：为遵守 proto 枚举值包内唯一的规则，本枚举对同名 code 只保留一份
+// （例如 NOT_FOUND 同时属于 trust-zone / approval-engine / negotiation-engine，
+// 这里只定义一次；具体归属由 ErrorDetail.module 指明）。
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;  // 占位：proto3 强制首值为 0，禁止作为业务错误返回
+
+  // ■ INTERFACES.md §1 trust-zone.mjs
+  INVALID_LEVEL = 1;
+  NOT_FOUND = 2;
+
+  // ■ §2 agent-registry.mjs
+  AGENT_EXISTS = 3;
+  AGENT_UNKNOWN = 4;
+  OWNER_REQUIRED = 5;
+  PARENT_REQUIRED = 6;
+
+  // ■ §3 capability-gate.mjs（ALLOWED 为放行码，不是错误）
+  ALLOWED = 10;
+  SKILL_NOT_ALLOWED = 11;
+  TRUST_TOO_LOW = 12;
+  BUDGET_EXCEEDED = 13;
+  MONTHLY_CAP = 14;
+  AMOUNT_THRESHOLD = 15;
+  DESTRUCTIVE_ACTION = 16;
+
+  // ■ §4 approval-engine.mjs
+  ILLEGAL_TRANSITION = 20;
+  FORBIDDEN = 21;
+  EXPIRED_TICKET = 22;
+
+  // ■ §5 negotiation-engine.mjs
+  ILLEGAL_STATE = 30;
+  WRONG_AGENT = 31;
+  INTENT_INVALID = 32;
+
+  // ■ §6 memory-store.mjs
+  MEMORY_ISOLATED = 40;
+  LAYER_INVALID = 41;
+
+  // ■ §7 egress-guard.mjs
+  EGRESS_BLOCKED = 50;
+
+  // ■ §8 ledger.mjs
+  INVALID_AMOUNT = 60;
+  INVALID_TYPE = 61;
+  KEY_REQUIRED = 62;
+
+  // ■ §9 paid-message.mjs
+  DAILY_CAP_EXCEEDED = 70;
+  NOT_PAYABLE = 71;
+  NEEDS_SCREENING = 72;
+  SELF_MESSAGE = 73;
+  PAYER_MISMATCH = 74;  // payerUserId 必须 === senderUserId
+
+  // ■ §10 messaging/envelope.mjs
+  BAD_BIZ_TYPE = 80;
+  MISSING_FIELD = 81;
+
+  // 传输层映射（协议层约定，非模块契约；gRPC status <-> ErrorCode 见 docs/03 §7）
+  UNAUTHENTICATED = 90;      // gRPC UNAUTHENTICATED
+  PERMISSION_DENIED = 91;    // gRPC PERMISSION_DENIED
+  RATE_LIMITED = 92;         // gRPC RESOURCE_EXHAUSTED
+  INTERNAL = 93;             // gRPC INTERNAL
+  DEADLINE_EXCEEDED = 94;    // gRPC DEADLINE_EXCEEDED
+  UNAVAILABLE = 95;          // gRPC UNAVAILABLE
+  INVALID_ARGUMENT = 96;     // gRPC INVALID_ARGUMENT
+}
+
+// 结构化错误详情。gRPC 通过 trailing metadata 键 `x-contract-error-bin` 承载
+// （二进制 proto 编码）；REST 侧展开为 openapi 的 ErrorResponse。
+message ErrorDetail {
+  ErrorCode code = 1;
+  string message = 2;
+  string module = 3;                                   // 如 "approval-engine"
+  string trace_id = 4;
+  map<string, string> details = 5;                     // 稳定排序后输出
+}
+
+// 分布式追踪上下文。审计事件中的 traceId 即 trace_id。
+message TraceContext {
+  string trace_id = 1;
+  string span_id = 2;
+  string parent_span_id = 3;
+  bool sampled = 4;
+}
+
+// 金额。整数分，币种为 ISO-4217；currency 为空等价 "CNY"。
+message Money {
+  int64 amount_cents = 1;
+  string currency = 2;
+}
+
+// 治理审计事件，对应 INTERFACES.md 全局约定 { at, actor, action, target,
+// decision, detail }。只追加，不得修改或删除。
+message AuditEvent {
+  string at = 1;                       // ISO-8601
+  string actor = 2;                    // user-* / agent-* / system
+  string action = 3;
+  string target = 4;
+  string decision = 5;                 // ALLOW / DENY / REQUIRE_APPROVAL / PASS ...
+  google.protobuf.Struct detail = 6;
+}
