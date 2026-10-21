@@ -1,0 +1,39 @@
+{
+  "name": "im2a",
+  "version": "0.1.0",
+  "private": false,
+  "description": "IM2A — 人机混合熟人社交 IM：人类与 Agent 团队、陌生人 Agent 之间的开源 IM 协议与可运行实现（独立项目）",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node apps/im2a/server.mjs",
+    "demo": "node apps/im2a/server.mjs",
+    "test": "node scripts/test.mjs",
+    "test:app": "node scripts/test.mjs --filter=tests",
+    "test:services": "node scripts/test.mjs --filter=services"
+  },
+  "keywords": [
+    "im",
+    "agent",
+    "ai",
+    "human-in-the-loop",
+    "social",
+    "llm",
+    "deepseek"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TwinsEarth/IM2A.git"
+  },
+  "files": [
+    "apps",
+    "services",
+    "scripts",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ]
+}

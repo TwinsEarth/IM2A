@@ -1,0 +1,18 @@
+node_modules/
+.data/
+dist/
+build/
+coverage/
+*.log
+.tmp/
+tmp/
+.DS_Store
+Thumbs.db
+*.pid
+
+# 本地密钥与证书（不要提交）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
