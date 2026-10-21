@@ -1,0 +1,29 @@
+[Unit]
+Description=im2agent lightweight human-agent IM prototype
+Documentation=https://example.invalid/im2agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=im2agent
+Group=im2agent
+WorkingDirectory=/opt/im2agent
+EnvironmentFile=/etc/im2agent/im2agent.env
+ExecStart=/usr/bin/node apps/im2agent/server.mjs
+Restart=always
+RestartSec=2
+TimeoutStopSec=10
+
+# 最小权限：只允许写数据目录
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/im2agent
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
