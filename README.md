@@ -16,7 +16,8 @@ IM2A 是一个**开源的人机混合熟人社交 IM 平台工程基线**：
 > 📌 从这读起：[**docs/19-IM2A-完整落地执行方案**](docs/19-IM2A-完整落地执行方案.md) —— 按「产品 / 技术 / 客户端&UI / 运营」
 > 四个板块 + 你的 7 条需求组织的一站式总纲（每条都标了「系统答案 → 落点文件 → 现状」）。
 > 更严格的证据口径见 [**docs/18-IM2A-工程基线**](docs/18-IM2A-工程基线.md)（四条不可妥协主张 → 代码证据）。
-> 版本历史见 [CHANGELOG.md](CHANGELOG.md)（`v1.0.0-baseline` 为当前基线，`v0.8.0-ops` 为最新运维形态）。
+> Context 主权的技术判断（Context 可迁移 / 结论人锁 / 付费只解锁 scope）见 [**docs/20-Context飞轮与Personal-Runtime**](docs/20-Context飞轮与Personal-Runtime.md)。
+> 版本历史见 [CHANGELOG.md](CHANGELOG.md)（`v1.0.0-baseline` 为基线，`v1.2.0-context` 为最新）。
 >
 > 本仓库 = **技术文档（架构 / 框架 / SDK / 协议 / 开发计划 / 产品 / UI / 运营）** + **可运行的参考实现**。
 

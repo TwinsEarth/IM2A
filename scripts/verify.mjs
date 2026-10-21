@@ -486,6 +486,55 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   record('docs/02 记录 v7 底座决策反转（§19）', doc02.includes('## 19.') && doc02.includes('v7'), '缺少 §19 反转小节');
 }
 
+// ───────────────────────── 16. v8「Context 主权」交付完整性 ─────────────────────────
+{
+  const v8Modules = [
+    ['services/orchestrator/src/person-runtime.mjs', 'services/orchestrator/test/person-runtime.test.mjs'],
+    ['services/orchestrator/src/context-lock.mjs', 'services/orchestrator/test/context-lock.test.mjs'],
+    ['services/gateway/src/scoped-grant.mjs', 'services/gateway/test/scoped-grant.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v8Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v8 模块与测试齐备（${v8Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v8Codes = ['SECRET_IN_LAYER', 'VERSION_MISMATCH', 'BUNDLE_INVALID', 'LOCK_IMMUTABLE', 'CONFLICT_PENDING', 'SCOPE_NOT_GRANTED', 'ALREADY_USED'];
+  const missingCodes = v8Codes.filter((code) => !contract.includes(code) || !srcText.includes(`'${code}'`));
+  record(`v8 关键错误码契约↔实现一致（${v8Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+  const v8Enums = {
+    STATE_LAYER: ['PERSONAL', 'TASK', 'WORKING'],
+    GRANT_SCOPE: ['view_summary', 'view_original', 'reply'],
+    LOCK_STATE: ['PENDING', 'LOCKED', 'CONFLICT']
+  };
+  for (const [name, values] of Object.entries(v8Enums)) {
+    const inContract = values.every((v) => contract.includes(v));
+    const inSrc = values.every((v) => srcText.includes(`'${v}'`));
+    record(`v8 枚举 ${name} 契约↔实现一致（${values.length} 值）`, inContract && inSrc, `contract=${inContract} impl=${inSrc}`);
+  }
+
+  const v8Sections = ['33', '34', '35'];
+  const missingSections = v8Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v8 §33–§35 三节', missingSections.length === 0, missingSections.join(', '));
+
+  const doc20 = path.join(ROOT, 'docs/20-Context飞轮与Personal-Runtime.md');
+  if (await exists(doc20)) {
+    const t20 = await read(doc20);
+    const required = ['Context', '飞轮', 'PACT', 'PAP', 'Runtime'];
+    const missingKeywords = required.filter((word) => !t20.includes(word));
+    record('docs/20 覆盖 Context 飞轮与授权协议', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/20 Context 飞轮文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

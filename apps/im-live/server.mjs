@@ -659,6 +659,16 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  // ── v8：Context 主权（Runtime 分层 / 确认锁定 / scoped 授权）──
+  if (method === 'GET' && pathname === '/api/v2/context-sovereignty') {
+    try {
+      sendJson(res, 200, holder.demo.v2.contextSovereigntyView());
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'CONTEXT_FAILED', message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/v2/audit') {
     const v2 = holder.demo.v2;
     const verify = v2.signedAudit.verify();

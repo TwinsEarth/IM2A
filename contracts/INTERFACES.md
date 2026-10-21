@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R11 | 2026-10-21 | **v8 增补「Context 主权」机制**：§33 Person-scoped Runtime（PERSONAL/TASK/WORKING 三层 + 可迁移 snapshot + Secret 拒绝入层）、§34 确认锁定 Context（Agent 只能 propose，人确认才 LOCKED，冲突上抛不覆写）、§35 PACT 式 scoped 授权 + 签名回执（付费只解锁 scope、不扩权）；原 §33→§36 禁止事项、§34→§37 验证命令 | 加法（v1–v7 语义全保留） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
 
@@ -1000,7 +1001,99 @@ export class AgentCorrespondence {
 
 ---
 
-## 33. 禁止事项（对所有实现者）
+## 33. `services/orchestrator/src/person-runtime.mjs`（v8 新增）
+
+**职责**：**Person-scoped Runtime**。Personal Agent 不是"一次会话里的 Agent"，而是跨天/跨周持续存在的运行时：它的执行状态必须由 Runtime 显式管理，而不是散落在对话历史里。
+
+**三层状态（迁移口径在这一层就钉死）**：
+
+| 层 | 生命周期 | 内容 | 是否进可迁移包 |
+|---|---|---|---|
+| `PERSONAL` | 年 | 用户画像、偏好、关系与边界 | ✅ 进（Context 主权归用户） |
+| `TASK` | 天/小时 | 任务检查点、等待条件（外部事件/审批/日程） | ✅ 进（换实例要能续跑） |
+| `WORKING` | 单次执行周期 | 当前推理工作集 | ❌ 不进（执行期状态不迁移） |
+
+```js
+export const STATE_LAYER = Object.freeze({ PERSONAL: 'PERSONAL', TASK: 'TASK', WORKING: 'WORKING' });
+export const RUNTIME_TASK_STATE = Object.freeze({ CREATED: 'CREATED', RUNNING: 'RUNNING', WAITING: 'WAITING', COMPLETED: 'COMPLETED', FAILED: 'FAILED', CANCELED: 'CANCELED' });
+export const RUNTIME_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', ILLEGAL_STATE: 'ILLEGAL_STATE', LAYER_INVALID: 'LAYER_INVALID',
+  SECRET_IN_LAYER: 'SECRET_IN_LAYER', BUNDLE_INVALID: 'BUNDLE_INVALID', VERSION_MISMATCH: 'VERSION_MISMATCH'
+});
+export class PersonRuntimeError extends Error {}
+
+export class PersonRuntime {
+  constructor({ userId, clock = () => new Date(), version = 'im2a-runtime/1' });
+  putPersonal({ key, value, evidence = [] });        // key 以 `secret:` 开头 → SECRET_IN_LAYER（凭证归 Vault）
+  putTask({ taskId, title, state = 'CREATED', checkpoint = {}, waitingFor = null });
+  setWorking({ turnId, context });                   // 单次执行周期的工作集
+  clearWorking();                                    // 执行结束立即失效
+  transition({ taskId, to, reason = null });         // 白名单：CREATED→RUNNING→WAITING→RUNNING→COMPLETED/FAILED；任意非终态→CANCELED
+  wait({ taskId, condition });                        // condition: { kind:'external_event'|'approval'|'schedule', ref, until? }
+  resume({ taskId, reason = null });
+  personal({ key }); task(taskId); tasks({ state = null } = {});
+  snapshot();                                        // -> { version, userId, personal, tasks, exportedAt, hash }（**不含 WORKING、不含凭证**）
+  restore(bundle);                                   // -> { personal, tasks }；version 不符 → VERSION_MISMATCH，hash 不符 → BUNDLE_INVALID
+  metrics();                                         // Context 飞轮指标：{ personalKeys, tasksTotal, tasksCompleted, tasksWaiting }
+}
+```
+**不变量**：①`WORKING` 永不进入 `snapshot`；②任何 `secret:*` key 写入 → `SECRET_IN_LAYER`；③终态不可回退；④`snapshot` 带 `hash`，`restore` 必须校验，损坏即拒绝（不"尽力恢复"）。
+
+---
+
+## 34. `services/orchestrator/src/context-lock.mjs`（v8 新增）
+
+**职责**：**确认锁定的 Context**。借鉴 MyContext：Agent 可以自动提取与整理 Context，但**关键结论的写入权在用户**；用户确认后永久锁定，任何子 Agent 不得覆写。
+
+```js
+export const LOCK_STATE = Object.freeze({ PENDING: 'PENDING', LOCKED: 'LOCKED', CONFLICT: 'CONFLICT' });
+export const CONTEXT_LOCK_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', ILLEGAL_STATE: 'ILLEGAL_STATE', LOCK_IMMUTABLE: 'LOCK_IMMUTABLE',
+  CONFLICT_PENDING: 'CONFLICT_PENDING', FORBIDDEN: 'FORBIDDEN', INVALID_VALUE: 'INVALID_VALUE'
+});
+export class ContextLockError extends Error {}
+
+export class ContextLock {
+  constructor({ ownerUserId, clock = () => new Date(), onAudit = () => {} });
+  propose({ key, value, sourceAgentId, evidence = [] });
+  //  未存在 → PENDING；已 LOCKED 且值相同 → 幂等返回 LOCKED；已 LOCKED 且值不同 → CONFLICT（**原值不变**）
+  confirm({ key, byUserId, decision = 'LOCK' });        // 只有 ownerUserId 能确认 → LOCKED；reject → 回到未锁定
+  read({ key });                                        // -> { state, value, lockedBy, lockedAt, candidate? }
+  unlock({ key, byUserId, reason });                    // 必须给 reason 且留审计；解后回到未锁定
+  history({ key }); stats();                            // 飞轮指标：{ pending, locked, conflicts }
+}
+```
+**不变量**：①子 Agent 只有 `propose` 权，`confirm` 必须是属主（否则 `FORBIDDEN`）；②`LOCKED` 的 key 值**不可被任何 propose 覆写**；③冲突不自动合并、必须上抛到人；④`unlock` 是唯一的解锁路径，且必须留审计。
+
+---
+
+## 35. `services/gateway/src/scoped-grant.mjs`（v8 新增）
+
+**职责**：**PACT 式 scoped 授权 + 签名回执**。付费解锁的不是"通路"，而是"被允许查看本条消息原文"这一特定 scope；每次动作生成绑定 `messageId + scope + action` 的回执，进不可变审计。
+
+```js
+export const GRANT_SCOPE = Object.freeze({ VIEW_SUMMARY: 'view_summary', VIEW_ORIGINAL: 'view_original', REPLY: 'reply' });
+export const GRANT_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', SCOPE_INVALID: 'SCOPE_INVALID', SCOPE_NOT_GRANTED: 'SCOPE_NOT_GRANTED',
+  EXPIRED: 'EXPIRED', ALREADY_USED: 'ALREADY_USED', RECEIPT_MISMATCH: 'RECEIPT_MISMATCH', REVOKED: 'REVOKED'
+});
+export class ScopedGrantError extends Error {}
+
+export class ScopedGrant {
+  constructor({ clock = () => new Date(), identity = null, maxTtlMs = 10 * 60e3 });
+  grant({ messageId, granteeAgentId, scopes, ttlMs = 5 * 60e3, priceCents = 0 });
+  //  -> 冻结 grant：{ id, messageId, granteeAgentId, scopes, priceCents, issuedAt, expiresAt }
+  consume({ grantId, action });            // action ∈ scopes；**每个 scope 单次消耗**；返回 receipt
+  //  -> { receipt: { messageId, scope, action, at, hash, signature? } }
+  verifyReceipt({ receipt });              // -> { ok, code }
+  revoke({ grantId }); list({ messageId = null } = {});
+}
+```
+**不变量**：①`scopes` 必须 ⊆ 白名单，否则 `SCOPE_INVALID`；②每个 scope **单次**消耗，重复 → `ALREADY_USED`；③过期 → `EXPIRED`，撤销 → `REVOKED`；④回执 hash 绑定 `messageId+scope+action+at`，注入 `identity` 时同时签名；⑤**付费不扩大 scope**——`priceCents` 只是记录，不参与授权判定。
+
+---
+
+## 36. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1014,7 +1107,7 @@ export class AgentCorrespondence {
 
 ---
 
-## 34. 验证命令
+## 37. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1053,6 +1146,11 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v8 新增模块（§33–§35）
+node E:\GPT\agent-im\scripts\test.mjs --filter=person-runtime
+node E:\GPT\agent-im\scripts\test.mjs --filter=context-lock
+node E:\GPT\agent-im\scripts\test.mjs --filter=scoped-grant
 
 # 一条命令验证（起服务 → 自检 → 打印入口）
 node E:\GPT\agent-im\scripts\quickstart.mjs

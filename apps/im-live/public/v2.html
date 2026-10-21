@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
@@ -165,6 +165,17 @@
         陌生 Agent 的来信默认挂起，只有属主批准后才允许进入会话。
       </p>
       <div id="platform"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h3>Context 主权<span class="hint">Context 可迁移 · 结论人锁 · 付费只买 scope</span></h3>
+      <p class="sub">
+        模型可以租，Context 租不到。所以：执行状态要能<b>带着走</b>（换实例续跑），关键结论要<b>只有人能改</b>，
+        付费解锁的必须是<b>某个具体 scope</b>（看原文/回复），而不是"通行证"。
+      </p>
+      <div id="context"></div>
     </div>
   </div>
 
@@ -383,7 +394,7 @@ async function loadDiscussions() {
 
 async function loadHosting() {
   const [ctx, presence, routing] = await Promise.all([
-    getJson('/api/v2/context'),
+    getJson('/api/v2/context-sovereignty'),
     getJson('/api/v2/presence'),
     getJson('/api/v2/model-route')
   ]);
@@ -526,9 +537,43 @@ async function loadPlatform() {
     </div>`;
 }
 
+async function loadContext() {
+  const data = await getJson('/api/v2/context-sovereignty');
+  const { runtime, lock, grant } = data;
+  $('context').innerHTML = `
+    <div class="note ${runtime.workingLeaked ? 'bad' : 'ok'}">
+      <b>① 可迁移 Runtime</b><br>
+      层级 ${(runtime.layers || []).map((l) => `<span class="tag ${l === 'WORKING' ? 'bad' : 'ok'}">${esc(l)}</span>`).join(' ')} ·
+      迁移包字段 <span class="mono">${esc((runtime.bundleKeys || []).join(', '))}</span><br>
+      WORKING 是否泄漏进包：<span class="tag ${runtime.workingLeaked ? 'bad' : 'ok'}">${runtime.workingLeaked ? '是（严重）' : '否'}</span> ·
+      哈希 <span class="mono">${esc(runtime.hash)}…</span><br>
+      恢复后任务：<b>${esc(runtime.restored?.resumedState)}</b>，等待条件
+      <span class="mono">${esc(runtime.restored?.waitingFor?.kind)}:${esc(runtime.restored?.waitingFor?.ref)}</span><br>
+      <span style="color:var(--muted)">飞轮指标：personal ${esc(runtime.metrics?.personalKeys)} · tasks ${esc(runtime.metrics?.tasksTotal)} · waiting ${esc(runtime.metrics?.tasksWaiting)}</span>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">② 确认锁定（Agent 只能提议）</b>
+      <table><thead><tr><th>阶段</th><th>状态</th><th>值</th></tr></thead><tbody>
+        <tr><td>Agent 提议</td><td><span class="tag warn">${esc(lock.firstPropose)}</span></td><td>${esc(lock.beforeConfirm?.value)}</td></tr>
+        <tr><td>属主确认</td><td><span class="tag ok">${esc(lock.locked?.state)}</span></td><td>${esc(lock.locked?.value)}（${esc(lock.locked?.lockedBy)}）</td></tr>
+        <tr><td>Agent 改口</td><td><span class="tag bad">${esc(lock.conflict?.state)}</span></td><td>仍是「${esc(lock.conflict?.value)}」，候选「${esc(lock.conflict?.candidate?.value ?? '—')}」</td></tr>
+      </tbody></table>
+      <div class="note bad" style="margin-top:8px">非属主试图确认：
+        <span class="tag bad">${esc(lock.nonOwner?.code ?? '—')}</span> · 锁定 ${esc(lock.stats?.locked)} / 冲突 ${esc(lock.stats?.conflicts)}</div>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">③ 付费只解锁 scope</b>
+      <div class="note">
+        授予 <span class="mono">${esc((grant.scopes || []).join(','))}</span> · 已付费 ¥${esc((grant.priceCents / 100).toFixed(2))}
+        → 试图拿 <span class="mono">view_original</span>：<span class="tag bad">${esc(grant.escalation?.code ?? '—')}</span>（付费不扩权）<br>
+        同一 scope 二次消费：<span class="tag bad">${esc(grant.replay?.code ?? '—')}</span> ·
+        回执验签：<span class="tag ${grant.receiptOk ? 'ok' : 'bad'}">${grant.receiptOk ? '通过' : '失败'}</span>
+        <span class="mono">${esc(String(grant.receipt?.hash ?? '').slice(0, 16))}…</span>
+      </div>
+    </div>`;
+}
+
 async function loadAll() {
   try {
-    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting(), loadTrusted(), loadDurability(), loadPlatform()]);
+    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting(), loadTrusted(), loadDurability(), loadPlatform(), loadContext()]);
   } catch (error) {
     document.querySelector('main').insertAdjacentHTML('beforeend', `<div class="note bad">加载失败：${esc(error.message)}</div>`);
   }

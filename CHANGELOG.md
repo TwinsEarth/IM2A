@@ -14,6 +14,18 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v1.2.0-context — 2026-10-21
+
+把「Context 主权」落成代码（§33–§35，契约 R11）：
+
+- **§33 Person Runtime**：PERSONAL/TASK/WORKING 三层状态；`snapshot` **只含 PERSONAL+TASK**（WORKING 永不迁移）、带 hash、`restore` 校验 version+hash；`secret:*` 写入 → `SECRET_IN_LAYER`；任务检查点与等待条件换实例可续跑
+- **§34 确认锁定 Context**：Agent 只能 `propose`；只有属主能 `confirm`；LOCKED 后改口 → `CONFLICT` 且原值不变；`unlock` 必须 reason 并留审计
+- **§35 scoped 授权 + 签名回执**：scope 白名单、每 scope 单次消耗、过期/撤销、回执 hash 绑定 `messageId+scope+action+at`；**priceCents 不参与授权判定（付费不扩权）**
+- 文档：`docs/20-Context飞轮与Personal-Runtime.md`（四层技术栈取/不取、三个结构性差异、两个风险处置、⛔ 路线图）
+- 演示：`/v2` 页「Context 主权」卡片 + `GET /api/v2/context-sovereignty`
+
+测试：person-runtime 12 · context-lock 14 · scoped-grant 11 → 全量 **539/539**；verify **62/62**；quickstart 13/13；e2e 12/12。
+
 ## 验证原型线（im2agent，7 形态）
 
 | Tag | 内容 | 验证 |

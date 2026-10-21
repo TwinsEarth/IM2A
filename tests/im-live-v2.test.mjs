@@ -361,6 +361,35 @@ test('v7：底座可替换（PaaS⇄内核）+ 陌生来信的审批挂起', asy
   });
 });
 
+test('v8：Context 主权（迁移不含 WORKING / 锁定不可覆写 / 付费不扩权）', async () => {
+  await withServer(async (app) => {
+    const res = await json(`${app.url}/api/v2/context-sovereignty`);
+    assert.equal(res.status, 200, 'context 端点可读');
+    const { runtime, lock, grant } = res.body;
+
+    // ① 迁移包：不含 WORKING，任务检查点与等待条件可续跑
+    assert.equal(runtime.workingLeaked, false, 'WORKING 绝不能进迁移包');
+    assert.ok(!runtime.bundleKeys.includes('working'), '迁移包字段里不应有 working');
+    assert.ok(runtime.bundleKeys.includes('personal') && runtime.bundleKeys.includes('tasks'), '迁移包应含 PERSONAL 与 TASK');
+    assert.equal(runtime.restored.resumedState, 'WAITING', '恢复后任务应停在等待态');
+    assert.equal(runtime.restored.waitingFor.ref, 'msg-stranger-1', '等待条件应原样恢复');
+
+    // ② 确认锁定：Agent 提议 → 人确认 → Agent 改口被拒且原值不变
+    assert.equal(lock.firstPropose, 'PENDING', 'Agent 只能提议');
+    assert.equal(lock.locked.state, 'LOCKED');
+    assert.equal(lock.conflict.state, 'CONFLICT');
+    assert.equal(lock.conflict.value, lock.locked.value, '冲突时锁定值不得被覆写');
+    assert.ok(String(lock.conflict.candidate?.value ?? '').includes('生活'), '冲突候选应可见');
+    assert.equal(lock.nonOwner.ok, false, '非属主不能确认');
+
+    // ③ scoped 授权：付费只解锁 scope，回执可验
+    assert.ok(grant.scopes.includes('view_summary'));
+    assert.equal(grant.escalation.code, 'SCOPE_NOT_GRANTED', '付费不能扩大 scope');
+    assert.equal(grant.replay.code, 'ALREADY_USED', '同一 scope 只能消耗一次');
+    assert.equal(grant.receiptOk, true, '回执 hash 应可验');
+  });
+});
+
 test('/api/state 暴露 v2 摘要，/v2 页面可访问', async () => {
   await withServer(async (app) => {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);

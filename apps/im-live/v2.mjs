@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 模块职责：v2 接入层 —— 把「身份 / Agent 网关 / 可见域 / 频道 / 会话 / 签名审计」装配成一个可演示的 Agent 网络
  * 契约来源：contracts/INTERFACES.md §11–§16（v2 冻结契约）
  *
@@ -30,6 +30,9 @@ import { VisibilityGate, DOMAIN } from '../../services/gateway/src/visibility.mj
 import { TrustedContextProvider } from '../../services/gateway/src/trusted-context.mjs';
 import { PresencePolicy, PRESENCE_MODE } from '../../services/orchestrator/src/presence-policy.mjs';
 import { ModelRouter, MODEL_TIER } from '../../services/orchestrator/src/model-router.mjs';
+import { PersonRuntime, STATE_LAYER } from '../../services/orchestrator/src/person-runtime.mjs';
+import { ContextLock, LOCK_STATE } from '../../services/orchestrator/src/context-lock.mjs';
+import { ScopedGrant, GRANT_SCOPE } from '../../services/gateway/src/scoped-grant.mjs';
 import { TurnInbox } from '../../services/messaging/src/turn-inbox.mjs';
 import {
   ChannelRegistry,
@@ -354,6 +357,11 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     onAudit: (event) => signedAudit.append({ source: 'agent-correspondence', action: 'CORRESPONDENCE_EVENT', actor: event?.actor ?? null, decision: event?.action ?? null, detail: event })
   });
 
+  // ⑱ v8：Context 主权三件套——Person Runtime / 确认锁定 / scoped 授权
+  const runtime = new PersonRuntime({ userId: USERS.LIN, clock });
+  const contextLock = new ContextLock({ ownerUserId: USERS.LIN, clock });
+  const scopedGrant = new ScopedGrant({ clock });
+
   // ⑱ v7：IM 渠道适配层——业务层只面向统一 MessageEvent，底座（PaaS / 自托管内核）可切换
   const adapters = new ImAdapterRegistry();
   adapters.register(
@@ -394,6 +402,9 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     delegations,
     adapters,
     correspondence,
+    runtime,
+    contextLock,
+    scopedGrant,
     auditDiscussionId: auditDiscussion.id,
 
     /** v3：人格 + 记忆生命周期视图（SOUL 与记忆分离；晋升按时间+访问次数，不由模型自称） */
@@ -870,6 +881,88 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
           phase2: '评估 WKongAI / 自研网关（能力缺口见下表）',
           compensation: 'PaaS 不提供未读整形 → 人类未读投影由业务层自建（AGENT_NEGOTIATION/CMD 恒 0）'
         }
+      };
+    },
+
+    /** v8：Context 主权——Runtime 分层可迁移 / 关键结论人锁 / 付费只解锁 scope */
+    contextSovereigntyView() {
+      const run = randomUUID().slice(0, 6);
+
+      // ① Runtime：PERSONAL / TASK / WORKING 三层，snapshot 不含 WORKING
+      const taskId = `task-funding-${run}`;
+      runtime.putPersonal({ key: 'pref.meeting_window', value: '周五 16:00 之后优先', evidence: ['tkt-stranger-1'] });
+      runtime.putTask({ taskId, title: 'A 轮融资沟通 20 分钟', state: 'RUNNING' });
+      runtime.transition({ taskId, to: 'WAITING', reason: '等待对方确认时间' });
+      runtime.wait({ taskId, condition: { kind: 'external_event', ref: 'msg-stranger-1' } });
+      runtime.setWorking({ turnId: `turn-${run}`, context: { draft: '这是单次执行周期的工作集，不该被迁移' } });
+      const bundle = runtime.snapshot();
+      const bundleKeys = Object.keys(bundle);
+      const workingLeaked = JSON.stringify(bundle).includes(`turn-${run}`);
+      const restored = new PersonRuntime({ userId: USERS.LIN, clock });
+      const restoreResult = restored.restore(bundle);
+      const resumed = restored.task(taskId);
+
+      // ② ContextLock：Agent 只能提议，人确认才锁定；冲突不覆写
+      const lockKey = `ticket.friday.${run}`;
+      const firstPropose = contextLock.propose({ key: lockKey, value: '工作（客户会议）', sourceAgentId: AGENTS.LIN_BUTLER, evidence: ['msg-stranger-1'] });
+      const beforeConfirm = contextLock.read({ key: lockKey });
+      contextLock.confirm({ key: lockKey, byUserId: USERS.LIN, decision: 'LOCK' });
+      const lockedRead = contextLock.read({ key: lockKey });
+      const conflictPropose = contextLock.propose({ key: lockKey, value: '生活（家庭聚餐）', sourceAgentId: AGENTS.LIN_BUTLER });
+      const afterConflict = contextLock.read({ key: lockKey });
+      let nonOwner;
+      try {
+        contextLock.confirm({ key: lockKey, byUserId: USERS.ZHOU, decision: 'LOCK' });
+        nonOwner = { ok: true, code: null };
+      } catch (error) {
+        nonOwner = { ok: false, code: error?.code ?? 'FORBIDDEN' };
+      }
+
+      // ③ ScopedGrant：只解锁 scope，不扩权；回执绑定 messageId+scope+action
+      const grant = scopedGrant.grant({ messageId: 'msg-stranger-1', granteeAgentId: AGENTS.ZHOU_BUTLER, scopes: [GRANT_SCOPE.VIEW_SUMMARY], ttlMs: 60_000, priceCents: 5000 });
+      let escalation;
+      try {
+        scopedGrant.consume({ grantId: grant.id, action: GRANT_SCOPE.VIEW_ORIGINAL });
+        escalation = { ok: true, code: null };
+      } catch (error) {
+        escalation = { ok: false, code: error?.code ?? 'SCOPE_NOT_GRANTED' };
+      }
+      const consumed = scopedGrant.consume({ grantId: grant.id, action: GRANT_SCOPE.VIEW_SUMMARY });
+      let replay;
+      try {
+        scopedGrant.consume({ grantId: grant.id, action: GRANT_SCOPE.VIEW_SUMMARY });
+        replay = { ok: true, code: null };
+      } catch (error) {
+        replay = { ok: false, code: error?.code ?? 'ALREADY_USED' };
+      }
+      const receiptCheck = scopedGrant.verifyReceipt({ receipt: consumed.receipt });
+
+      return {
+        runtime: {
+          layers: Object.values(STATE_LAYER),
+          bundleKeys,
+          workingLeaked,
+          metrics: runtime.metrics(),
+          restored: { personal: restoreResult.personal, tasks: restoreResult.tasks, resumedState: resumed?.state ?? null, waitingFor: resumed?.waitingFor ?? null },
+          hash: String(bundle.hash).slice(0, 12)
+        },
+        lock: {
+          firstPropose: firstPropose.state,
+          beforeConfirm: { state: beforeConfirm.state, value: beforeConfirm.value },
+          locked: { state: lockedRead.state, value: lockedRead.value, lockedBy: lockedRead.lockedBy },
+          conflict: { state: afterConflict.state, value: afterConflict.value, candidate: afterConflict.candidate ?? null, proposeResult: conflictPropose.state },
+          nonOwner,
+          stats: contextLock.stats()
+        },
+        grant: {
+          scopes: grant.scopes,
+          priceCents: grant.priceCents,
+          escalation,
+          replay,
+          receipt: consumed.receipt,
+          receiptOk: receiptCheck.ok
+        },
+        rule: 'WORKING 不进迁移包；锁定结论只能人改；付费只买 scope、买不到更多权限'
       };
     },
 
