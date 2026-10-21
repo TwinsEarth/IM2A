@@ -19,6 +19,7 @@
 | R7 | 2026-10-21 | **v4 增补「宿主型 IM」机制**：§22 服务端可信上下文注入、§23 旁观与主动沉默、§24 敏感场景模型路由、§25 轮次内投递（mid-turn delivery）；原 §20→§26 禁止事项、§21→§27 验证命令 | 加法（v1–v3 语义全保留） |
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
+| R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
 
@@ -931,7 +932,75 @@ export class DelegationService {
 
 ---
 
-## 31. 禁止事项（对所有实现者）
+## 31. `services/messaging/src/im-adapter.mjs`（v7 新增）
+
+**职责**：**IM 渠道适配层**。借鉴 AstrBot / MalikClaw：业务代码（编排层）只面向统一 `MessageEvent` 编程，**不直接依赖任何平台 SDK**。这样"用腾讯云 IM PaaS 还是自托管内核"变成部署选择，而不是代码重写。
+
+**为什么这层必须有**：v2 曾选"自托管内核"，v7 决策改为 **Phase0–1 用 PaaS + 适配层**。两者能共存的前提就是这层抽象；而**平台能力的缺口必须在适配器里显式声明**（缺失就拒绝，不静默降级）。
+
+```js
+export const ADAPTER_CODE = Object.freeze({
+  ADAPTER_UNKNOWN: 'ADAPTER_UNKNOWN', ADAPTER_EXISTS: 'ADAPTER_EXISTS',
+  CAPABILITY_MISSING: 'CAPABILITY_MISSING', EVENT_INVALID: 'EVENT_INVALID', PLATFORM_ERROR: 'PLATFORM_ERROR'
+});
+export const ADAPTER_CAPABILITY = Object.freeze({
+  UNREAD_SHAPING: 'UNREAD_SHAPING',       // 能否按频道类型整形未读（AGENT_NEGOTIATION 恒 0 依赖它）
+  CUSTOM_MESSAGE: 'CUSTOM_MESSAGE',       // 自定义消息类型（Agent 轮次/CMD）
+  AGENT_MEMBERSHIP: 'AGENT_MEMBERSHIP',   // Agent 能否作为合法成员参与投递
+  AUDIT_CHAIN: 'AUDIT_CHAIN',             // 能否把平台事件纳入自有审计链
+  STREAMING: 'STREAMING',                 // 流式回复
+  CARD_CALLBACK: 'CARD_CALLBACK'          // 卡片点击回调（审批输入源）
+});
+export class ImAdapterError extends Error {}
+
+export function normalizeEvent({ platform, adapterId, raw });   // -> MessageEvent
+export class ImAdapterRegistry {
+  constructor();
+  register({ adapterId, platform, capabilities = [], send, verifyEvent = null });
+  capabilitiesOf(adapterId); adaptersOf(platform);
+  hasCapability({ adapterId, capability });
+  requireCapability({ adapterId, capability });   // 缺失 → throw CAPABILITY_MISSING
+  dispatch({ adapterId, raw });                   // -> { event, platformMessageId }
+}
+```
+**统一 MessageEvent（冻结字段）**：
+```js
+{ eventId, platform, adapterId, channelId, senderId, senderKind: 'human'|'agent',
+  kind: 'TEXT'|'CARD'|'AGENT_TURN'|'CMD', text, card, at, replyTo, metadata, trustZone }
+```
+**不变量**：①`dispatch` 先 `verifyEvent`（可选）再归一化，非法 → `EVENT_INVALID`；②`send` 抛错 → `PLATFORM_ERROR`（不吞异常）；③**能力缺失必须显式报错**：例如某 PaaS 适配器未声明 `UNREAD_SHAPING`，调用方要求"协商频道人类未读恒 0"时必须 `CAPABILITY_MISSING`，**不允许假装支持**。
+
+---
+
+## 32. `services/orchestrator/src/agent-correspondence.mjs`（v7 新增）
+
+**职责**：**陌生 Agent 通信的人类审批挂起**。借鉴 agentcomms / masumi-agent-messenger：Agent 之间的通信可以在**需要人决策的节点挂起**，而不是让 Agent 自行跑完全部回合；语义层（协商内容）仍由平台自己的 `negotiation-engine` 控制，中转层只做投递与挂起。
+
+```js
+export const CORRESPONDENCE_STATE = Object.freeze({
+  OPEN: 'OPEN', SUSPENDED: 'SUSPENDED', APPROVED: 'APPROVED', REFUSED: 'REFUSED', EXPIRED: 'EXPIRED'
+});
+export const CORRESPONDENCE_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', ILLEGAL_STATE: 'ILLEGAL_STATE', APPROVAL_REQUIRED: 'APPROVAL_REQUIRED',
+  ALREADY_DECIDED: 'ALREADY_DECIDED', EXPIRED: 'EXPIRED'
+});
+export class CorrespondenceError extends Error {}
+
+export class AgentCorrespondence {
+  constructor({ clock = () => new Date(), ttlMs = 24 * 3600e3, onAudit = () => {} });
+  open({ correspondenceId = null, fromAgentId, toAgentId, principalUserId, topic, payload = {}, requiresHumanApproval = true });
+  //  -> 冻结 conversation { id, state, ... }：requiresHumanApproval ? SUSPENDED : APPROVED
+  decide({ correspondenceId, actorUserId, action, comment = null });   // action: 'APPROVE' | 'REFUSE'
+  expire({ correspondenceId, nowMs = null });
+  deliverable({ correspondenceId });   // -> { ok, code }：只有 APPROVED 才能投递
+  get(correspondenceId); list({ state = null } = {}); events(correspondenceId = null);
+}
+```
+**判定（冻结）**：只有属主 `principalUserId` 能 `decide`（否则 `APPROVAL_REQUIRED` 语义不成立，实现用 `NOT_FOUND` 亦可，但**不得**让别人批）；终态再 decide → `ALREADY_DECIDED`；`SUSPENDED` 过期 → `EXPIRED`；`deliverable` 仅对 `APPROVED` 返回 ok（**挂起中的来意不得进入会话**）。
+
+---
+
+## 33. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -945,7 +1014,7 @@ export class DelegationService {
 
 ---
 
-## 32. 验证命令
+## 34. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -980,6 +1049,10 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=confirmation-tier
 # v6 新增模块（§29–§30）
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-mailbox
 node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
+
+# v7 新增模块（§31–§32）
+node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
+node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
 
 # 一条命令验证（起服务 → 自检 → 打印入口）
 node E:\GPT\agent-im\scripts\quickstart.mjs

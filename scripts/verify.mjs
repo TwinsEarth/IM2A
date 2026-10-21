@@ -441,6 +441,51 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 15. v7「可替换底座」交付完整性 ─────────────────────────
+{
+  const v7Modules = [
+    ['services/messaging/src/im-adapter.mjs', 'services/messaging/test/im-adapter.test.mjs'],
+    ['services/orchestrator/src/agent-correspondence.mjs', 'services/orchestrator/test/agent-correspondence.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v7Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v7 模块与测试齐备（${v7Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v7Codes = ['CAPABILITY_MISSING', 'ADAPTER_EXISTS', 'PLATFORM_ERROR', 'EVENT_INVALID', 'ALREADY_DECIDED'];
+  const missingCodes = v7Codes.filter((code) => !contract.includes(code) || !srcText.includes(`'${code}'`));
+  record(`v7 关键错误码契约↔实现一致（${v7Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+  const v7Caps = ['UNREAD_SHAPING', 'CUSTOM_MESSAGE', 'AGENT_MEMBERSHIP', 'CARD_CALLBACK'];
+  const missingCaps = v7Caps.filter((cap) => !contract.includes(cap) || !srcText.includes(`'${cap}'`));
+  record(`v7 适配器能力枚举契约↔实现一致（${v7Caps.length} 个）`, missingCaps.length === 0, missingCaps.join(', '));
+
+  const v7Sections = ['31', '32'];
+  const missingSections = v7Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v7 §31–§32 两节', missingSections.length === 0, missingSections.join(', '));
+
+  const doc17 = path.join(ROOT, 'docs/17-三条路线与分层决策.md');
+  if (await exists(doc17)) {
+    const t17 = await read(doc17);
+    const projects = ['agentcomms', 'masumi', 'AgentHub', 'Xiajiao', 'AstrBot', 'WKongAI'];
+    const missingProjects = projects.filter((name) => !t17.includes(name));
+    record(`docs/17 覆盖三条路线 ${projects.length} 个项目`, missingProjects.length === 0, missingProjects.join(', '));
+    record('docs/17 写明底座反转与补偿', t17.includes('反转') && (t17.includes('补偿') || t17.includes('适配')), '缺反转/补偿表述');
+  } else {
+    record('docs/17 三条路线与分层决策文档存在', false, '缺文件');
+  }
+
+  const doc02 = await read(path.join(ROOT, 'docs/02-技术选型与框架.md'));
+  record('docs/02 记录 v7 底座决策反转（§19）', doc02.includes('## 19.') && doc02.includes('v7'), '缺少 §19 反转小节');
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

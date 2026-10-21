@@ -158,6 +158,18 @@
 
   <div class="grid" style="margin-top:16px">
     <div class="card">
+      <h3>可替换底座与审批挂起<span class="hint">底座是传输，不是事实源；陌生来信先挂起</span></h3>
+      <p class="sub">
+        业务层只面向统一的 MessageEvent 编程，所以"腾讯云 IM PaaS / 自托管内核"是部署选择；
+        但两种底座的能力不同——<b>缺口必须显式暴露</b>，不能假装支持。
+        陌生 Agent 的来信默认挂起，只有属主批准后才允许进入会话。
+      </p>
+      <div id="platform"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
       <h3>签名审计<span class="hint">哈希链 + Ed25519：两种攻击，两层防御</span></h3>
       <p class="sub">
         哈希链能抓住"改内容不重算哈希"；但拿到数据库写权限的人可以整链重算——这时只有签名能证明"是谁写的"。
@@ -476,9 +488,47 @@ async function loadDurability() {
     </div>`;
 }
 
+async function loadPlatform() {
+  const [adapter, corr] = await Promise.all([getJson('/api/v2/adapter'), getJson('/api/v2/correspondence')]);
+  const capRows = (adapter.capabilities || []).map((c) => `<tr>
+      <td class="mono">${esc(c.capability)}</td>
+      <td>${c.paas ? '<span class="tag ok">支持</span>' : '<span class="tag bad">缺口</span>'}</td>
+      <td>${c.kernel ? '<span class="tag ok">支持</span>' : '<span class="tag bad">缺口</span>'}</td>
+    </tr>`).join('');
+  const corrRow = (label, item) => `<tr>
+      <td>${esc(label)}</td>
+      <td><span class="tag ${item.state === 'APPROVED' ? 'ok' : item.state === 'SUSPENDED' ? 'warn' : 'bad'}">${esc(item.state)}</span></td>
+      <td>${item.deliverable?.ok ? '<span class="tag ok">可投递</span>' : `<span class="tag bad">${esc(item.deliverable?.code ?? '不可投递')}</span>`}</td>
+    </tr>`;
+  $('platform').innerHTML = `
+    <div class="note ${adapter.normalized?.identical ? 'ok' : 'bad'}">
+      <b>① 统一 MessageEvent（底座可换）</b><br>
+      同一语义经 PaaS 与自托管内核归一化：<b>${adapter.normalized?.identical ? '业务字段完全一致' : '存在差异'}</b> ·
+      dispatch 回执 ${esc(adapter.dispatched?.platformMessageId ?? '—')}<br>
+      <span style="color:var(--muted)">${esc(adapter.decision?.base ?? '')}；${esc(adapter.decision?.compensation ?? '')}</span>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">② 能力矩阵（缺口显式）</b>
+      <table><thead><tr><th>能力</th><th>PaaS</th><th>自托管内核</th></tr></thead><tbody>${capRows}</tbody></table>
+      <div class="note" style="margin-top:8px">PaaS 未声明 UNREAD_SHAPING → 调用即
+        <span class="tag bad">${esc(adapter.unreadShaping?.paas?.code ?? '—')}</span>
+        （客户端必须由业务层自建未读投影，不能假装平台支持）</div>
+    </div>
+    <div style="margin-top:10px"><b style="font-size:13px">③ 陌生来信的审批挂起</b>
+      <table><thead><tr><th>场景</th><th>状态</th><th>能否进会话</th></tr></thead><tbody>
+        ${corrRow('默认（需人批）', corr.suspended)}
+        ${corrRow('属主批准后', corr.approved)}
+        ${corrRow('属主拒绝', corr.refused)}
+        ${corrRow('免批场景', corr.autoApproved)}
+        ${corrRow('超时未批', corr.expired)}
+      </tbody></table>
+      <div class="note violet" style="margin-top:8px">非属主代批：
+        <span class="tag bad">${esc(corr.nonOwnerDecision?.code ?? '—')}</span> · ${esc(corr.rule ?? '')}</div>
+    </div>`;
+}
+
 async function loadAll() {
   try {
-    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting(), loadTrusted(), loadDurability()]);
+    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit(), loadPersona(), loadDiscussions(), loadHosting(), loadTrusted(), loadDurability(), loadPlatform()]);
   } catch (error) {
     document.querySelector('main').insertAdjacentHTML('beforeend', `<div class="note bad">加载失败：${esc(error.message)}</div>`);
   }

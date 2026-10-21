@@ -35,3 +35,15 @@ export {
   AgentMailboxError,
   AgentMailboxStore,
 } from './agent-mailbox.mjs';
+
+// v7 §31 IM 渠道适配层（统一 MessageEvent + 能力声明；底座可替换）
+export {
+  ADAPTER_CODE,
+  ADAPTER_CAPABILITY,
+  IM_PLATFORM,
+  ImAdapterError,
+  normalizeEvent,
+  ImAdapterRegistry,
+  createTencentImPaasAdapter,
+  createSelfHostedKernelAdapter,
+} from './im-adapter.mjs';

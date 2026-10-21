@@ -42,9 +42,18 @@ import { PersonaMemory, MEMORY_STAGE } from '../../services/orchestrator/src/per
 import { DiscussionEngine, DISCUSSION_MODE, STANCE } from '../../services/orchestrator/src/discussion-engine.mjs';
 import { RelaySummaryBuilder } from '../../services/orchestrator/src/relay-summary.mjs';
 import { ConfirmationTier, TOOL_TIER } from '../../services/orchestrator/src/confirmation-tier.mjs';
+import { AgentCorrespondence } from '../../services/orchestrator/src/agent-correspondence.mjs';
 import { SignedEnvelopeService } from '../../services/identity/src/signed-envelope.mjs';
 import { AgentMailboxStore } from '../../services/messaging/src/agent-mailbox.mjs';
 import { DelegationService } from '../../services/gateway/src/delegation.mjs';
+import {
+  ImAdapterRegistry,
+  ADAPTER_CAPABILITY,
+  IM_PLATFORM,
+  normalizeEvent,
+  createTencentImPaasAdapter,
+  createSelfHostedKernelAdapter
+} from '../../services/messaging/src/im-adapter.mjs';
 
 import { USERS, AGENTS } from '../demo-server/flow.mjs';
 
@@ -339,6 +348,27 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
   // ⑮ v6：带衰减的委托（子 token 不得比父 token 更宽）
   const delegations = new DelegationService({ clock });
 
+  // ⑰ v7：陌生 Agent 通信的人类审批挂起
+  const correspondence = new AgentCorrespondence({
+    clock,
+    onAudit: (event) => signedAudit.append({ source: 'agent-correspondence', action: 'CORRESPONDENCE_EVENT', actor: event?.actor ?? null, decision: event?.action ?? null, detail: event })
+  });
+
+  // ⑱ v7：IM 渠道适配层——业务层只面向统一 MessageEvent，底座（PaaS / 自托管内核）可切换
+  const adapters = new ImAdapterRegistry();
+  adapters.register(
+    createTencentImPaasAdapter({
+      adapterId: 'tencent-im-paas',
+      send: (event) => ({ platformMessageId: `paas-${event.eventId}` })
+    })
+  );
+  adapters.register(
+    createSelfHostedKernelAdapter({
+      adapterId: 'self-hosted-kernel',
+      send: (event) => ({ platformMessageId: `kernel-${event.eventId}` })
+    })
+  );
+
   const layer = {
     operator,
     identities,
@@ -362,6 +392,8 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
     confirmation,
     mailbox,
     delegations,
+    adapters,
+    correspondence,
     auditDiscussionId: auditDiscussion.id,
 
     /** v3：人格 + 记忆生命周期视图（SOUL 与记忆分离；晋升按时间+访问次数，不由模型自称） */
@@ -737,6 +769,107 @@ export function createV2Layer({ world, legacyHead = null, legacyLength = 0, tran
         attempts,
         afterRevoke,
         rule: '委托只能收窄：域名子集 / 信任上限不放宽 / 时限不长于父 / 跳数受限 / 撤销级联'
+      };
+    },
+
+    /** v7：陌生 Agent 来信的人类审批挂起——挂起中的来意不得进入会话 */
+    correspondenceView() {
+      const draft = (suffix) => ({
+        fromAgentId: AGENTS.ZHOU_BUTLER,
+        toAgentId: AGENTS.LIN_BUTLER,
+        principalUserId: USERS.LIN,
+        topic: `A 轮融资 20 分钟${suffix}`,
+        payload: { summary: '周先生希望约 20 分钟视频，双方总管已就时间达成一致' }
+      });
+      const suspended = correspondence.open(draft('（挂起样例）'));
+      const blocked = correspondence.deliverable({ correspondenceId: suspended.id });
+      let nonOwnerDecision;
+      try {
+        correspondence.decide({ correspondenceId: suspended.id, actorUserId: USERS.ZHOU, action: 'APPROVE' });
+        nonOwnerDecision = { ok: true, code: null };
+      } catch (error) {
+        nonOwnerDecision = { ok: false, code: error?.code ?? 'NOT_FOUND' };
+      }
+      const approved = correspondence.decide({ correspondenceId: suspended.id, actorUserId: USERS.LIN, action: 'APPROVE', comment: '同意，周五 16:00' });
+      const deliverableAfter = correspondence.deliverable({ correspondenceId: suspended.id });
+
+      const refusedOne = correspondence.open(draft('（拒绝样例）'));
+      correspondence.decide({ correspondenceId: refusedOne.id, actorUserId: USERS.LIN, action: 'REFUSE', comment: '暂无融资需求' });
+      const refusedFresh = correspondence.get(refusedOne.id) ?? refusedOne;
+      const refusedDeliverable = correspondence.deliverable({ correspondenceId: refusedOne.id });
+
+      const autoOne = correspondence.open({ ...draft('（免批样例）'), requiresHumanApproval: false });
+      const expiredOne = correspondence.open(draft('（过期样例）'));
+      // 显式把时间推过 TTL（默认 24h），让过期判定真实发生
+      correspondence.expire({ correspondenceId: expiredOne.id, nowMs: Date.now() + 25 * 3600e3 });
+      const expiredFresh = correspondence.get(expiredOne.id) ?? expiredOne;
+      return {
+        suspended: { id: suspended.id, state: suspended.state, deliverable: blocked },
+        nonOwnerDecision,
+        approved: { state: approved.state, deliverable: deliverableAfter },
+        refused: { state: refusedFresh.state, deliverable: refusedDeliverable },
+        autoApproved: { state: autoOne.state, deliverable: correspondence.deliverable({ correspondenceId: autoOne.id }) },
+        expired: { state: expiredFresh.state, deliverable: correspondence.deliverable({ correspondenceId: expiredOne.id }) },
+        rule: '陌生 Agent 来信默认挂起：只有属主批准后才可进入会话；拒绝/过期永不可投递'
+      };
+    },
+
+
+    adapterView() {
+      const at = '2026-10-21T12:00:00.000Z';
+      const paasRaw = {
+        MsgID: 'msg-42',
+        From_Account: USERS.ZHOU,
+        GroupID: 'group-1',
+        MsgTime: Math.floor(Date.parse(at) / 1000),
+        // 腾讯 IM 的真实结构：MsgBody 是元素数组，文本在 MsgContent.Text
+        MsgBody: [{ MsgType: 'TIMTextElem', MsgContent: { Text: '周先生方接受周五 16:00' } }],
+        CloudCustomData: JSON.stringify({ replyTo: 'msg-41', trustZone: 4 })
+      };
+      const kernelRaw = {
+        eventId: 'msg-42',
+        channelId: 'group-1',
+        senderId: USERS.ZHOU,
+        senderKind: 'human',
+        kind: 'TEXT',
+        text: '周先生方接受周五 16:00',
+        at,
+        replyTo: 'msg-41',
+        metadata: {},
+        trustZone: 4
+      };
+      const fromPaas = normalizeEvent({ platform: IM_PLATFORM.TENCENT_IM_PAAS, adapterId: 'tencent-im-paas', raw: paasRaw });
+      const fromKernel = normalizeEvent({ platform: IM_PLATFORM.SELF_HOSTED_KERNEL, adapterId: 'self-hosted-kernel', raw: kernelRaw });
+      const compared = ['channelId', 'senderId', 'senderKind', 'kind', 'text', 'replyTo', 'trustZone'];
+      const identical = compared.every((key) => JSON.stringify(fromPaas[key]) === JSON.stringify(fromKernel[key]));
+
+      const capabilityRows = Object.values(ADAPTER_CAPABILITY).map((capability) => ({
+        capability,
+        paas: adapters.hasCapability({ adapterId: 'tencent-im-paas', capability }),
+        kernel: adapters.hasCapability({ adapterId: 'self-hosted-kernel', capability })
+      }));
+      const requireCap = (adapterId, capability) => {
+        try {
+          adapters.requireCapability({ adapterId, capability });
+          return { ok: true, code: null };
+        } catch (error) {
+          return { ok: false, code: error?.code ?? 'CAPABILITY_MISSING' };
+        }
+      };
+      const dispatched = adapters.dispatch({ adapterId: 'tencent-im-paas', raw: paasRaw });
+      return {
+        normalized: { fromPaas, fromKernel, identical },
+        capabilities: capabilityRows,
+        unreadShaping: {
+          paas: requireCap('tencent-im-paas', ADAPTER_CAPABILITY.UNREAD_SHAPING),
+          kernel: requireCap('self-hosted-kernel', ADAPTER_CAPABILITY.UNREAD_SHAPING)
+        },
+        dispatched: { platformMessageId: dispatched.platformMessageId, eventId: dispatched.event.eventId },
+        decision: {
+          base: 'Phase0–1：腾讯云 IM PaaS + 本适配层',
+          phase2: '评估 WKongAI / 自研网关（能力缺口见下表）',
+          compensation: 'PaaS 不提供未读整形 → 人类未读投影由业务层自建（AGENT_NEGOTIATION/CMD 恒 0）'
+        }
       };
     },
 

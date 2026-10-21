@@ -6,7 +6,7 @@
  * 为什么需要它：本项目交付物很厚（11 篇 v1 文档 + 2 篇 v2/v3 + 8 个 proto + 多套演示），
  * 评审/新同学最容易卡在"从哪开始"。本脚本把"能不能跑起来"变成一个 10 秒内可回答的问题：
  *
- *   node scripts/quickstart.mjs            # 起服务 → 跑 12 项自检 → 打印入口 → 保持运行
+ *   node scripts/quickstart.mjs            # 起服务 → 跑 13 项自检 → 打印入口 → 保持运行
  *   node scripts/quickstart.mjs --check    # 只跑自检，不起常驻服务（CI 用）
  *   node scripts/quickstart.mjs --port 8899
  *
@@ -183,6 +183,20 @@ await check('v6：持久邮箱（重启不丢）+ 委托只能收窄', async () 
   }
   if (delegation.body.afterRevoke?.code !== 'PARENT_REVOKED') throw new Error('撤销未级联');
   return `邮箱重启后 pending=1 · 委托拦截 ${codes.filter(Boolean).join('/')}`;
+});
+
+await check('v7：底座可替换 + 陌生来信挂起待人批', async () => {
+  const adapter = await json(`${base}/api/v2/adapter`);
+  if (adapter.body.normalized?.identical !== true) throw new Error('两个底座归一化不一致');
+  const caps = adapter.body.capabilities || [];
+  const unread = caps.find((c) => c.capability === 'UNREAD_SHAPING');
+  if (unread?.paas !== false) throw new Error('PaaS 适配器不应假装支持未读整形');
+  if (adapter.body.unreadShaping?.paas?.code !== 'CAPABILITY_MISSING') throw new Error('能力缺口未显式报错');
+  const corr = await json(`${base}/api/v2/correspondence`);
+  if (corr.body.suspended?.state !== 'SUSPENDED') throw new Error('陌生来信未挂起');
+  if (corr.body.suspended?.deliverable?.ok !== false) throw new Error('挂起中的来信竟然可投递');
+  if (corr.body.approved?.deliverable?.ok !== true) throw new Error('批准后仍不可投递');
+  return `底座归一化一致 · PaaS 缺口=${adapter.body.unreadShaping.paas.code} · 来信 ${corr.body.suspended.state}→${corr.body.approved.state}`;
 });
 
 await check('审批闭环：通过 → 扣费 → 会话解锁', async () => {

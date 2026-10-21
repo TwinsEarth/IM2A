@@ -640,6 +640,25 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  // ── v7：渠道适配层（底座可替换）──
+  if (method === 'GET' && pathname === '/api/v2/adapter') {
+    try {
+      sendJson(res, 200, holder.demo.v2.adapterView());
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'ADAPTER_FAILED', message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/correspondence') {
+    try {
+      sendJson(res, 200, holder.demo.v2.correspondenceView());
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'CORRESPONDENCE_FAILED', message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/v2/audit') {
     const v2 = holder.demo.v2;
     const verify = v2.signedAudit.verify();

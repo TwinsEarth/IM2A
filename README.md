@@ -64,6 +64,15 @@
 > | **带衰减的委托** | AGORA | 网关只会签发 token，没有"子 token 不得比父更宽"的强制 → 一次授权等于复制全部权限 | `services/gateway/src/delegation.mjs`（§30）；域名子集 / 信任上限不放宽 / 时限不长于父 / 跳数受限 / 撤销级联 |
 >
 > 三层技术栈与平台接入边界（微信/飞书/钉钉/企业微信/WhatsApp/X 能给你什么、不能给你什么）见 [docs/16-三层技术栈与平台接入边界.md](docs/16-三层技术栈与平台接入边界.md)。
+>
+> ### v7：可替换底座（一次架构反转，把代价写进契约）
+>
+> | 机制 | 借鉴 | 解决什么 | 落点 |
+> |---|---|---|---|
+> | **IM 渠道适配层** | AstrBot / MalikClaw | 让"腾讯云 IM PaaS ⇄ 自托管内核"成为部署选择而不是重写；**平台能力缺口显式暴露**（PaaS 不声明 `UNREAD_SHAPING`，调用即 `CAPABILITY_MISSING`） | `services/messaging/src/im-adapter.mjs`（§31） |
+> | **陌生来信的审批挂起** | agentcomms / masumi | 陌生 Agent 之间不该自己跑完所有回合；来信默认 `SUSPENDED`，**只有属主批准才可投递** | `services/orchestrator/src/agent-correspondence.mjs`（§32） |
+>
+> **决策反转记录**：v2 曾选自托管消息内核，v7 按产品决策改为 **Phase0–1 用腾讯云 IM PaaS + 适配层**，自托管降为 Phase2 备选；8 条补偿与再反转阈值见 [docs/17-三条路线与分层决策.md](docs/17-三条路线与分层决策.md) 与 [docs/02 §19](docs/02-技术选型与框架.md)。
 
 ---
 
@@ -105,7 +114,7 @@
 ```powershell
 cd E:\GPT\agent-im
 
-# 一条命令：起服务 → 跑 12 项自检 → 打印入口 → 保持运行
+# 一条命令：起服务 → 跑 13 项自检 → 打印入口 → 保持运行
 node scripts/quickstart.mjs
 # 或只自检（CI 用，exit 0/1）
 node scripts/quickstart.mjs --check

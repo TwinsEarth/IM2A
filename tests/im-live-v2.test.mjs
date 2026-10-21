@@ -331,6 +331,36 @@ test('v6：持久邮箱（重启不丢）+ 带衰减委托（权限只能收窄�
   }
 });
 
+test('v7：底座可替换（PaaS⇄内核）+ 陌生来信的审批挂起', async () => {
+  await withServer(async (app) => {
+    // ① 适配层：两种底座归一化成同一 MessageEvent；PaaS 的能力缺口显式暴露
+    const adapter = await json(`${app.url}/api/v2/adapter`);
+    assert.equal(adapter.status, 200);
+    assert.equal(adapter.body.normalized.identical, true, '同一语义在两个底座归一化后业务字段应一致');
+    const unread = adapter.body.capabilities.find((c) => c.capability === 'UNREAD_SHAPING');
+    assert.equal(unread.paas, false, 'PaaS 适配器不得假装支持未读整形');
+    assert.equal(unread.kernel, true, '自托管内核声明该能力');
+    assert.equal(adapter.body.unreadShaping.paas.code, 'CAPABILITY_MISSING', '缺口必须显式报错');
+    assert.equal(adapter.body.unreadShaping.kernel.ok, true);
+    assert.ok(String(adapter.body.dispatched.platformMessageId).startsWith('paas-'), 'dispatch 走的是 PaaS 适配器');
+
+    // ② 陌生来信默认挂起：没批就不许进会话
+    const corr = await json(`${app.url}/api/v2/correspondence`);
+    assert.equal(corr.status, 200);
+    assert.equal(corr.body.suspended.state, 'SUSPENDED');
+    assert.equal(corr.body.suspended.deliverable.ok, false, '挂起中的来意不得进入会话');
+    assert.equal(corr.body.suspended.deliverable.code, 'APPROVAL_REQUIRED');
+    assert.equal(corr.body.nonOwnerDecision.ok, false, '非属主不得代批');
+    assert.equal(corr.body.approved.state, 'APPROVED');
+    assert.equal(corr.body.approved.deliverable.ok, true, '属主批准后才可投递');
+    assert.equal(corr.body.refused.state, 'REFUSED');
+    assert.equal(corr.body.refused.deliverable.ok, false, '拒绝后永不可投递');
+    assert.equal(corr.body.autoApproved.state, 'APPROVED', '熟人低风险场景可免批');
+    assert.equal(corr.body.expired.state, 'EXPIRED');
+    assert.equal(corr.body.expired.deliverable.ok, false, '过期不可补投');
+  });
+});
+
 test('/api/state 暴露 v2 摘要，/v2 页面可访问', async () => {
   await withServer(async (app) => {
     const state = await json(`${app.url}/api/state?user=${USERS.LIN}&thread=th-lin-agent`);
