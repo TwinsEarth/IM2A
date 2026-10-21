@@ -1,4 +1,4 @@
-# 冻结接口契约 v1.0（FROZEN CONTRACT）
+﻿# 冻结接口契约 v1.0（FROZEN CONTRACT）
 
 > 本文件是**唯一**的模块级契约来源。所有实现必须与本文签名、错误码、状态机逐字一致。
 > 修改本文件需要 Lead 明确授权；实现方**不得**擅自改变签名或状态名。
@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R20 | 2026-10-21 | **v0.0.9 支付与对账增补**：§49 支付渠道抽象与回调验签（HMAC-SHA256 验原始 body、时间窗防重放、providerTxnId 幂等、金额强校验、未实现渠道不静默降级）、§50 日切对账（逐笔列出 missing/mismatched；只读；空日 ok）；禁止事项与验证命令顺延为 §51、§52 | 加法（v1–v0.0.8 语义全保留） |
 | R19 | 2026-10-21 | **v0.0.8 横向扩展增补**：§48 多节点广播总线（memory/tcp 同构接口；事件每节点最多投递一次；同源保序；关闭后 publish 不抛；64KB 上限；**总线不持久化、无订阅者即丢弃**，不伪装成消息队列）；原 §49→§51 禁止事项、§50→§52 验证命令 | 加法（v1–v0.0.7 语义全保留） |
 | R18 | 2026-10-21 | **v0.0.7 客户端增补**：§47 Web/PWA 客户端（三态导航 + 纯函数 logic.mjs 可 Node 测试 + manifest/service worker + 角色前端门控）；Flutter 三端保留为未编译等价物，状态如实标注；原 §47→§49 禁止事项、§48→§50 验证命令 | 加法（v1–v0.0.6 语义全保留） |
 | R17 | 2026-10-21 | **v0.0.6 验收工具化增补**：§45 上线前预检（可达/鉴权/持久存储/真实依赖/时钟偏移；只读）、§46 验收执行器（本机 Gate → 真实目标可执行；不可自动化显式 MANUAL；异常记 FAIL 不中断；SKIP/MANUAL 不影响 ok）；原 §45→§47 禁止事项、§46→§48 验证命令 | 加法（v1–v0.0.5 语义全保留） |
@@ -1414,6 +1415,54 @@ export function createBroadcastBus({ kind = 'memory', nodeId = null, listenPort 
 
 ---
 
+## 49. `services/payment/src/channel-adapter.mjs`（v0.0.9 新增）
+
+**职责**：**支付渠道抽象与回调验签**。§37 的钱包只回答"余额多少"；真实支付还差三件事：**渠道意图**、**回调验签**、**幂等入账**。本模块用 mock 渠道把这三件事做成可验证的语义，接微信/支付宝时只换 provider。
+
+```js
+export const CHANNEL_KIND = Object.freeze({ MOCK: 'mock', WECHAT: 'wechat', ALIPAY: 'alipay' });
+export const PAYMENT_STATE = Object.freeze({ INTENT: 'INTENT', PENDING: 'PENDING', PAID: 'PAID', FAILED: 'FAILED', REFUNDED: 'REFUNDED' });
+export const PAYMENT_CODE = Object.freeze({
+  CHANNEL_UNSUPPORTED: 'CHANNEL_UNSUPPORTED', ORDER_EXISTS: 'ORDER_EXISTS', ORDER_NOT_FOUND: 'ORDER_NOT_FOUND',
+  SIGNATURE_INVALID: 'SIGNATURE_INVALID', AMOUNT_MISMATCH: 'AMOUNT_MISMATCH', ILLEGAL_STATE: 'ILLEGAL_STATE',
+  CALLBACK_REPLAYED: 'CALLBACK_REPLAYED', TIMESTAMP_EXPIRED: 'TIMESTAMP_EXPIRED'
+});
+export class PaymentChannelError extends Error {}
+
+export class PaymentIntentService {
+  constructor({ clock = () => new Date(), ledger, channels = [CHANNEL_KIND.MOCK], secret = null, timestampWindowMs = 5 * 60e3 });
+  createIntent({ userId, amountCents, channel = 'mock', orderId = null, description = null });
+  // -> 冻结 order：{ orderId, userId, amountCents, channel, state:'INTENT', payUrl, createdAt }
+  handleCallback({ channel, headers, body });
+  // 验签（HMAC-SHA256 over raw body）→ 时间窗 → 金额一致 → 幂等入账（ledger.DEPOSIT）
+  // -> { ok, order, ledgerEntry?, duplicate? }
+  refund({ orderId, reason = null });     // 仅 PAID 可退；写 ledger.REFUND
+  get(orderId); list({ state = null, userId = null } = {}); stats();
+}
+```
+**不变量**：①**回调必须先验签**（`x-signature: sha256=<hex>`，用 `secret` 对**原始 body 字节**做 HMAC-SHA256）；验签失败一律 `SIGNATURE_INVALID`，**不产生任何账本流水**；②时间戳超出窗口 → `TIMESTAMP_EXPIRED`（防重放）；③同一 `providerTxnId` 重复回调 → 幂等（只入账一次，返回 `duplicate:true`）；④**金额必须与订单一致**，不一致 → `AMOUNT_MISMATCH`（不改状态、不入账）；⑤只有 `PAID` 可退款，重复退款幂等；⑥未实现的渠道 → `CHANNEL_UNSUPPORTED`（不静默降级到 mock）。
+
+---
+
+## 50. `services/payment/src/reconcile.mjs`（v0.0.9 新增）
+
+**职责**：**日切对账**。渠道说收了、账本没记（或反之）是最贵的故障；对账必须能说明"差在哪一笔"，而不是只给一个总数。
+
+```js
+export const RECONCILE_CODE = Object.freeze({ NOT_FOUND: 'NOT_FOUND', MISMATCH: 'MISMATCH', INVALID_ARGUMENT: 'INVALID_ARGUMENT' });
+export class ReconcileError extends Error {}
+
+export class Reconciler {
+  constructor({ clock = () => new Date(), ledger, payments });
+  run({ date = null } = {});
+  // -> { date, checked, matched, mismatched: [{ orderId, providerAmountCents, ledgerAmountCents, reason }], missingInLedger: [orderId], missingInProvider: [orderId], ok }
+  report({ date = null } = {});            // 可归档的 Markdown 文本
+}
+```
+**判定（冻结）**：①对账以**订单/入账金额**为口径（不按笔数凑）；②`missingInLedger` 与 `mismatched` **必须逐笔列出**；③`ok` 仅在 `mismatched.length === 0 && missingInLedger.length === 0` 时为 true；④对账**只读**，不修改任何账本/订单状态；⑤空数据日返回 `checked:0, ok:true`（不是错误）。
+
+---
+
 ## 51. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
@@ -1467,6 +1516,10 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.9 支付与对账（§49–§50）
+node E:\GPT\agent-im\scripts\test.mjs --filter=payment-channel
+node E:\GPT\agent-im\scripts\test.mjs --filter=reconcile
 
 # v0.0.8 横向扩展（§48）
 node E:\GPT\agent-im\scripts\test.mjs --filter=broadcast

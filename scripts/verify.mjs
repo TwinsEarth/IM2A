@@ -859,6 +859,43 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 25. v0.0.9 支付渠道与对账交付完整性 ─────────────────────────
+{
+  const v009Modules = [
+    ['services/payment/src/channel-adapter.mjs', 'services/payment/test/payment-channel.test.mjs'],
+    ['services/payment/src/reconcile.mjs', 'services/payment/test/reconcile.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v009Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v0.0.9 渠道/对账模块与测试齐备（${v009Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  record('契约含 v0.0.9 §49–§50', contract.includes('## 49. `services/payment/src/channel-adapter.mjs`') && contract.includes('## 50. `services/payment/src/reconcile.mjs`'), '缺 §49/§50');
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v009Codes = ['SIGNATURE_INVALID', 'TIMESTAMP_EXPIRED', 'AMOUNT_MISMATCH', 'CALLBACK_REPLAYED', 'missingInLedger', 'mismatched'];
+  const missingCodes = v009Codes.filter((code) => !contract.includes(code) && !srcText.includes(code));
+  record(`v0.0.9 关键错误码/字段契约↔实现存在（${v009Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+  record('渠道实现使用 HMAC 验签', /createHmac|hmac/i.test(srcText), '未发现 HMAC 验签');
+  record('对账明确只读', contract.includes('只读') && contract.includes('missingInLedger'), '缺只读/逐笔口径');
+
+  const doc29 = path.join(ROOT, 'docs/29-v0.0.9-支付渠道与对账.md');
+  if (await exists(doc29)) {
+    const t29 = await read(doc29);
+    const required = ['验签', '对账', '幂等', '回调'];
+    const missingKeywords = required.filter((word) => !t29.includes(word));
+    record('docs/29 覆盖验签/幂等/对账/回调', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/29 v0.0.9 支付文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

@@ -63,6 +63,10 @@
 | 57 | **跨节点 SSE** | A 节点决策 → B 节点 `/api/events` 客户端收到 `decide` | ✅ | broadcast 4 项 |
 | 58 | **关闭不抛** | `close()` 后 `publish` 返回 `BUS_CLOSED`，业务不异常 | ✅ | broadcast 4 项 |
 | 59 | **双机/双进程复验** | 真实两台机器 + 防火墙/端口 | ⚠ 需真实环境 | docs/28 §6.1 |
+| 60 | **回调验签** | HMAC 按原始 body 校验；篡改/缺签名 → 401 `SIGNATURE_INVALID` 且账本不变 | ✅ | payment-channel 12 + 测试 ⑱ |
+| 61 | **回调幂等** | 同 providerTxnId 重放 → `duplicate:true`，`DEPOSIT` 仍 1 条 | ✅ | 同上 |
+| 62 | **金额强校验** | 回调金额 ≠ 订单金额 → `AMOUNT_MISMATCH`，不入账 | ✅ | payment-channel 12 |
+| 63 | **对账逐笔** | mismatched/missingInLedger 逐笔列出；只读；空日 ok | ✅ | reconcile 10 + 测试 ⑱ |
 
 ## 本地一键回归
 

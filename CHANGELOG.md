@@ -14,6 +14,20 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.9-pay — 2026-10-21
+
+**支付渠道化 + 日切对账**：钱包从"内部记账"变成"有渠道语义的支付"。
+
+- **§49 支付渠道抽象**（`services/payment/src/channel-adapter.mjs`，12 项测试）：下单 `INTENT` → 渠道回调（**HMAC-SHA256 按原始字节验签** + 5 分钟时间窗）→ `PAID` + 幂等入账 `deposit:<orderId>`；篡改/缺签名/错 secret → `SIGNATURE_INVALID` 且**账本零变化**；同 `providerTxnId` 重放 → `duplicate:true`；金额不一致 → `AMOUNT_MISMATCH`；未启用渠道 → `CHANNEL_UNSUPPORTED`（不静默走 mock）
+- **§50 日切对账**（`reconcile.mjs`，10 项测试）：按订单/金额口径逐笔比对；`mismatched` 与 `missingInLedger` **逐笔列出**；只读；空日 `checked:0, ok:true`；输出可归档 Markdown
+- **产品端点**：`POST /api/pay/intent`、`POST /api/pay/callback`（原始 body 验签）、`GET /api/pay/orders`、`GET /api/ops/reconcile`
+- 文档：`docs/29-v0.0.9-支付渠道与对账.md`（回调安全、重放三形态、真实渠道切换清单、财务速查）
+- 契约：R20
+
+**对账差异里最危险的一种**：`missingInProvider`（账本有入金、渠道无收款）＝ 无源入账，可能被套现，P0 处置并暂停入账/提现。
+
+验证：全量 **722/722**；verify **114/114**；im2agent **17/17**（含验签/重放/对账集成）；payment-channel 12 · reconcile 10。
+
 ## v0.0.8-scale — 2026-10-21
 
 **横向扩展（最小可验证）**：单节点 SSE 收不到别的节点的事件——v0.0.8 补上事件扇出。

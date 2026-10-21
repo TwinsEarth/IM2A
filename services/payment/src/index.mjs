@@ -27,3 +27,19 @@ export {
   DisputeError,
   DisputeService,
 } from './dispute.mjs';
+
+// v0.0.9 §49 支付渠道抽象（回调验签 + 幂等入账；接真实渠道只换 provider）
+export {
+  CHANNEL_KIND,
+  PAYMENT_STATE,
+  PAYMENT_CODE,
+  PaymentChannelError,
+  PaymentIntentService,
+} from './channel-adapter.mjs';
+
+// v0.0.9 §50 日切对账（逐笔核对；只读）
+export {
+  RECONCILE_CODE,
+  ReconcileError,
+  Reconciler,
+} from './reconcile.mjs';

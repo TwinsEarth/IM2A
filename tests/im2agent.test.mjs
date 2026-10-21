@@ -622,6 +622,77 @@ test('⑰ v0.0.5 内测保障：短信熔断降级 / 机审熔断 fail-closed / 
   });
 });
 
+test('⑱ v0.0.9 支付渠道：验签入账 / 幂等 / 篡改拒绝 / 对账', async () => {
+  await withApp({ RATE_LIMIT_PER_MIN: '0', IM2AGENT_PAY_SECRET: 'test-pay-secret' }, async (app) => {
+    const base = app.urls[0];
+    const post = (pathname, body, token = null, extra = {}) =>
+      json(`${base}${pathname}`, {
+        method: 'POST',
+        headers: { ...(token === null ? {} : { authorization: `Bearer ${token}` }), ...extra },
+        body: typeof body === 'string' ? body : JSON.stringify(body)
+      });
+
+    // 起一个实名账户
+    const otp = await post('/api/account/otp', { phone: '13800000021' });
+    const registered = await post('/api/account/register', { phone: '13800000021', code: otp.body.devCode });
+    const token = registered.body.session.accessToken;
+    await post('/api/account/verify', { realName: '钱七', idNumber: '110101199005055678' }, token);
+
+    // ① 下单：INTENT，不产生账本流水
+    const intent = await post('/api/pay/intent', { amountCents: 5000, orderId: 'ord-1', description: '内测充值' }, token);
+    assert.equal(intent.status, 200);
+    assert.equal(intent.body.order.state, 'INTENT');
+    let ledger = await json(`${base}/api/ledger`);
+    assert.equal(ledger.body.entries.filter((entry) => entry.type === 'DEPOSIT').length, 0, '下单不得入账');
+
+    // ② 篡改 body（签名不匹配）→ 401，且不入账
+    const { createHmac } = await import('node:crypto');
+    const sign = (body) => `sha256=${createHmac('sha256', 'test-pay-secret').update(body).digest('hex')}`;
+    const payload = JSON.stringify({ orderId: 'ord-1', amountCents: 5000, providerTxnId: 'txn-1' });
+    const tampered = payload.replace('5000', '5001');
+    const bad = await post('/api/pay/callback', tampered, null, {
+      'x-signature': sign(payload),
+      'x-timestamp': String(Date.now()),
+      'content-type': 'application/json'
+    });
+    assert.equal(bad.status, 401);
+    assert.equal(bad.body.error, 'SIGNATURE_INVALID');
+    ledger = await json(`${base}/api/ledger`);
+    assert.equal(ledger.body.entries.filter((entry) => entry.type === 'DEPOSIT').length, 0, '验签失败绝不入账');
+
+    // ③ 正确签名 → PAID + 一条 DEPOSIT；余额到位
+    const ok = await post('/api/pay/callback', payload, null, {
+      'x-signature': sign(payload),
+      'x-timestamp': String(Date.now()),
+      'content-type': 'application/json'
+    });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.order.state, 'PAID');
+    ledger = await json(`${base}/api/ledger`);
+    assert.equal(ledger.body.entries.filter((entry) => entry.type === 'DEPOSIT').length, 1);
+    let wallet = await json(`${base}/api/wallet`, { headers: { authorization: `Bearer ${token}` } });
+    assert.equal(wallet.body.balance.availableCents, 5000);
+
+    // ④ 重放同一 providerTxnId → 幂等，不入账第二次
+    const replay = await post('/api/pay/callback', payload, null, {
+      'x-signature': sign(payload),
+      'x-timestamp': String(Date.now()),
+      'content-type': 'application/json'
+    });
+    assert.equal(replay.status, 200);
+    assert.equal(replay.body.duplicate, true);
+    ledger = await json(`${base}/api/ledger`);
+    assert.equal(ledger.body.entries.filter((entry) => entry.type === 'DEPOSIT').length, 1, '重放不得重复入账');
+
+    // ⑤ 对账：全匹配
+    const reconcile = await json(`${base}/api/ops/reconcile`);
+    assert.equal(reconcile.status, 200);
+    assert.equal(reconcile.body.ok, true);
+    assert.equal(reconcile.body.mismatched.length, 0);
+    assert.equal(reconcile.body.missingInLedger.length, 0);
+  });
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

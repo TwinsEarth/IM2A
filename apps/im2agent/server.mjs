@@ -37,6 +37,8 @@ import { createSmsProvider } from '../../services/account/src/sms-provider.mjs';
 import { OtpDelivery } from '../../services/account/src/otp-delivery.mjs';
 import { Wallet } from '../../services/payment/src/wallet.mjs';
 import { DisputeService } from '../../services/payment/src/dispute.mjs';
+import { PaymentIntentService } from '../../services/payment/src/channel-adapter.mjs';
+import { Reconciler } from '../../services/payment/src/reconcile.mjs';
 import { ModerationService } from '../../services/moderation/src/moderation.mjs';
 import { Metrics, METRIC, evaluateAlerts } from '../../services/observability/src/metrics.mjs';
 import { AuditTrace } from '../../services/observability/src/trace.mjs';
@@ -196,6 +198,19 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
     dir: path.join(HERE, '.data', 'backups'),
     keep: 5,
     clock: () => new Date()
+  });
+
+  // v0.0.9：支付渠道（mock）+ 日切对账；接微信/支付宝只换 provider
+  holder.payments = new PaymentIntentService({
+    clock: () => new Date(),
+    ledger: world.ledger,
+    channels: ['mock'],
+    secret: env.IM2AGENT_PAY_SECRET ?? 'dev-pay-secret'
+  });
+  holder.reconciler = new Reconciler({
+    clock: () => new Date(),
+    ledger: world.ledger,
+    payments: holder.payments
   });
 
   const persist = () => {
@@ -948,10 +963,80 @@ async function route(req, res, holder, persist) {
     return;
   }
 
+  // ── v0.0.9 支付渠道与对账 ──
+  if (method === 'POST' && pathname === '/api/pay/intent') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const order = holder.payments.createIntent({
+        userId: session.session.accountId,
+        amountCents: Number(body.amountCents ?? 0),
+        channel: body.channel ?? 'mock',
+        orderId: body.orderId ?? null,
+        description: body.description ?? null
+      });
+      sendJson(res, 200, { ok: true, order }, holder.rt);
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'INTENT_FAILED', message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  // 渠道回调：按**原始字节**验签；验签失败绝不入账
+  if (method === 'POST' && pathname === '/api/pay/callback') {
+    const raw = await readRawText(req);
+    try {
+      const result = holder.payments.handleCallback({
+        channel: url.searchParams.get('channel') ?? 'mock',
+        headers: req.headers,
+        body: raw
+      });
+      persist();
+      sendJson(res, 200, { ok: true, ...result }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'CALLBACK_FAILED';
+      const status =
+        code === 'SIGNATURE_INVALID' || code === 'TIMESTAMP_EXPIRED'
+          ? 401
+          : code === 'AMOUNT_MISMATCH' || code === 'CALLBACK_REPLAYED' || code === 'ILLEGAL_STATE'
+            ? 409
+            : code === 'ORDER_NOT_FOUND'
+              ? 404
+              : 400;
+      sendJson(res, status, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/pay/orders') {
+    if (!requireAccess(req, res, holder)) return;
+    sendJson(res, 200, { orders: holder.payments.list({}), stats: holder.payments.stats() }, holder.rt);
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/ops/reconcile') {
+    if (!requireAccess(req, res, holder)) return;
+    const date = url.searchParams.get('date') ?? null;
+    try {
+      const result = holder.reconciler.run({ date });
+      sendJson(res, 200, { ...result, report: holder.reconciler.report({ date }) }, holder.rt);
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'RECONCILE_FAILED', message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
   sendJson(res, 404, { error: 'NOT_FOUND', path: pathname }, holder.rt);
 }
 
 async function readJson(req) {
+  const text = await readRawText(req);
+  return text.trim() === '' ? {} : JSON.parse(text);
+}
+
+/** 读取原始请求体（支付回调必须按原始字节验签，不能先解析再序列化） */
+async function readRawText(req) {
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {
@@ -959,9 +1044,7 @@ async function readJson(req) {
     if (total > 64 * 1024) throw new Error('请求体超过 64KB');
     chunks.push(chunk);
   }
-  if (chunks.length === 0) return {};
-  const text = Buffer.concat(chunks).toString('utf8').trim();
-  return text === '' ? {} : JSON.parse(text);
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 /** 从 Authorization: Bearer <token> 取会话令牌（产品版用户态；运维面仍用 x-admin-token） */
