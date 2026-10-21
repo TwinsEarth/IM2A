@@ -1,6 +1,10 @@
 # IM2A 主线 CI —— 只跑「可复现的本机门禁」，不依赖外部服务
 # 说明：旧 main 的 ci.yml 针对已归档的 apps/im2a 实现，未随合并进入主线树；
-#      本文件为 v0.1.3 主线首次启用的 CI（尚未在 GitHub 上实际跑过，首个 run 可能需一次调绿）。
+#      本文件为 v0.1.3 主线首次启用的 CI。
+#
+# 为什么只跑 Node 24：apps/im-live 的 SQLite 持久化使用 node:sqlite，
+# 该模块在 Node 22 需要 --experimental-sqlite（默认关闭），会让全量测试直接失败；
+# Node 24 默认可用。核心服务在 22 上可运行，但「全量测试」门禁以 24 为准。
 name: ci
 
 on:
@@ -16,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['22', '24']
+        node: ['24']
     steps:
       - uses: actions/checkout@v4
 

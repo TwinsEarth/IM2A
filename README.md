@@ -6,7 +6,7 @@
 [![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey)](#-快速开始)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-> **徽章说明（不写假的）**：CI 徽章指向真实 workflow（`.github/workflows/ci.yml`）；**npm 徽章标记“零依赖”而不是版本号**——本仓库是 `private: true` 的应用，未发布到 npm registry，写 `npm/v` 会指向一个不存在的包；Node 与平台徽章来自 `package.json` 的 `engines` 与 `deploy/` 实测路径。
+> **徽章说明（不写假的）**：CI 徽章指向真实 workflow（`.github/workflows/ci.yml`，只跑 Node 24——`node:sqlite` 在 Node 22 需 `--experimental-sqlite`，会让全量测试在 22 上直接失败）；**npm 徽章标记“零依赖”而不是版本号**——本仓库是 `private: true` 的应用，未发布到 npm registry，写 `npm/v` 会指向一个不存在的包；Node 徽章表示核心服务可在 ≥22 运行，但 `apps/im-live` 的 SQLite 持久化需 Node 24；平台徽章来自 `deploy/` 的实测路径。
 
 > **仓库主线说明（2026-10-21）**：本仓库主线为 **v0.1.3**（`apps/im2agent` + `contracts/INTERFACES.md` §1–§52 + 732 项测试 + 25 个版本 tag）。
 > 历史 `main` 上另有一条独立早期实现（`apps/im2a` + v0.2.0 TaskLedger），其文件未进入当前主线树，但**完整保留在 git 历史 `e2338a1`**，可用 `git show e2338a1:apps/im2a/server.mjs` 取回；
