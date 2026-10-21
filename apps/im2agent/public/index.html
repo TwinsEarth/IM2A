@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>im2agent · 极轻量验证原型</title>
+<style>
+  :root{--bg:#0b0f14;--panel:#131a23;--line:#22303f;--text:#e6edf6;--muted:#8b9bb0;--accent:#4da3ff;--ok:#34d399;--warn:#fbbf24;--bad:#f87171}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  main{max-width:860px;margin:0 auto;padding:48px 22px}
+  h1{font-size:22px;margin:0 0 6px}
+  .sub{color:var(--muted);margin:0 0 26px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+  .card h2{font-size:14px;margin:0 0 12px;color:var(--muted);font-weight:500;letter-spacing:.3px}
+  .kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-size:13px}
+  .kv dt{color:var(--muted)}
+  .kv dd{margin:0}
+  .mono{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#a8c0da}
+  a{color:var(--accent)}
+  .btn{display:inline-block;margin-top:6px;background:var(--accent);color:#04121f;padding:8px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px}
+  .tag{font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .tag.ok{color:var(--ok);border-color:#1c4637}
+  .tag.bad{color:var(--bad);border-color:#4a1d1d}
+  ul{padding-left:18px;color:var(--muted);font-size:13px}
+  li{margin:4px 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>im2agent · 极轻量验证原型</h1>
+  <p class="sub">单进程、零依赖、内存/文件双存储；治理语义与主仓库 <span class="mono">contracts/INTERFACES.md</span> 对齐（信任档 / 审批 / 付费消息 / 账本 / 审计链）。</p>
+
+  <div class="card">
+    <h2>运行状态</h2>
+    <dl class="kv" id="kv"><dt>加载中…</dt><dd></dd></dl>
+  </div>
+
+  <div class="card">
+    <h2>入口</h2>
+    <p class="sub" style="margin-bottom:8px">运维界面（Agent 注册表 / 审批流 / 付费账本 / 审计流 / LLM 状态）需要管理员令牌。</p>
+    <a class="btn" href="/admin/">打开运维界面</a>
+    <p class="mono" style="margin-top:12px">/api/health · /api/state · /api/llm · /admin/</p>
+  </div>
+
+  <div class="card">
+    <h2>三种上线形态（同一份代码）</h2>
+    <ul>
+      <li><span class="mono">PROFILE=demo</span>：只绑 127.0.0.1、内存存储，<span class="mono">node server.mjs</span> 即跑</li>
+      <li><span class="mono">PROFILE=lan</span>：绑 0.0.0.0、打印局域网地址，jsonfile 落盘</li>
+      <li><span class="mono">PROFILE=prod</span>：强制 <span class="mono">ADMIN_TOKEN</span>、安全响应头、Caddy 自动 HTTPS + PostgreSQL 可选</li>
+    </ul>
+    <p class="sub" style="margin:10px 0 0">LLM 三档降级：<span class="mono">template → fallback → real</span>（无 key 时模板、调用失败回落模板并标记 degraded、成功则真实模型）。</p>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+fetch('/api/health').then((r) => r.json()).then((h) => {
+  $('kv').innerHTML = `
+    <dt>服务</dt><dd>${esc(h.service)} <span class="tag ${h.ok ? 'ok' : 'bad'}">${h.ok ? '健康' : '异常'}</span></dd>
+    <dt>形态</dt><dd class="mono">${esc(h.profile)}</dd>
+    <dt>存储</dt><dd class="mono">${esc(h.store)}</dd>
+    <dt>待审批</dt><dd>${esc(h.pending)} 张</dd>
+    <dt>审计链</dt><dd>${h.auditOk ? '<span class="tag ok">完整</span>' : '<span class="tag bad">断裂</span>'}</dd>
+    <dt>生成时间</dt><dd class="mono">${esc(h.generatedAt)}</dd>`;
+}).catch((e) => { $('kv').innerHTML = `<dt>错误</dt><dd>${esc(e.message)}</dd>`; });
+</script>
+</body>
+</html>
