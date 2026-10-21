@@ -59,7 +59,7 @@
 | `auth`（apps） | scrypt 口令 + HMAC Cookie | 身份只来自会话；越权审批 403 | ✅ |
 | `llm`（apps） | OpenAI 兼容客户端 + 预算 + 离线降级 | 无 key/失败/超预算必须降级并标注 | ✅ |
 | `agent-runtime`（apps） | 规划→门控→Skill→起草→护栏 | 模型只建议 tool，不能执行 | ✅ |
-| **TaskLedger**（v0.2） | 任务状态机 + 幂等 + 租约 | 至少一次执行 + 结果幂等去重 | ⏳ |
+| **TaskLedger**（v0.2） | 任务状态机 + 幂等 + 租约 + 重放 | 至少一次执行 + 结果幂等去重；旧 attempt 不得落账（TOKEN_STALE） | ✅ v0.2.0（模块层） |
 
 ## 4. 安全与本轮已实现边界
 

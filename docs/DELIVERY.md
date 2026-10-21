@@ -27,7 +27,8 @@
 | 登录鉴权 | scrypt + HMAC Cookie + 越权 403 | `tests/auth.test.mjs` 5 项 | ✅ |
 | HTTPS/TLS | 证书可选，缺证书启动失败 | `tests/tls.test.mjs` 3 项 | ✅ |
 | 审计可解释 | 哈希链 + 篡改检测 | store/audit 测试 | ✅ |
-| **多节点 relay / 任务账本 / SSE** | 规划 v0.2–v0.3 | — | ⏳ |
+| **TaskLedger（v0.2.0）** | 只追加任务事件 + 状态机 + 幂等键 + 租约 + sweepExpired + fromEvents 重放 | `tests/task-ledger.test.mjs` 13 项 | ✅ |
+| **Agent Worker / SSE / 多节点 relay** | 规划 v0.2 后续切片 | — | ⏳ |
 | **PostgreSQL / OIDC / 硬件** | 规划 v0.3–v1.0 | — | ⏳ |
 
 ## 3. 验收记录（本机，2026-10-21）

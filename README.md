@@ -54,7 +54,8 @@ scripts/test.mjs    零依赖测试运行器（单进程 import，规避 Windows
 ## 状态
 
 - ✅ v0.1：可运行 Demo（聊天/审批/付费消息/Agent Runtime/LLM 接入/登录/SQLite/TLS）+ 198 项本地测试
-- ⏳ v0.2：按 [技术方案 §6](docs/ARCHITECTURE.md) 重写核心为「任务账本 + 事件流 + Agent Worker」多进程形态
+- ✅ v0.2.0：TaskLedger 落地（只追加事件 + 状态机 + 幂等键 + 租约 + 过期回收 + 重放），13 项契约测试
+- ⏳ v0.2 后续：Agent Worker 接入 / SSE 事件流 / 消息 bizSeq 保序去重（按 [技术方案 §6](docs/ARCHITECTURE.md)）
 - ⏳ v0.3：多节点 relay、内容寻址 blob、可插拔模型网关
 - ⏳ v1.0：端侧硬件接入（不做首发承诺）、生产 PostgreSQL 存储、审计对外导出
 

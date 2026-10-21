@@ -1,6 +1,6 @@
 {
   "name": "im2a",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "IM2A — 人机混合熟人社交 IM：人类与 Agent 团队、陌生人 Agent 之间的开源 IM 协议与可运行实现（独立项目）",
   "type": "module",
