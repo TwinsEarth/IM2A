@@ -64,6 +64,23 @@ console.log('✔ 预检通过\n');
 // ② 执行器
 const runner = new AcceptanceRunner({ target, token, viewerToken });
 for (const gate of DEFAULT_GATES) runner.register(gate);
+// v0.0.7：Web 客户端 Gate（壳 + manifest + SW 必须可访问）
+runner.register({
+  id: 'G-APP',
+  name: 'Web 客户端可用',
+  tier: 'AUTO',
+  async run({ target: base }) {
+    const html = await fetch(`${base}/app/`);
+    if (!html.ok) return { ok: false, detail: `GET /app/ -> ${html.status}` };
+    const body = await html.text();
+    const manifest = await fetch(`${base}/app/manifest.webmanifest`);
+    const sw = await fetch(`${base}/app/sw.js`);
+    const details = `shell=${html.status} manifest=${manifest.status} sw=${sw.status}`;
+    if (!body.includes('IM2A')) return { ok: false, detail: `shell 不含品牌标识；${details}` };
+    if (!manifest.ok || !sw.ok) return { ok: false, detail: details };
+    return { ok: true, detail: details };
+  }
+});
 const report = await runner.run({ only: only === null ? null : only.split(',').map((item) => item.trim()).filter(Boolean) });
 
 for (const result of report.results) {

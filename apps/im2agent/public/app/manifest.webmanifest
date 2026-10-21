@@ -1,0 +1,14 @@
+{
+  "name": "IM2A 人机混合 IM",
+  "short_name": "IM2A",
+  "description": "审批 / 巡视 / 账本 —— 人机混合熟人社交 IM 的内测客户端",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

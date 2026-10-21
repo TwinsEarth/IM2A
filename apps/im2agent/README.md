@@ -78,6 +78,7 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 | POST | `/api/ops/backup` | `x-admin-token` | 创建备份（含 sha256）；`IM2AGENT_SMS_FAULT=1`/`IM2AGENT_MACHINE_FAULT=1` 可演练故障 |
 | GET | `/api/ops/backup` | `x-admin-token` | 列出备份（坏文件显式标 `skipped`） |
 | POST | `/api/ops/backup/restore` | `x-admin-token` | 验签并返回数据；**不自动应用**（`applied:false`） |
+| GET | `/app/` | — | **Web/PWA 客户端**：审批 / 巡视 / 账本三态（手机可直接加到主屏） |
 
 > **真实环境验收**：先起服务（生产形态），再跑
 > `node scripts/accept.mjs --target https://<域名> --token <ADMIN_TOKEN> --viewer-token <VIEWER_TOKEN> --require-real-providers`

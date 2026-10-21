@@ -14,6 +14,21 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.7-client — 2026-10-21
+
+**Web/PWA 客户端**：把"客户端只存在于未编译的 Flutter 代码里"变成**可打开、可验证**的交互。
+
+- **§47 Web/PWA 客户端**（`apps/im2agent/public/app/`）：三态导航（审批 / 巡视 / 账本）、`logic.mjs` 纯函数层（可被 Node 直接测试）、manifest + service worker（离线只给壳，**API 数据一律不缓存**）、角色前端门控（viewer 不渲染写按钮，服务端仍二次校验）
+- **静态服务**：`/app/*` 带 MIME 与缓存策略；**目录穿越防护**（`/app/../server.mjs` → 404，有测试）
+- **验收**：`scripts/accept.mjs` 新增 `G-APP` Gate（壳 + manifest + SW 三者必须可达）；实测 `PASS 8 · FAIL 0 · SKIP 1`
+- 测试：`tests/web-client.test.mjs` 3 项（纯函数 / 静态资源与 MIME / 穿越防护）
+- 文档：`docs/27-v0.0.7-客户端交付说明.md`（能力矩阵、三态字段来源、角色与安全、PWA 离线、F1–F5、Flutter 差距）
+- 契约：R18
+
+**能力边界（不粉饰）**：Web/PWA 可用；**Flutter 三端仍是未编译等价物**——原生推送、手表、BLE、相机、离线写都不在 v0.0.7 内。
+
+验证：全量 **695/695**；verify **101/101**；web-client 3；accept CLI 8 Gate PASS（含 G-APP）。
+
 ## v0.0.6-acceptance — 2026-10-21
 
 **验收工具化**：把"本机全绿"变成"对真实目标可验收、可归档"。

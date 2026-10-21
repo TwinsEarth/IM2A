@@ -892,6 +892,40 @@ async function route(req, res, holder, persist) {
     return;
   }
 
+  // ── v0.0.7 Web/PWA 客户端静态资源 ──
+  if (method === 'GET' && (pathname === '/app' || pathname.startsWith('/app/'))) {
+    const relative = pathname === '/app' || pathname === '/app/' ? 'app/index.html' : pathname.slice(1);
+    const filePath = path.resolve(PUBLIC_DIR, relative);
+    const appRoot = path.resolve(PUBLIC_DIR, 'app');
+    // 目录穿越防护：解析后的绝对路径必须仍在 public/app 下
+    if (!filePath.startsWith(appRoot + path.sep) && filePath !== path.join(appRoot, 'index.html')) {
+      sendJson(res, 404, { error: 'NOT_FOUND' }, holder.rt);
+      return;
+    }
+    try {
+      const content = await readFile(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+      const types = {
+        '.html': 'text/html; charset=utf-8',
+        '.css': 'text/css; charset=utf-8',
+        '.js': 'text/javascript; charset=utf-8',
+        '.mjs': 'text/javascript; charset=utf-8',
+        '.json': 'application/json; charset=utf-8',
+        '.webmanifest': 'application/manifest+json; charset=utf-8',
+        '.svg': 'image/svg+xml'
+      };
+      res.writeHead(200, {
+        'content-type': types[ext] ?? 'application/octet-stream',
+        'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=300',
+        'service-worker-allowed': '/app/'
+      });
+      res.end(content);
+    } catch {
+      sendJson(res, 404, { error: 'NOT_FOUND', path: pathname }, holder.rt);
+    }
+    return;
+  }
+
   sendJson(res, 404, { error: 'NOT_FOUND', path: pathname }, holder.rt);
 }
 

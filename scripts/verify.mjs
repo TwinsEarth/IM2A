@@ -782,6 +782,50 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 23. v0.0.7 Web/PWA 客户端交付完整性 ─────────────────────────
+{
+  const clientFiles = [
+    'apps/im2agent/public/app/index.html',
+    'apps/im2agent/public/app/app.js',
+    'apps/im2agent/public/app/logic.mjs',
+    'apps/im2agent/public/app/app.css',
+    'apps/im2agent/public/app/manifest.webmanifest',
+    'apps/im2agent/public/app/sw.js'
+  ];
+  const missingClient = [];
+  for (const rel of clientFiles) {
+    if (!(await exists(path.join(ROOT, rel)))) missingClient.push(rel);
+  }
+  record(`v0.0.7 客户端文件齐备（${clientFiles.length} 个）`, missingClient.length === 0, missingClient.join(', '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  record('契约含 v0.0.7 §47 客户端', contract.includes('## 47. Web/PWA 客户端'), '缺 §47');
+
+  const logic = await exists(path.join(ROOT, 'apps/im2agent/public/app/logic.mjs'))
+    ? await read(path.join(ROOT, 'apps/im2agent/public/app/logic.mjs'))
+    : '';
+  const logicExports = ['formatCents', 'summarizeTickets', 'canDecide', 'moderationQueue', 'funnelSummary'];
+  const missingExports = logicExports.filter((name) => !logic.includes(`export function ${name}`));
+  record(`logic.mjs 冻结导出齐备（${logicExports.length} 个）`, missingExports.length === 0, missingExports.join(', '));
+  record('logic.mjs 不含 DOM/网络依赖（纯函数）', !/document\.|window\.|fetch\(/.test(logic), '发现 DOM/网络调用');
+
+  record('客户端测试存在', await exists(path.join(ROOT, 'tests/web-client.test.mjs')), '缺 tests/web-client.test.mjs');
+  record('验收 CLI 注册 Web 客户端 Gate', await (async () => {
+    const cli = await read(path.join(ROOT, 'scripts/accept.mjs'));
+    return cli.includes("id: 'G-APP'");
+  })(), '缺 G-APP Gate');
+
+  const doc27 = path.join(ROOT, 'docs/27-v0.0.7-客户端交付说明.md');
+  if (await exists(doc27)) {
+    const t27 = await read(doc27);
+    const required = ['PWA', '审批', '巡视', '账本'];
+    const missingKeywords = required.filter((word) => !t27.includes(word));
+    record('docs/27 覆盖客户端三态与 PWA', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/27 v0.0.7 客户端文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

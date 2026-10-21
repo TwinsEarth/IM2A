@@ -1,4 +1,4 @@
-﻿# 冻结接口契约 v1.0（FROZEN CONTRACT）
+# 冻结接口契约 v1.0（FROZEN CONTRACT）
 
 > 本文件是**唯一**的模块级契约来源。所有实现必须与本文签名、错误码、状态机逐字一致。
 > 修改本文件需要 Lead 明确授权；实现方**不得**擅自改变签名或状态名。
@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R18 | 2026-10-21 | **v0.0.7 客户端增补**：§47 Web/PWA 客户端（三态导航 + 纯函数 logic.mjs 可 Node 测试 + manifest/service worker + 角色前端门控）；Flutter 三端保留为未编译等价物，状态如实标注；原 §47→§49 禁止事项、§48→§50 验证命令 | 加法（v1–v0.0.6 语义全保留） |
 | R17 | 2026-10-21 | **v0.0.6 验收工具化增补**：§45 上线前预检（可达/鉴权/持久存储/真实依赖/时钟偏移；只读）、§46 验收执行器（本机 Gate → 真实目标可执行；不可自动化显式 MANUAL；异常记 FAIL 不中断；SKIP/MANUAL 不影响 ok）；原 §45→§47 禁止事项、§46→§48 验证命令 | 加法（v1–v0.0.5 语义全保留） |
 | R16 | 2026-10-21 | **v0.0.5 内测保障增补**：§43 外部依赖熔断与降级（OPEN 快速失败不调用主方 / 半开只探测一次 / 降级必须标记 usedFallback 与原因码 / 不静默返回空值）、§44 数据备份与恢复（sha256 校验后才 restore、restore 不自动应用、轮转不删最新、文件级备份边界写清）；原 §43→§45 禁止事项、§44→§46 验证命令 | 加法（v1–v0.0.4 语义全保留） |
 | R15 | 2026-10-21 | **v0.0.4 可观测性增补**：§41 运营指标与告警（付费漏斗/审核时效/机审失败率/退款率；告警规则为纯函数，默认五条阈值）、§42 全链审计追溯（按 messageId 串起审核→扣费→回复→退款；**缺环显式列出而非隐藏**）；原 §41→§43 禁止事项、§42→§44 验证命令 | 加法（v1–v0.0.3 语义全保留） |
@@ -1371,7 +1372,31 @@ export const DEFAULT_GATES;                  // 见下：健康/鉴权/角色/�
 
 ---
 
-## 47. 禁止事项（对所有实现者）
+## 47. Web/PWA 客户端 `apps/im2agent/public/app/`（v0.0.7 新增）
+
+**职责**：**可验证的客户端交付**。Flutter 三端本机无法编译（无 SDK），但"客户端"不能一直停在"代码写了没跑过"。因此 v0.0.7 交付一个**浏览器/PWA 客户端**：PC 与手机同一份，三态导航（审批 / 巡视 / 账本），连真实 HTTP 接口；Flutter 保留为未编译的等价物。
+
+```
+/app/index.html         三态导航 shell（审批 / 巡视 / 账本）
+/app/app.js             视图层（只依赖 logic.mjs + fetch）
+/app/logic.mjs          纯函数：可被浏览器与 Node 测试共同导入
+/app/app.css            样式（深色、移动优先）
+/app/manifest.webmanifest  PWA 清单（name/short_name/display/theme_color/icons）
+/app/sw.js              Service Worker（离线壳 + 网络优先数据）
+```
+```js
+// logic.mjs 冻结导出
+export function formatCents(cents);              // 5000 -> '¥50.00'；非法输入 -> '—'
+export function summarizeTickets(state);         // -> { pending, pendingHigh, done }
+export function canDecide(role);                 // operator -> true；viewer/未知 -> false
+export function moderationQueue(state);          // -> HUMAN_PENDING 案件列表（巡视态用）
+export function funnelSummary(metrics);          // -> [{stage,count,rate}]；缺数据不抛
+```
+**不变量**：①客户端**只读公开/会话接口**，不携带 admin token 做用户操作；管理写操作要求 operator（`canDecide` 为 false 时 UI 不渲染按钮，服务端仍二次校验）；②`logic.mjs` 必须是**纯函数、无 DOM、无网络**，可在 Node 直接 import 测试；③PWA 必须提供 manifest + service worker，离线时给"壳"而不是白屏；④界面文案不得承诺未验证能力（如"实时推送"只能写"SSE 可用时自动更新"）。
+
+---
+
+## 49. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1385,7 +1410,7 @@ export const DEFAULT_GATES;                  // 见下：健康/鉴权/角色/�
 
 ---
 
-## 48. 验证命令
+## 50. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1424,6 +1449,9 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.7 客户端（§47）
+node E:\GPT\agent-im\scripts\test.mjs --filter=web-client
 
 # v0.0.6 验收工具化新增模块（§45–§46）
 node E:\GPT\agent-im\scripts\test.mjs --filter=preflight

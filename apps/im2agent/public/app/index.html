@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0f14" />
+<title>IM2A · 客户端</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+<header class="top">
+  <div class="brand">IM2A<span class="sub">审批 / 巡视 / 账本</span></div>
+  <div class="auth">
+    <input id="token" type="password" placeholder="ADMIN_TOKEN 或 VIEWER_TOKEN" />
+    <button id="connect">连接</button>
+  </div>
+</header>
+
+<main id="view" aria-live="polite"></main>
+
+<nav class="tabs">
+  <button data-tab="approve" class="active">审批</button>
+  <button data-tab="oversight">巡视</button>
+  <button data-tab="ledger">账本</button>
+</nav>
+
+<footer class="hint" id="hint">未连接：填入令牌后点"连接"</footer>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
