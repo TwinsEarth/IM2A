@@ -900,6 +900,23 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
 {
   record('v0.1.0 版本模块存在', await exists(path.join(ROOT, 'apps/im2agent/version.mjs')), '缺 version.mjs');
   record('v0.1.0 发布检查脚本存在', await exists(path.join(ROOT, 'scripts/release-check.mjs')), '缺 release-check.mjs');
+  // v0.1.4（SOP）版本 bump 一致性：package.json.version 必须等于 version.mjs 的 VERSION
+  {
+    const versionSource = await read(path.join(ROOT, 'apps/im2agent/version.mjs'));
+    const vm = /VERSION = '([0-9]+\.[0-9]+\.[0-9]+)'/.exec(versionSource);
+    let pkgVersion = null;
+    try {
+      pkgVersion = JSON.parse(await read(path.join(ROOT, 'package.json'))).version;
+    } catch {
+      pkgVersion = null;
+    }
+    record(
+      `package.json 版本与 version.mjs 一致（${pkgVersion ?? '?'} / ${vm?.[1] ?? '?'}）`,
+      pkgVersion !== null && vm !== null && pkgVersion === vm[1],
+      '版本 bump 漏改 package.json（见 docs/35 §1）'
+    );
+    record('发布 SOP 文档存在（docs/35）', await exists(path.join(ROOT, 'docs/35-版本发布SOP.md')), '缺 docs/35-版本发布SOP.md');
+  }
   // v0.1.1 缺陷修复：迁移工具 + 契约约定 + release-check 的 tag 一致性检查
   record('v0.1.1 迁移工具与测试存在', (await exists(path.join(ROOT, 'scripts/migrate-state.mjs'))) && (await exists(path.join(ROOT, 'tests/migrate.test.mjs'))), '缺 migrate-state.mjs / 测试');
   record('契约含迁移工具约定（v0.1.1 补）', (await read(path.join(ROOT, 'contracts/INTERFACES.md'))).includes('迁移工具（v0.1.1 补）'), '缺迁移约定');
