@@ -18,6 +18,8 @@
  *   POST /api/reset                      回到种子场景
  */
 import { createServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +41,7 @@ import { createLlm } from './llm.mjs';
 import { createSkillExecutor } from './skills.mjs';
 import { createAgentRuntime } from './agent-runtime.mjs';
 import { createPersistence, defaultDbPath } from './store.mjs';
+import { createAuth } from './auth.mjs';
 import { TICKET_STATE } from '../../services/orchestrator/src/approval-engine.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +65,7 @@ function buildDemo(llm, skills, persistence = null) {
 
   const demo = {
     world,
+    authEnabled: false,
     seq: 0,
     threads: [],
     events: [],
@@ -256,7 +260,8 @@ async function dispatchProbe(machineId, argv) {
 }
 
 // ─────────────────────────── HTTP 服务 ───────────────────────────
-export function createApp({ fleet = null, llm = null, skills = null, db = undefined } = {}) {
+export function createApp({ fleet = null, llm = null, skills = null, db = undefined, auth = null } = {}) {
+  const authClient = auth ?? createAuth();
   const persistence = typeof db === 'string' ? createPersistence({ dbPath: db }) : (db ?? createPersistence());
   const ownsPersistence = !(db !== undefined && typeof db !== 'string');
   const llmClient = llm ?? createLlm();
@@ -266,17 +271,19 @@ export function createApp({ fleet = null, llm = null, skills = null, db = undefi
     deviceToken: FLEET.deviceToken,
     dispatchProbe: (machineId, argv) => (fleet !== null && typeof fleet === 'function' ? fleet({ probe: true, machineId, argv }) : dispatchProbe(machineId, argv))
   });
-  const holder = { demo: buildDemo(llmClient, skillExecutor, persistence) };
+  const holder = { demo: buildDemo(llmClient, skillExecutor, persistence), auth: authClient };
   const fleetOverride = fleet;
-  const server = createServer(async (req, res) => {
+  const handler = async (req, res) => {
     try {
       await route(req, res, holder, fleetOverride);
     } catch (error) {
       sendJson(res, 500, { error: 'INTERNAL', message: String(error?.message ?? error) });
     }
-  });
+  };
+  const server = createServer(handler);
   return {
     server,
+    handler,
     holder,
     persistence,
     getState: () => stateFor(holder.demo, USERS.LIN, 'th-lin-agent'),
@@ -284,18 +291,39 @@ export function createApp({ fleet = null, llm = null, skills = null, db = undefi
   };
 }
 
-export function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm = null, skills = null, db = undefined } = {}) {
-  const app = createApp({ fleet, llm, skills, db });
+/** 读取 TLS 证书/私钥；缺失或不可读时抛具名错误（不静默降级为 http）。 */
+export function loadTlsOptions({ certPath, keyPath } = {}) {
+  if (typeof certPath !== 'string' || typeof keyPath !== 'string' || certPath === '' || keyPath === '') {
+    throw new Error('TLS_CONFIG_MISSING: 需要同时提供 IM_TLS_CERT 与 IM_TLS_KEY（PEM 文件路径）');
+  }
+  try {
+    const cert = readFileSync(certPath, 'utf8');
+    const key = readFileSync(keyPath, 'utf8');
+    if (!cert.includes('-----BEGIN CERTIFICATE-----') || !key.includes('PRIVATE KEY')) {
+      throw new Error('证书或私钥不是 PEM 格式（缺少 BEGIN CERTIFICATE / PRIVATE KEY 标记）');
+    }
+    return { cert, key };
+  } catch (error) {
+    throw new Error('TLS_CONFIG_MISSING: 无法读取证书/私钥：' + String(error?.message ?? error));
+  }
+}
+
+export async function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm = null, skills = null, db = undefined, auth = null, tls = null } = {}) {
+  const app = createApp({ fleet, llm, skills, db, auth });
+  const server = tls === null ? app.server : createHttpsServer(loadTlsOptions(tls), app.handler);
+  const scheme = tls === null ? 'http' : 'https';
   return new Promise((resolve, reject) => {
-    app.server.once('error', reject);
-    app.server.listen(port, host, () => {
-      const address = app.server.address();
+    server.once('error', reject);
+    server.listen(port, host, () => {
+      const address = server.address();
       resolve({
         ...app,
+        server,
+        tls: tls !== null,
         host,
         port: address.port,
-        url: `http://${host}:${address.port}`,
-        close: () => new Promise((done) => app.server.close(() => { app.closePersistence(); done(); }))
+        url: `${scheme}://${host}:${address.port}`,
+        close: () => new Promise((done) => server.close(() => { app.closePersistence(); done(); }))
       });
     });
   });
@@ -313,16 +341,50 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  // ── 鉴权面：登录 / 登出 / 会话查询（公开），其余 API 需要会话 ──
+  if (method === 'GET' && pathname === '/api/session') {
+    const session = holder.auth.enabled ? holder.auth.parse(req.headers.cookie) : null;
+    sendJson(res, 200, { authEnabled: holder.auth.enabled, user: session?.ok === true ? session.user : null, users: holder.auth.usersPublic() });
+    return;
+  }
+  if (method === 'POST' && pathname === '/api/login') {
+    if (!holder.auth.enabled) { sendJson(res, 400, { error: 'AUTH_DISABLED', hint: 'IM_AUTH=1 或设置 IM_SESSION_SECRET 后启用登录' }); return; }
+    const body = await readJson(req);
+    const userId = typeof body?.userId === 'string' ? body.userId : '';
+    if (userId === '' || holder.auth.verifyPassword(userId, String(body?.password ?? '')) !== true) {
+      sendJson(res, 401, { error: 'WRONG_CREDENTIALS' });
+      return;
+    }
+    const session = holder.auth.issue(userId);
+    res.setHeader('set-cookie', holder.auth.cookieFor(session));
+    sendJson(res, 200, { ok: true, user: { userId: session.userId, name: session.name }, expiresAt: session.expiresAt });
+    return;
+  }
+  if (method === 'POST' && pathname === '/api/logout') {
+    res.setHeader('set-cookie', holder.auth.clearCookie());
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  const session = holder.auth.enabled ? holder.auth.parse(req.headers.cookie) : { ok: true, user: null };
+  if (holder.auth.enabled && session.ok !== true) {
+    sendJson(res, 401, { error: 'UNAUTHENTICATED', reason: session.reason ?? null });
+    return;
+  }
+  const sessionUserId = holder.auth.enabled && session.ok === true ? session.user.userId : null;
+
   if (method === 'GET' && pathname === '/api/state') {
-    const user = normalizeUser(searchParams.get('user'));
+    const user = sessionUserId ?? normalizeUser(searchParams.get('user'));
     const threadId = searchParams.get('thread') ?? defaultThreadFor(user);
-    sendJson(res, 200, stateFor(holder.demo, user, threadId));
+    const st = stateFor(holder.demo, user, threadId);
+    st.auth = { enabled: holder.auth.enabled, user: sessionUserId === null ? null : session.user };
+    sendJson(res, 200, st);
     return;
   }
 
   if (method === 'POST' && pathname === '/api/message') {
     const body = await readJson(req);
-    const result = await sendMessage(holder.demo, body);
+    const result = await sendMessage(holder.demo, { ...body, userId: sessionUserId ?? body?.userId });
     sendJson(res, result.ok ? 200 : 400, result);
     return;
   }
@@ -330,7 +392,12 @@ async function route(req, res, holder, fleetOverride) {
   const decideMatch = pathname.match(/^\/api\/approvals\/([^/]+)\/decide$/);
   if (method === 'POST' && decideMatch) {
     const body = await readJson(req);
-    const result = decide(holder.demo, decodeURIComponent(decideMatch[1]), body);
+    const ticketId = decodeURIComponent(decideMatch[1]);
+    if (sessionUserId !== null) {
+      const owned = holder.demo.world.approvals.listPending(sessionUserId).find((item) => item.id === ticketId) ?? null;
+      if (owned === null) { sendJson(res, 403, { error: 'FORBIDDEN', hint: '只能处理自己名下的待审批单' }); return; }
+    }
+    const result = decide(holder.demo, ticketId, body);
     sendJson(res, result.ok ? 200 : 400, result);
     return;
   }
@@ -367,7 +434,9 @@ async function route(req, res, holder, fleetOverride) {
   if (method === 'POST' && pathname === '/api/reset') {
     holder.demo.persistence?.reset();
     holder.demo = buildDemo(holder.demo.llm, holder.demo.skills, holder.demo.persistence);
-    sendJson(res, 200, { ok: true, state: stateFor(holder.demo, USERS.LIN, 'th-lin-agent') });
+    const st = stateFor(holder.demo, sessionUserId ?? USERS.LIN, 'th-lin-agent');
+    st.auth = { enabled: holder.auth.enabled, user: sessionUserId === null ? null : session.user };
+    sendJson(res, 200, { ok: true, state: st });
     return;
   }
 
@@ -427,6 +496,7 @@ function stateFor(demo, user, requestedThread) {
     auditChain: { ok: integrity.ok, length: integrity.length, head: integrity.head, trimmed: integrity.trimmed, recent: demo.auditLog.records({ limit: 12 }) },
     llm: demo.llm.stats(),
     store: demo.persistence ? demo.persistence.stats() : null,
+    auth: { enabled: demo.authEnabled, user: demo.authUser ?? null },
     runtime: { version: 'im-live-agent-runtime/1', stats: demo.runtime.stats(), catalog: demo.runtime.catalog() },
     fleet: null, // 由 /api/fleet 单独提供，避免 poll 拖慢状态接口
     serverNow: new Date().toISOString()
@@ -578,12 +648,16 @@ function sendJson(res, status, payload) {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {
   const port = Number(process.env.PORT ?? process.argv[2] ?? 8797);
-  const started = await startServer({ port });
+  const tls = process.env.IM_TLS_CERT && process.env.IM_TLS_KEY
+    ? { certPath: process.env.IM_TLS_CERT, keyPath: process.env.IM_TLS_KEY }
+    : null;
+  const started = await startServer({ port, tls });
   console.log(`  持久化      ${started.persistence.dbPath}`);
   const fleet = await fleetSnapshot();
   console.log(`\n  AgentIM 人机混合 IM 演示已启动`);
   console.log(`  ─────────────────────────────────────────────`);
   console.log(`  控制台      ${started.url}`);
+  console.log(`  鉴权        ${started.holder.auth.enabled ? '已启用（Cookie 会话）' : '未启用（设置 IM_AUTH=1 开启）'}`);
   console.log(`  状态接口    ${started.url}/api/state`);
   console.log(`  fleet       ${fleet.mode}  (${fleet.relayUrl})`);
   console.log(`  store       ${JSON.stringify(started.persistence.stats())}`);

@@ -63,6 +63,10 @@ node apps/demo-server/server.mjs
 # 启动「人机混合 IM」实时 Demo（浏览器 IM + 审批卡 + 真实 fleet 面板）
 node apps/im-live/server.mjs
 # 浏览器打开 http://127.0.0.1:8797（顶部切换身份：林总 / 周先生 / 林母）
+# 生产模式：启用登录鉴权 + SQLite + TLS（证书就绪后）
+$env:IM_AUTH = '1'; $env:IM_SESSION_SECRET = '<长随机串>'
+$env:IM_TLS_CERT = 'C:\certs\fullchain.pem'; $env:IM_TLS_KEY = 'C:\certs\privkey.pem'
+
 # 接真实大模型（可选；缺省为离线模板）
 $env:DEEPSEEK_API_KEY = 'sk-...'; $env:DEEPSEEK_MODEL = 'deepseek-v4.1-flash'
 node apps/im-live/server.mjs
@@ -192,6 +196,9 @@ agent-im/
 | 人机混合 IM 实时 Demo（`apps/im-live`） | ✅ 浏览器可用；8 项端到端测试；fleet 面板 simulated/live 双态 |
 | Agent 大模型燃料（DeepSeek-V4.1-Flash） | ✅ OpenAI 兼容接入 + 离线降级 + 出口护栏前置；7 项单测（注入 fetch，不依赖真网） |
 | Agent Runtime + W2M Skill 执行层 | ✅ DSH 风格 规划→权限→Skill→起草→护栏 闭环；10 项单测；fleet.devices/fleet.run 走真实 relay |
+| SQLite 持久化（`apps/im-live/store.mjs`） | ✅ Node 24 内置 node:sqlite；会话/消息/审计链跨重启恢复并校验；4 项单测 |
+| 登录鉴权（`apps/im-live/auth.mjs`） | ✅ scrypt 口令 + HMAC HttpOnly Cookie + 会话身份（忽略 body/query userId）+ 越权审批 403；5 项单测 |
+| HTTPS（可选 TLS） | ✅ `IM_TLS_CERT/IM_TLS_KEY` 启用 https；缺证书抛 TLS_CONFIG_MISSING 不静默降级；3 项测试 |
 | 技术文档集（00 总览 + 10 篇专题） | ✅ 约 3000 行 |
 | 契约文件（4 proto + OpenAPI 3.1 + 索引） | ✅ 人工自检；CI 待补 protoc/buf |
 | Flutter 客户端骨架 | ⚠ 未编译（本机无 Flutter SDK，README 已声明） |

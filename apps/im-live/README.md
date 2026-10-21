@@ -119,7 +119,42 @@ WantedBy=multi-user.target
 
 健康检查：`GET /api/state` 返回 200 且 `checks.passed === 12`；`GET /api/fleet` 返回 `mode`。
 
-## 6. API 一览（与 contracts/openapi 对齐）
+## 6. 登录鉴权、SQLite 与 HTTPS
+
+**登录鉴权（默认关闭，生产必开）**
+
+```powershell
+$env:IM_AUTH = '1'
+$env:IM_SESSION_SECRET = '<长随机串>'      # 会话 HMAC 密钥；不设则进程级随机（重启失效）
+$env:IM_PASSWORD_LIN = '...'; $env:IM_PASSWORD_ZHOU = '...'; $env:IM_PASSWORD_MOM = '...'
+node apps/im-live/server.mjs
+```
+
+- 口令 scrypt + 盐校验；会话为 HMAC-SHA256 签名的 HttpOnly / SameSite=Strict Cookie（HTTPS 时可加 Secure）；
+- **身份一律来自会话**：query/body 里的 `userId` 被忽略（防冒充）；审批单只能由名下用户裁决（否则 403）；
+- 未认证的 `/api/*` 返回 401；`/`、`/api/session`、`/api/login`、`/api/logout` 公开；
+- 页面内置登录框与登出按钮；未设置 `IM_AUTH` 时保持演示态（开箱可跑）。
+
+**SQLite 持久化（默认开启）**
+
+- Node 24 内置 `node:sqlite`，零依赖；默认 `<repo>/.data/agentim.db`（已 gitignore），可用 `IM_DB_PATH` 指定；
+- 落库：会话元数据、消息（含 engine/tools 元数据）、审计哈希链、消息序号；重启后消息与审计链连续，链可校验；
+- 边界：治理状态（审批单/账本/信任矩阵）仍由种子在内存重建；生产按 docs/05 落 PostgreSQL。
+
+**HTTPS（可选 TLS）**
+
+```powershell
+$env:IM_TLS_CERT = 'C:\certs\fullchain.pem'
+$env:IM_TLS_KEY  = 'C:\certs\privkey.pem'
+node apps/im-live/server.mjs        # 输出 https://127.0.0.1:8797
+```
+
+- 缺证书/私钥或非 PEM 时启动即失败（`TLS_CONFIG_MISSING`），**绝不静默降级为 http**；
+- 本机自签证书验证：`curl -k https://127.0.0.1:8797/api/session`；
+- 对外部署仍建议 Caddy/Nginx 终止 TLS + 反代 127.0.0.1（见 §5），证书不进入仓库；
+- 无状态会话的已知边界：登出 = 清除 Cookie；如需强制吊销，Phase 1 加会话黑名单/短 TTL + 刷新令牌。
+
+## 7. API 一览（与 contracts/openapi 对齐）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -131,7 +166,7 @@ WantedBy=multi-user.target
 | POST | `/api/fleet/probe` | `{ machineId, argv? }` 在真实机器上执行一次并回显结果 |
 | POST | `/api/reset` | 回到种子场景 |
 
-## 7. 诚实的边界
+## 8. 诚实的边界
 
 - 会话/消息是**内存演示存储**，重启回到种子场景；生产消息通道见 docs/02（腾讯云 IM + 自有归档）。
 - Agent 的「思考」由冻结的确定性治理模块执行（协商 / 预审 / 审批），**不调用大模型**；

@@ -69,17 +69,35 @@
   .checks { columns: 1; font-size: 12px; }
   .checks div { padding: 3px 0; color: var(--dim); }
   .checks div.ok { color: #b9e6cd; }
+  #login { position: fixed; inset: 0; background: rgba(4, 7, 12, .86); display: flex; align-items: center; justify-content: center; z-index: 20; }
+  #login[hidden] { display: none; }
+  .login-box { width: 340px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+  .login-box .brand { font-size: 18px; font-weight: 700; }
+  .login-box select, .login-box input { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .login-box button { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 10px; font-weight: 600; cursor: pointer; }
+  #login-error { color: var(--bad); font-size: 12px; min-height: 16px; }
   #toast { position: fixed; right: 18px; bottom: 18px; background: #1b2740; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; max-width: 420px; font-size: 12.5px; display: none; }
   #toast.show { display: block; }
 </style>
 </head>
 <body>
+<div id="login" hidden>
+  <div class="login-box">
+    <div class="brand">AgentIM · 登录</div>
+    <div class="sub" id="login-sub">演示账号（口令见 README）</div>
+    <select id="login-user"></select>
+    <input id="login-password" type="password" placeholder="口令" autocomplete="current-password" />
+    <button id="login-btn">登录</button>
+    <div id="login-error"></div>
+  </div>
+</div>
 <div id="app">
   <header>
     <div class="brand">AgentIM</div>
     <div class="sub">人机混合熟人社交 · DSH + W2M 底层 · 可运行 Demo</div>
     <div class="spacer"></div>
     <div class="persona" id="personas"></div>
+    <button class="ghost" id="btn-logout" hidden title="退出登录">登出</button>
     <button class="ghost" id="btn-reset" title="回到种子场景">重置</button>
   </header>
   <main>
@@ -95,12 +113,13 @@
 </div>
 <div id="toast"></div>
 <script>
-const state = { me: 'user-lin', thread: null, snapshot: null, fleet: null, busy: false };
+const state = { me: 'user-lin', thread: null, snapshot: null, fleet: null, busy: false, session: { enabled: false, user: null } };
 const $ = (id) => document.getElementById(id);
 
 async function api(path, init) {
   const res = await fetch(path, { cache: 'no-store', ...(init ?? {}) });
   const body = await res.json().catch(() => ({}));
+  if (res.status === 401 && body.error === 'UNAUTHENTICATED') showLogin();
   if (!res.ok) throw new Error(body.error ?? body.message ?? ('HTTP ' + res.status));
   return body;
 }
@@ -138,8 +157,8 @@ function render() {
 }
 function renderPersonas(snap) {
   $('personas').innerHTML = snap.personas.map((p) =>
-    `<button data-user="${esc(p.userId)}" class="${p.userId === state.me ? 'on' : ''}">${esc(p.name)}</button>`).join('');
-  $('personas').querySelectorAll('button').forEach((btn) => btn.onclick = async () => {
+    `<button data-user="${esc(p.userId)}" class="${p.userId === state.me ? 'on' : ''}" ${state.session.enabled ? 'disabled title="鉴权模式：身份由会话决定"' : ''}>${esc(p.name)}</button>`).join('');
+  $('personas').querySelectorAll('button').forEach((btn) => btn.onclick = state.session.enabled ? null : async () => {
     state.me = btn.dataset.user; state.thread = null; await refresh({ keepThread: false });
   });
 }
@@ -271,11 +290,51 @@ async function send() {
     state.snapshot = result.state; render();
   } catch (error) { toast('发送失败：' + error.message); }
 }
+function showLogin(info) {
+  $('login').hidden = false;
+  const select = $('login-user');
+  if (info?.users) {
+    select.innerHTML = info.users.map((u) => '<option value="' + esc(u.userId) + '">' + esc(u.name) + '（' + esc(u.userId) + '）</option>').join('');
+  }
+}
+async function login() {
+  $('login-error').textContent = '';
+  try {
+    const result = await api('/api/login', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ userId: $('login-user').value, password: $('login-password').value })
+    });
+    state.session = { enabled: true, user: result.user };
+    $('login').hidden = true;
+    $('login-password').value = '';
+    await boot();
+  } catch (error) { $('login-error').textContent = '登录失败：' + error.message; }
+}
+async function boot() {
+  const info = await api('/api/session');
+  state.session = { enabled: info.authEnabled === true, user: info.user ?? null };
+  const logout = $('btn-logout');
+  if (logout) logout.hidden = !(state.session.enabled && state.session.user);
+  if (state.session.enabled && state.session.user === null) { showLogin(info); return; }
+  if (state.session.user) state.me = state.session.user.userId;
+  await refresh();
+  await refreshFleet();
+  clearInterval(boot._timer);
+  boot._timer = setInterval(() => { if (!state.session.enabled || state.session.user) refresh().catch(() => {}); }, 15000);
+}
+
+$('login-btn').onclick = login;
+$('login-password').addEventListener('keydown', (event) => { if (event.key === 'Enter') login(); });
+$('btn-logout').onclick = async () => {
+  await api('/api/logout', { method: 'POST' });
+  state.session = { enabled: true, user: null };
+  $('login').hidden = false;
+  showLogin({ users: state.snapshot?.personas ?? [] });
+};
 $('send').onclick = send;
 $('input').addEventListener('keydown', (event) => { if (event.key === 'Enter') send(); });
 $('btn-reset').onclick = async () => { await api('/api/reset', { method: 'POST' }); state.thread = null; await refresh({ keepThread: false }); await refreshFleet(); toast('已回到种子场景'); };
-refresh().then(refreshFleet).catch((error) => toast('加载失败：' + error.message));
-setInterval(() => refresh().catch(() => {}), 15000);
+boot().catch((error) => toast('加载失败：' + error.message));
 </script>
 </body>
 </html>

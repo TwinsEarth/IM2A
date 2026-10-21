@@ -454,6 +454,49 @@ paths:
                 type: object
                 additionalProperties: true
 
+  /api/session:
+    get:
+      summary: 当前会话与可选登录身份（未启用鉴权时 authEnabled=false）
+      operationId: getSession
+      responses:
+        "200":
+          description: 会话状态
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/login:
+    post:
+      summary: 登录并下发 HttpOnly 会话 Cookie
+      operationId: postLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, password]
+              properties:
+                userId:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: 登录成功（Set-Cookie: im_session）
+        "401":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/logout:
+    post:
+      summary: 登出（清除会话 Cookie；无状态会话不保留服务端吊销表）
+      operationId: postLogout
+      responses:
+        "200":
+          description: 已清除 Cookie
+
 components:
   securitySchemes:
     bearerAuth:
