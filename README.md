@@ -8,9 +8,9 @@
 
 > **徽章说明（不写假的）**：CI 徽章指向真实 workflow（`.github/workflows/ci.yml`，只跑 Node 24——`node:sqlite` 在 Node 22 需 `--experimental-sqlite`，会让全量测试在 22 上直接失败）；**npm 徽章标记“零依赖”而不是版本号**——本仓库是 `private: true` 的应用，未发布到 npm registry，写 `npm/v` 会指向一个不存在的包；Node 徽章表示核心服务可在 ≥22 运行，但 `apps/im-live` 的 SQLite 持久化需 Node 24；平台徽章来自 `deploy/` 的实测路径。
 
-> **仓库主线说明（2026-10-21）**：本仓库主线为 **v0.1.3**（`apps/im2agent` + `contracts/INTERFACES.md` §1–§52 + 732 项测试 + 25 个版本 tag）。
-> 历史 `main` 上另有一条独立早期实现（`apps/im2a` + v0.2.0 TaskLedger），其文件未进入当前主线树，但**完整保留在 git 历史 `e2338a1`**，可用 `git show e2338a1:apps/im2a/server.mjs` 取回；
-> 如需要与主线并行维护，建议归档到 `legacy/im2a/` 并另开工作流，而不是混入同一目录。
+> **仓库主线说明（2026-10-21）**：本仓库**唯一主线为 `main` = v0.1.3 实现线**（`apps/im2agent` + `contracts/INTERFACES.md` §1–§52 + 732 项测试 + 25 个版本 tag）。
+> 原 `main`（`apps/im2a` + v0.2.0 TaskLedger）已**封存为隐藏副本**：分支 `legacy/im2a` + tag `legacy-im2a-2026-10-21`（commit `e2338a1`），不在主线树中，只读取回：`git show legacy/im2a:apps/im2a/server.mjs`。
+> 以后**开发 / 升级 / 迭代都在 `main`**；版本与发布规则（0.1.x 只修缺陷、0.2.0 需真实资源、schema 变更必须迁移）见 [docs/34-主线与版本策略](docs/34-主线与版本策略.md)。
 
 > **让每个人都像大老板一样，拥有自己的 Agent 秘书/助理/管家团队，管理日常与杂碎事务，
 > 专注于自我提升、家庭生活与工作事业。**
