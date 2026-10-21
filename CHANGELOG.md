@@ -26,6 +26,10 @@
 | `v0.5.0-llm` | OpenAI 兼容三档降级（template→fallback→real） | ✅ 注入 fetch 验证 |
 | `v0.6.1-prod` | Caddy 自动 HTTPS + ADMIN_TOKEN + 安全头 | ⚠ 未签发证书 |
 | `v0.7.0-contract` | 对齐 Go 规范：`/healthz`、snake_case、Go 视图、SSE、`Ticket.Context` | ✅ 10 项测试 |
+| `v0.8.0-ops` | ③ Linux 交付硬化（dry-run/双凭证/Runbook）· ④ 两级权限（viewer/operator）· ⑦ 应用层限流 · ⑥ LLM 压测工具 | ✅ 11 项测试 + deploy-lint 14/14 + 压测 |
+
+> 过程记录（不隐藏）：`v0.8.0-ops` 首次提交时带了一个红测试（跨用例共用 `.data` 状态导致假失败）。
+> 已修：测试统一强制 `STORE=memory`，并清理被污染的状态文件；该 tag 已重新指向修复后的提交。
 
 ## 主仓库演进（契约版本）
 

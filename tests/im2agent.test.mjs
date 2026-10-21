@@ -23,7 +23,9 @@ const json = (url, init = {}) =>
   }));
 
 async function withApp(env, fn) {
-  const app = await startServer({ env: { PROFILE: 'demo', PORT: '0', ...env } });
+  // 默认强制 memory 存储：否则 PROFILE=lan/prod 会落到共享的 .data/im2agent.json，
+  // 造成"上一个用例/上一次运行的决策"污染下一个用例（曾因此出现 tkt 已 COMPLETED 的假失败）。
+  const app = await startServer({ env: { PROFILE: 'demo', PORT: '0', STORE: 'memory', ...env } });
   try {
     return await fn(app);
   } finally {
