@@ -76,6 +76,32 @@
 
 ---
 
+## 极轻量验证原型（im2agent · 7 形态）
+
+除了上面这条"完整方案"线，仓库里还有一个**能在 10 秒内跑起来**的验证原型，用于演示与评审：
+
+```powershell
+node apps/im2agent/server.mjs      # 形态①，零依赖起闭环
+# http://127.0.0.1:8787/           状态页
+# http://127.0.0.1:8787/admin/     网页运维界面（Agent 注册表/审批流/账本/审计流/LLM）
+```
+
+| 形态 | 落点 | 本机状态 |
+|---|---|---|
+| ① Simple & Demo | `apps/im2agent/`（单进程、内存/文件双存储、内嵌网页） | ✅ 8 项测试 |
+| ② 客户端 iOS/Android/Windows | `client/`（Flutter，三态导航：审批/账本/审计） | ⚠ 未编译 |
+| ③ Linux 服务器 | `deploy/linux/`（systemd + `install.sh`） | ⚠ 未在 Linux 执行 |
+| ④ 网页运维界面 | `apps/im2agent/public/admin.html` | ✅ 鉴权/安全头 |
+| ⑤ 局域网部署 | `deploy/lan/`（Dockerfile + compose + HEALTHCHECK） | ⚠ 无 Docker |
+| ⑥ 大模型驱动 | `apps/im2agent/llm.mjs`（template→fallback→real） | ✅ 三档降级有测试 |
+| ⑦ 公网生产 | `deploy/prod/`（Caddy 自动 HTTPS + ADMIN_TOKEN + 安全头） | ⚠ 未签发证书 |
+
+> 详细形态矩阵、API 与**诚实清单**（没有 Go ELF、Flutter 未编译、Docker/Caddy 未构建、PG 未接驱动）见
+> [apps/im2agent/README.md](apps/im2agent/README.md)。治理语义对齐主契约（信任档/审批/付费消息/账本/审计链），
+> 生产请用 `services/` 下的冻结实现。
+
+---
+
 ## 1. 三十秒理解这套架构
 
 一句话：**把「Agent 能做什么」和「系统允许它做什么」分成两层——模型只负责提出意图，权限门控与状态机负责执行边界。**

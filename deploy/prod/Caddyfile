@@ -1,0 +1,33 @@
+# 公网生产形态：Caddy 自动 HTTPS + 安全头 + 反代到 im2agent（PROFILE=prod）
+#
+# 用法：把 IM2AGENT_DOMAIN 设成你的域名（DNS 已解析到本机），然后 docker compose up -d。
+# Caddy 会通过 ACME 自动申请/续期证书（需 80/443 可达）。
+{$IM2AGENT_DOMAIN:localhost} {
+	encode zstd gzip
+
+	# 安全头（应用内也有，这里双保险）
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# 运维界面建议再加一层 Basic Auth（应用内已有 ADMIN_TOKEN）
+	# basic_auth {
+	# 	admin $2a$14$REPLACE_WITH_CADDY_HASH_BCRYPT
+	# }
+
+	reverse_proxy im2agent:8080 {
+		health_uri /api/health
+		health_interval 15s
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

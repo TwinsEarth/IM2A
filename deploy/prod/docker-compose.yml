@@ -1,0 +1,55 @@
+# 公网生产形态：Caddy 自动 HTTPS + im2agent（PROFILE=prod）
+#
+# ⚠ 本机无 Docker/Caddy，未实际构建与签发证书；上线前请在目标机复核：
+#    · 域名 DNS 已指向本机、80/443 可达（ACME 需要）
+#    · 应用 ADMIN_TOKEN 已设置（否则 prod 拒绝启动）
+#    · 反代后仍需保留应用内安全头（双保险）
+services:
+  im2agent:
+    build:
+      context: ../..
+      dockerfile: deploy/lan/Dockerfile
+    container_name: im2agent
+    restart: unless-stopped
+    environment:
+      PROFILE: prod
+      PORT: "8080"
+      HOST: 0.0.0.0
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?必须设置 ADMIN_TOKEN}
+      STORE: ${STORE:-jsonfile}
+      STORE_FILE: ${STORE_FILE:-/data/state.json}
+      POSTGRES_URL: ${POSTGRES_URL:-}
+      IM2AGENT_LLM_KEY: ${IM2AGENT_LLM_KEY:-}
+      IM2AGENT_LLM_BASE_URL: ${IM2AGENT_LLM_BASE_URL:-https://api.deepseek.com/v1}
+      IM2AGENT_LLM_MODEL: ${IM2AGENT_LLM_MODEL:-deepseek-chat}
+    volumes:
+      - im2agent-data:/data
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: im2agent-caddy
+    restart: unless-stopped
+    depends_on:
+      im2agent:
+        condition: service_healthy
+    environment:
+      IM2AGENT_DOMAIN: ${IM2AGENT_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  im2agent-data:
+  caddy-data:
+  caddy-config:
