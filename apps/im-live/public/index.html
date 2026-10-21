@@ -181,7 +181,8 @@ function renderChat(snap) {
     const el = document.createElement('div');
     el.className = 'msg' + (mine ? ' me' : '') + (message.kind === 'agent' ? ' agent' : '');
     const who = mine ? '我' : (snap.personas.find((p) => p.userId === message.from)?.name ?? message.from);
-    el.innerHTML = `<div class="who">${esc(who)}${message.kind === 'agent' ? ' · Agent' : ''}</div><div class="body">${esc(message.text)}</div><div class="at">${esc(message.at)}</div>`;
+    const engineTag = message.engine ? (message.engine.source === 'llm' ? ` · LLM ${message.engine.latencyMs ?? 0}ms` : ' · 离线模板') : '';
+    el.innerHTML = `<div class="who">${esc(who)}${message.kind === 'agent' ? ' · Agent' : ''}${esc(engineTag)}</div><div class="body">${esc(message.text)}</div><div class="at">${esc(message.at)}</div>`;
     box.appendChild(el);
   }
   box.scrollTop = box.scrollHeight;
@@ -218,6 +219,13 @@ function renderSide() {
     </div></div>
     <div class="card"><div class="hd"><span>治理自检</span><span class="pill on">${snap.checks.passed}/${snap.checks.total}</span></div><div class="bd checks">
       ${snap.checks.list.map((c) => `<div class="${c.ok ? 'ok' : ''}">${c.ok ? '✓' : '✗'} ${esc(c.name)}</div>`).join('')}
+    </div></div>
+    <div class="card"><div class="hd"><span>LLM 引擎 · DeepSeek-V4.1-Flash</span><span class="pill ${snap.llm?.mode === 'live' ? 'live' : ''}">${esc(snap.llm?.mode ?? '…')}</span></div><div class="bd">
+      <div class="row"><span>model</span><span class="mono">${esc(snap.llm?.model ?? '—')}</span></div>
+      <div class="row"><span>调用 / 失败</span><span class="mono">${snap.llm?.calls ?? 0} / ${snap.llm?.failures ?? 0}</span></div>
+      <div class="row"><span>tokens / 最近延迟</span><span class="mono">${snap.llm?.totalTokens ?? 0} / ${snap.llm?.lastLatencyMs ?? '—'}ms</span></div>
+      ${snap.llm?.lastError ? `<div class="mono" style="color:var(--warn)">${esc(snap.llm.lastError)}</div>` : ''}
+      <div class="mono" style="margin-top:6px">${snap.llm?.mode === 'live' ? '真实模型起草 → 出口护栏 → 入会话；模型不接触工具/支付' : '未配置密钥：Agent 回复走离线模板（设置 DEEPSEEK_API_KEY 启用真实模型）'}</div>
     </div></div>
     <div class="card"><div class="hd"><span>审计链（不可篡改）</span><span class="pill ${snap.auditChain?.ok ? 'on' : ''}">${snap.auditChain?.ok ? '链完整' : '链断裂'} · ${snap.auditChain?.length ?? 0} 条</span></div><div class="bd">
       ${(snap.auditChain?.recent ?? []).slice(-8).reverse().map((a) => `<div class="row"><span class="mono">${esc(a.source)}</span><span class="mono">${esc(a.action)}${a.target ? ' → ' + esc(String(a.target).slice(0, 18)) : ''}</span></div>`).join('') || '<div class="mono">暂无</div>'}

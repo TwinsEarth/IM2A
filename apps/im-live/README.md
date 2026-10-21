@@ -38,7 +38,35 @@ node scripts/test.mjs                    # 全量（180+ 项）
 node scripts/verify.mjs                  # 文档 / 契约 / 代码一致性（含 openapi 路径↔实现）
 ```
 
-## 3. 接入真实 DSH + W2M fleet（可选，但推荐）
+## 3. 接入 DeepSeek-V4.1-Flash（Agent 的智能燃料）
+
+Agent 的回复由 `apps/im-live/llm.mjs` 起草：**OpenAI 兼容协议**，默认 `https://api.deepseek.com/v1`，模型默认
+`deepseek-v4.1-flash`（用你们的实际 model id 覆写 `DEEPSEEK_MODEL` 即可，任何 OpenAI 兼容网关都能接）。
+
+```powershell
+$env:DEEPSEEK_API_KEY = 'sk-...'          # 必填；缺省 → offline 模式（确定性模板，demo 仍完整可跑）
+$env:DEEPSEEK_MODEL   = 'deepseek-v4.1-flash'
+# 可选：网关/预算
+$env:LLM_BASE_URL = 'https://api.deepseek.com/v1'
+$env:LLM_MAX_CALLS_PER_HOUR = '120'
+$env:LLM_MAX_TOKENS_PER_HOUR = '200000'
+node apps/im-live/server.mjs
+```
+
+**四条铁律（写在代码里，不是提示词里）**：
+
+1. 模型只「起草」：草稿必须先过出口护栏 `EgressGuard.inspect`，`BLOCK` 的内容不进入会话（页面显示"已拦截"）；
+2. 模型不「放行」：它不调用 Skill、不扣费、不审批；动作仍由 capability gate + approval engine 执行；
+3. 无 key / 网络失败 / 预算耗尽 → 确定性模板降级，页面标记「离线模板」，绝不假装模型回复；
+4. 预算硬限制：每小时调用数与 token 数封顶，超限直接降级。
+
+页面右侧「LLM 引擎」卡片实时显示 `mode/model/calls/failures/tokens/latency/lastError`；
+`GET /api/llm` 返回同样结构，便于外部监控。
+
+测试：`node scripts/test.mjs --filter=llm`（7 项：配置解析 / 离线降级 / 请求体与鉴权头 / HTTP+网络失败 / 预算硬限制 /
+出口护栏 BLOCK / 失败回落）。**所有测试注入 fetch，不依赖真实密钥与网络。**
+
+## 4. 接入真实 DSH + W2M fleet（可选，但推荐）
 
 默认 fleet 面板是**模拟态**（保证离线可跑、CI 可测）。要接真实 relay 与机器：
 
@@ -61,7 +89,7 @@ node apps/im-live/server.mjs
 - 本 Demo 没有鉴权/多租户/HTTPS，仅用于**内网或本机演示**；对外暴露前必须加反向代理 + 登录 + TLS；
 - 生产环境不要把 token 写进仓库或镜像层。
 
-## 4. 实机部署（示例）
+## 5. 实机部署（示例）
 
 ```bash
 # 1) 代码放到服务器（Node ≥ 22，零依赖）
@@ -91,18 +119,19 @@ WantedBy=multi-user.target
 
 健康检查：`GET /api/state` 返回 200 且 `checks.passed === 12`；`GET /api/fleet` 返回 `mode`。
 
-## 5. API 一览（与 contracts/openapi 对齐）
+## 6. API 一览（与 contracts/openapi 对齐）
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/state?user=&thread=` | 会话列表 + 当前会话消息 + 待审批 + Agent 团队 + 信任矩阵 + 12 项自检 |
 | POST | `/api/message` | `{ userId, threadId, text }`；信任档位门控（陌生人未审批 → 423/400 LOCKED） |
 | POST | `/api/approvals/{id}/decide` | `{ action: APPROVE\|MODIFY\|REJECT }`；推进审批状态机与业务副作用 |
+| GET | `/api/llm` | Agent 大模型引擎状态（mode/model/calls/tokens/latency/lastError） |
 | GET | `/api/fleet` | relay 健康 + 在线设备（simulated / live） |
 | POST | `/api/fleet/probe` | `{ machineId, argv? }` 在真实机器上执行一次并回显结果 |
 | POST | `/api/reset` | 回到种子场景 |
 
-## 6. 诚实的边界
+## 7. 诚实的边界
 
 - 会话/消息是**内存演示存储**，重启回到种子场景；生产消息通道见 docs/02（腾讯云 IM + 自有归档）。
 - Agent 的「思考」由冻结的确定性治理模块执行（协商 / 预审 / 审批），**不调用大模型**；

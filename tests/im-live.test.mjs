@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { startServer } from '../apps/im-live/server.mjs';
+import { createLlm, resolveLlmConfig } from '../apps/im-live/llm.mjs';
 import { USERS, AGENTS } from '../apps/demo-server/flow.mjs';
 
 const json = (url, init) =>
@@ -52,8 +53,12 @@ test('熟人聊天可直接发送；空消息与非成员被拒绝', async () =>
     assert.equal(sent.status, 200);
     assert.equal(sent.body.ok, true);
     const messages = sent.body.state.activeThread.messages;
-    assert.equal(messages.at(-1).text, '周六我回来，汤给我留着。');
-    assert.equal(messages.at(-1).from, USERS.LIN);
+    const human = messages.find((m) => m.text === '周六我回来，汤给我留着。');
+    assert.ok(human, '人类消息已入会话');
+    assert.equal(human.from, USERS.LIN);
+    assert.equal(messages.at(-1).kind, 'agent', 'Agent 在该会话自动起草一条回复');
+    assert.equal(sent.body.agentReply.ok, true);
+    assert.equal(sent.body.agentReply.engine.source, 'template', '默认 offline 模式用确定性模板');
     assert.equal(sent.body.state.auditChain.ok, true, '发消息后链仍完整');
     assert.ok(
       sent.body.state.auditChain.recent.some((r) => r.action === 'CHAT_MESSAGE' && r.actor === USERS.LIN),
@@ -175,6 +180,53 @@ test('驳回：对方不被扣费、无权进入会话，执行链终止', async
     assert.equal(pair.level, 4, '驳回不升级信任档位');
     const zhouThread = snapshot.threads.find((t) => t.id === 'th-lin-zhou');
     assert.equal(zhouThread.locked, true, '驳回后陌生人会话仍锁定');
+  } finally {
+    await app.close();
+  }
+});
+
+test('Agent 接入真实模型协议：注入 LLM stub 后回复来自 llm，状态与 /api/llm 如实反映', async () => {
+  const requests = [];
+  const stubFetch = async (url, init) => {
+    requests.push({ url, body: JSON.parse(init.body) });
+    return {
+      status: 200,
+      async json() {
+        return {
+          model: 'deepseek-v4.1-flash',
+          choices: [{ message: { content: '收到，已记入家庭日程（真实模型草稿）。' } }],
+          usage: { prompt_tokens: 30, completion_tokens: 12, total_tokens: 42 }
+        };
+      }
+    };
+  };
+  const llm = createLlm({ config: resolveLlmConfig({ DEEPSEEK_API_KEY: 'test-key' }), fetchImpl: stubFetch });
+  const app = await startServer({ port: 0, llm });
+  try {
+    const sent = await json(`${app.url}/api/message`, {
+      method: 'POST',
+      body: JSON.stringify({ userId: USERS.LIN, threadId: 'th-lin-mom', text: '帮我把周六的饭局记一下' })
+    });
+    assert.equal(sent.status, 200);
+    assert.equal(sent.body.agentReply.ok, true);
+    assert.equal(sent.body.agentReply.engine.source, 'llm');
+    assert.equal(sent.body.agentReply.engine.model, 'deepseek-v4.1-flash');
+    const last = sent.body.state.activeThread.messages.at(-1);
+    assert.equal(last.kind, 'agent');
+    assert.match(last.text, /真实模型草稿/);
+    assert.equal(last.engine.source, 'llm');
+    assert.equal(requests.length, 1, '一次人类消息触发一次模型调用');
+    assert.equal(requests[0].body.model, 'deepseek-v4.1-flash');
+    assert.equal(requests[0].url.endsWith('/chat/completions'), true);
+    assert.equal(sent.body.state.llm.mode, 'live');
+    assert.equal(sent.body.state.llm.calls, 1);
+    assert.equal(sent.body.state.llm.totalTokens, 42);
+
+    const status = await json(`${app.url}/api/llm`);
+    assert.equal(status.status, 200);
+    assert.equal(status.body.mode, 'live');
+    assert.equal(status.body.model, 'deepseek-v4.1-flash');
+    assert.equal(status.body.calls, 1);
   } finally {
     await app.close();
   }

@@ -63,6 +63,9 @@ node apps/demo-server/server.mjs
 # 启动「人机混合 IM」实时 Demo（浏览器 IM + 审批卡 + 真实 fleet 面板）
 node apps/im-live/server.mjs
 # 浏览器打开 http://127.0.0.1:8797（顶部切换身份：林总 / 周先生 / 林母）
+# 接真实大模型（可选；缺省为离线模板）
+$env:DEEPSEEK_API_KEY = 'sk-...'; $env:DEEPSEEK_MODEL = 'deepseek-v4.1-flash'
+node apps/im-live/server.mjs
 ```
 
 控制台两个态：
@@ -184,7 +187,8 @@ agent-im/
 | 全量测试 | ✅ **180 passed / 0 failed**，exit 0 |
 | 交付物一致性验收 | ✅ **11/11**，exit 0 |
 | 演示服务 + 审批态/巡视态控制台 | ✅ 本地可跑 |
-| 人机混合 IM 实时 Demo（`apps/im-live`） | ✅ 浏览器可用；7 项端到端测试；fleet 面板 simulated/live 双态 |
+| 人机混合 IM 实时 Demo（`apps/im-live`） | ✅ 浏览器可用；8 项端到端测试；fleet 面板 simulated/live 双态 |
+| Agent 大模型燃料（DeepSeek-V4.1-Flash） | ✅ OpenAI 兼容接入 + 离线降级 + 出口护栏前置；7 项单测（注入 fetch，不依赖真网） |
 | 技术文档集（00 总览 + 10 篇专题） | ✅ 约 3000 行 |
 | 契约文件（4 proto + OpenAPI 3.1 + 索引） | ✅ 人工自检；CI 待补 protoc/buf |
 | Flutter 客户端骨架 | ⚠ 未编译（本机无 Flutter SDK，README 已声明） |

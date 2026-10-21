@@ -428,6 +428,19 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /api/llm:
+    get:
+      summary: Agent 大模型引擎状态（DeepSeek-V4.1-Flash；未配置密钥时 offline 模板模式）
+      operationId: getLlmStatus
+      responses:
+        "200":
+          description: 引擎状态（模式 / 模型 / 调用数 / 失败数 / token / 最近延迟 / 预算窗口）
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
 components:
   securitySchemes:
     bearerAuth:

@@ -35,6 +35,7 @@ import {
 } from '../demo-server/flow.mjs';
 import { TRUST_LEVELS } from '../../services/orchestrator/src/trust-zone.mjs';
 import { AuditLog } from '../../services/audit/src/audit-log.mjs';
+import { createLlm, draftAgentReply } from './llm.mjs';
 import { TICKET_STATE } from '../../services/orchestrator/src/approval-engine.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -50,12 +51,12 @@ const FLEET = Object.freeze({
 const PERSONA_ORDER = Object.freeze([USERS.LIN, USERS.ZHOU, USERS.MOM]);
 
 // ─────────────────────────── 聊天演示世界 ───────────────────────────
-function buildDemo() {
+function buildDemo(llm) {
   const world = createWorld();
   seedScenario(world);
   world.checks = probeChecks();
 
-  const demo = { world, seq: 0, threads: [], events: [], auditLog: new AuditLog({ clock: world.clock }) };
+  const demo = { world, seq: 0, threads: [], events: [], auditLog: new AuditLog({ clock: world.clock }), llm };
   demo.threads = [
     {
       id: 'th-lin-mom',
@@ -99,14 +100,15 @@ function recordAudit(demo, entry) {
   return record;
 }
 
-function makeMessage(demo, from, text, kind = 'text', at = null) {
+function makeMessage(demo, from, text, kind = 'text', at = null, extra = {}) {
   demo.seq += 1;
   return Object.freeze({
     id: `msg-${demo.seq}`,
     at: at ?? new Date().toISOString(),
     from,
     text,
-    kind
+    kind,
+    ...extra
   });
 }
 
@@ -219,8 +221,8 @@ async function dispatchProbe(machineId, argv) {
 }
 
 // ─────────────────────────── HTTP 服务 ───────────────────────────
-export function createApp({ fleet = null } = {}) {
-  const holder = { demo: buildDemo() };
+export function createApp({ fleet = null, llm = null } = {}) {
+  const holder = { demo: buildDemo(llm ?? createLlm()) };
   const fleetOverride = fleet;
   const server = createServer(async (req, res) => {
     try {
@@ -232,8 +234,8 @@ export function createApp({ fleet = null } = {}) {
   return { server, holder, getState: () => stateFor(holder.demo, USERS.LIN, 'th-lin-agent') };
 }
 
-export function startServer({ port = 8797, host = '127.0.0.1', fleet = null } = {}) {
-  const app = createApp({ fleet });
+export function startServer({ port = 8797, host = '127.0.0.1', fleet = null, llm = null } = {}) {
+  const app = createApp({ fleet, llm });
   return new Promise((resolve, reject) => {
     app.server.once('error', reject);
     app.server.listen(port, host, () => {
@@ -270,7 +272,7 @@ async function route(req, res, holder, fleetOverride) {
 
   if (method === 'POST' && pathname === '/api/message') {
     const body = await readJson(req);
-    const result = sendMessage(holder.demo, body);
+    const result = await sendMessage(holder.demo, body);
     sendJson(res, result.ok ? 200 : 400, result);
     return;
   }
@@ -302,8 +304,13 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  if (method === 'GET' && pathname === '/api/llm') {
+    sendJson(res, 200, holder.demo.llm.stats());
+    return;
+  }
+
   if (method === 'POST' && pathname === '/api/reset') {
-    holder.demo = buildDemo();
+    holder.demo = buildDemo(holder.demo.llm);
     sendJson(res, 200, { ok: true, state: stateFor(holder.demo, USERS.LIN, 'th-lin-agent') });
     return;
   }
@@ -362,6 +369,7 @@ function stateFor(demo, user, requestedThread) {
     trace: snap.trace.slice(-20),
     audit: snap.audit.slice(-20),
     auditChain: { ok: integrity.ok, length: integrity.length, head: integrity.head, trimmed: integrity.trimmed, recent: demo.auditLog.records({ limit: 12 }) },
+    llm: demo.llm.stats(),
     fleet: null, // 由 /api/fleet 单独提供，避免 poll 拖慢状态接口
     serverNow: new Date().toISOString()
   };
@@ -387,7 +395,7 @@ function canSend(demo, thread, user) {
   return thread.members.includes(user);
 }
 
-function sendMessage(demo, body) {
+async function sendMessage(demo, body) {
   const userId = body?.userId;
   const threadId = body?.threadId;
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
@@ -407,7 +415,45 @@ function sendMessage(demo, body) {
   thread.messages.push(message);
   demo.events.push({ at: message.at, type: 'CHAT_MESSAGE', threadId, messageId: message.id });
   recordAudit(demo, { source: 'messaging', action: 'CHAT_MESSAGE', actor: userId, target: threadId, detail: { messageId: message.id, kind: message.kind } });
-  return { ok: true, message, state: stateFor(demo, userId, threadId) };
+  const agentReply = await maybeAgentReply(demo, thread, userId, text);
+  return { ok: true, message, agentReply, state: stateFor(demo, userId, threadId) };
+}
+
+const AGENT_FOR_THREAD = Object.freeze({ 'th-lin-mom': 'agent-lin-family', 'th-lin-agent': 'agent-lin-butler' });
+
+/** 让 Agent 在人类消息后起草一条回复：模型（或离线模板）→ 出口护栏 → 入会话。 */
+async function maybeAgentReply(demo, thread, userId, text) {
+  const role = AGENT_FOR_THREAD[thread.id] ?? null;
+  if (role === null || thread.kind === 'stranger') return null;
+  const pending = demo.world.approvals.listPending(USERS.LIN).length;
+  const peer = peerOf(thread, userId);
+  const level = demo.world.trustMatrix.levelOf({ userId, targetId: peer });
+  const drafted = await draftAgentReply({
+    role,
+    userText: text,
+    guard: demo.world.egress,
+    llm: demo.llm,
+    context: {
+      userId,
+      senderName: USER_PROFILES[userId]?.name ?? userId,
+      threadTitle: thread.title,
+      pendingCount: pending,
+      trustZone: String(level),
+      recentMessages: thread.messages.slice(-6).map((m) => ({ from: m.from, text: m.text }))
+    }
+  });
+  if (drafted.ok !== true) {
+    const note = makeMessage(demo, AGENTS.LIN_BUTLER, 'Agent 草稿被出口护栏拦截（内容不展示），已写入审计链。', 'agent');
+    thread.messages.push(note);
+    recordAudit(demo, { source: 'egress-guard', action: 'AGENT_DRAFT_BLOCKED', actor: role, target: thread.id, decision: 'BLOCK', detail: { matched: drafted.matched ?? null } });
+    return { ok: false, blocked: true };
+  }
+  const reply = makeMessage(demo, role, drafted.content, 'agent', null, {
+    engine: { source: drafted.source, model: drafted.model, latencyMs: drafted.latencyMs, tokens: drafted.usage?.totalTokens ?? 0, review: drafted.review === true }
+  });
+  thread.messages.push(reply);
+  recordAudit(demo, { source: 'llm', action: 'AGENT_REPLY', actor: role, target: thread.id, detail: { engine: drafted.source, model: drafted.model, latencyMs: drafted.latencyMs, tokens: drafted.usage?.totalTokens ?? 0 } });
+  return { ok: true, messageId: reply.id, engine: reply.engine };
 }
 
 function decide(demo, ticketId, body) {
