@@ -26,11 +26,14 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createStore, STORE_KIND } from './store.mjs';
 import { createLlm, resolveLlmConfig, LLM_MODE } from './llm.mjs';
 import { createRateLimiter, clientKey } from './ratelimit.mjs';
+import { AccountService } from '../../services/account/src/account.mjs';
+import { Wallet } from '../../services/payment/src/wallet.mjs';
 import { createWorld, decide, previewContext, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -77,6 +80,24 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   const world = createWorld({ restored });
   const holder = { world, rt, store: storeImpl, llm: llmImpl };
   holder.limiter = createRateLimiter({ max: rt.rateLimitPerMin });
+
+  // v0.0.1 产品版：登录/实名/付费准入 + 钱包（金额真相仍在 ledger，钱包是投影 + 策略）
+  const accounts = new AccountService({ clock: () => new Date(), otp: { devMode: true } });
+  const wallet = new Wallet({
+    clock: () => new Date(),
+    ledger: world.ledger,
+    dailySendCapCents: 500_000,
+    messageState: (messageId) => holder.world.state.messages.find((m) => m.id === messageId)?.state ?? null,
+    accountState: (accountId) => {
+      try {
+        return accounts.get(accountId)?.state ?? 'ACTIVE';
+      } catch {
+        return 'ACTIVE';
+      }
+    }
+  });
+  holder.accounts = accounts;
+  holder.wallet = wallet;
 
   const persist = () => {
     if (holder.store.kind === STORE_KIND.MEMORY) return;
@@ -358,6 +379,138 @@ async function route(req, res, holder, persist) {
     return;
   }
 
+  // ── v0.0.1 产品版：登录 / 实名 / 付费准入 / 钱包 / 退款 ──
+  if (method === 'POST' && pathname === '/api/account/otp') {
+    const body = await readJson(req);
+    try {
+      sendJson(res, 200, { ok: true, ...holder.accounts.requestOtp({ phone: body.phone }) }, holder.rt);
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'OTP_FAILED', message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/account/register') {
+    const body = await readJson(req);
+    try {
+      const result = holder.accounts.register({ phone: body.phone, code: body.code, displayName: body.displayName ?? null });
+      persist();
+      sendJson(res, 200, { ok: true, account: result.account, session: result.session }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'REGISTER_FAILED';
+      sendJson(res, code === 'ALREADY_REGISTERED' ? 409 : 400, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/account/verify') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const info = holder.accounts.verifyRealName({ accountId: session.session.accountId, realName: body.realName, idNumber: body.idNumber });
+      persist();
+      sendJson(res, 200, { ok: true, account: holder.accounts.get(session.session.accountId), realName: info }, holder.rt);
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'VERIFY_FAILED', message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/wallet/topup') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const result = holder.wallet.topUp({
+        userId: session.session.accountId,
+        amountCents: body.amountCents,
+        idempotencyKey: body.idempotencyKey ?? `topup:${randomUUID()}`,
+        channel: 'manual'
+      });
+      persist();
+      sendJson(res, 200, { ok: true, ...result, balance: holder.wallet.balance({ userId: session.session.accountId }) }, holder.rt);
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'TOPUP_FAILED', message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/wallet') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const accountId = session.session.accountId;
+    sendJson(res, 200, { account: session.account, balance: holder.wallet.balance({ userId: accountId }), summary: holder.wallet.summary({ userId: accountId }), paidAllowed: holder.accounts.canUsePaidMessaging({ accountId }) }, holder.rt);
+    return;
+  }
+
+  // 付费发送：先过实名准入，再扣费（扣费失败不得产生消息）
+  if (method === 'POST' && pathname === '/api/paid/send') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const accountId = session.session.accountId;
+    const body = await readJson(req);
+    const gate = holder.accounts.canUsePaidMessaging({ accountId });
+    if (!gate.ok) {
+      sendJson(res, 403, { error: gate.code, hint: '未实名账号不得收发付费消息（结算主体不可追责）' }, holder.rt);
+      return;
+    }
+    const amountCents = Number(body.amountCents ?? 5000);
+    const messageId = body.messageId ?? `msg-paid-${randomUUID()}`;
+    try {
+      const charge = holder.wallet.chargeForMessage({ userId: accountId, messageId, amountCents });
+      holder.world.state.messages.push({
+        id: messageId,
+        senderUserId: accountId,
+        receiverUserId: String(body.receiverUserId ?? USERS.ZHOU),
+        topic: String(body.topic ?? '付费消息'),
+        summary: String(body.summary ?? ''),
+        billingMode: 'SEND_PAY',
+        amountCents,
+        state: 'PAID',
+        screening: 'PASS',
+        createdAt: new Date().toISOString()
+      });
+      persist();
+      sendJson(res, 200, { ok: true, messageId, charged: charge, balance: holder.wallet.balance({ userId: accountId }) }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'SEND_FAILED';
+      sendJson(res, code === 'INSUFFICIENT_FUNDS' ? 402 : 400, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  // 演示用：接收方回复（把消息推进到 REPLIED；真实系统由会话写入驱动）
+  if (method === 'POST' && pathname === '/api/paid/reply') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    const message = holder.world.state.messages.find((item) => item.id === body.messageId);
+    if (!message) {
+      sendJson(res, 404, { error: 'NOT_FOUND', messageId: body.messageId ?? null }, holder.rt);
+      return;
+    }
+    message.state = 'REPLIED';
+    persist();
+    sendJson(res, 200, { ok: true, messageId: message.id, state: message.state }, holder.rt);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/paid/refund') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const result = holder.wallet.refund({ userId: session.session.accountId, messageId: String(body.messageId ?? ''), reason: String(body.reason ?? '用户申请退款') });
+      persist();
+      sendJson(res, 200, { ok: true, ...result, balance: holder.wallet.balance({ userId: session.session.accountId }) }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'REFUND_FAILED';
+      sendJson(res, code === 'REFUND_WINDOW_CLOSED' ? 409 : 400, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
   sendJson(res, 404, { error: 'NOT_FOUND', path: pathname }, holder.rt);
 }
 
@@ -372,6 +525,29 @@ async function readJson(req) {
   if (chunks.length === 0) return {};
   const text = Buffer.concat(chunks).toString('utf8').trim();
   return text === '' ? {} : JSON.parse(text);
+}
+
+/** 从 Authorization: Bearer <token> 取会话令牌（产品版用户态；运维面仍用 x-admin-token） */
+function bearerToken(req) {
+  const header = req.headers.authorization;
+  if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
+  const token = header.slice(7).trim();
+  return token === '' ? null : token;
+}
+
+/** @returns {{account, session}|null} 失败时已写响应 */
+function requireSession(req, res, holder) {
+  const accessToken = bearerToken(req);
+  if (accessToken === null) {
+    sendJson(res, 401, { error: 'SESSION_INVALID', hint: '需要 Authorization: Bearer <accessToken>' }, holder.rt);
+    return null;
+  }
+  try {
+    return holder.accounts.authenticate({ accessToken });
+  } catch (error) {
+    sendJson(res, 401, { error: error?.code ?? 'SESSION_INVALID', message: String(error?.message ?? error) }, holder.rt);
+    return null;
+  }
 }
 
 function sendJson(res, status, payload, rt) {

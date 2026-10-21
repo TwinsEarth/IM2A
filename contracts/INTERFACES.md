@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R12 | 2026-10-21 | **v0.0.1 产品版增补「可付费准入」**：§36 账户/手机号登录/实名（idNumber 只存 hash 与尾号掩码，未实名不得收发付费消息）、§37 钱包（充值/扣费/退款幂等·禁止先扣后退·日发送上限）；原 §36→§38 禁止事项、§37→§39 验证命令 | 加法（v1–v8 语义全保留） |
 | R11 | 2026-10-21 | **v8 增补「Context 主权」机制**：§33 Person-scoped Runtime（PERSONAL/TASK/WORKING 三层 + 可迁移 snapshot + Secret 拒绝入层）、§34 确认锁定 Context（Agent 只能 propose，人确认才 LOCKED，冲突上抛不覆写）、§35 PACT 式 scoped 授权 + 签名回执（付费只解锁 scope、不扩权）；原 §33→§36 禁止事项、§34→§37 验证命令 | 加法（v1–v7 语义全保留） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
@@ -280,7 +281,8 @@ export const DEFAULT_RULES;        // [{ id, verdict:'BLOCK'|'REVIEW', pattern: 
 **不变量**：`idempotencyKey` 全局唯一；重复投递返回首次结果且 `duplicate:true`；条目只追加，绝不修改。
 
 ```js
-export const ENTRY_TYPE = Object.freeze({ CHARGE: 'CHARGE', REFUND: 'REFUND', SETTLE: 'SETTLE' });
+export const ENTRY_TYPE = Object.freeze({ CHARGE: 'CHARGE', REFUND: 'REFUND', SETTLE: 'SETTLE', DEPOSIT: 'DEPOSIT' });
+// R12 加法：DEPOSIT 为 v0.0.1 钱包充值入金事件；balanceOf 的 CHARGE/REFUND 口径不变（钱包用条目自行推导可用余额）。
 
 export class LedgerError extends Error {} // code: 'INVALID_AMOUNT' | 'INVALID_TYPE' | 'KEY_REQUIRED'
 
@@ -1093,7 +1095,60 @@ export class ScopedGrant {
 
 ---
 
-## 36. 禁止事项（对所有实现者）
+## 36. `services/account/src/account.mjs`（v0.0.1 产品版新增）
+
+**职责**：**账户、手机号登录、实名与付费准入**。这是"能对真实用户开付费"的前置：没有实名就没有可追责主体，付费争议也立不住。
+
+```js
+export const ACCOUNT_STATE = Object.freeze({ UNVERIFIED: 'UNVERIFIED', VERIFIED: 'VERIFIED', REJECTED: 'REJECTED', SUSPENDED: 'SUSPENDED' });
+export const ACCOUNT_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', ALREADY_REGISTERED: 'ALREADY_REGISTERED', OTP_INVALID: 'OTP_INVALID',
+  OTP_EXPIRED: 'OTP_EXPIRED', OTP_ATTEMPTS_EXCEEDED: 'OTP_ATTEMPTS_EXCEEDED',
+  REALNAME_REQUIRED: 'REALNAME_REQUIRED', REALNAME_REJECTED: 'REALNAME_REJECTED',
+  SESSION_INVALID: 'SESSION_INVALID', SESSION_EXPIRED: 'SESSION_EXPIRED', FORBIDDEN: 'FORBIDDEN'
+});
+export class AccountError extends Error {}
+
+export class AccountService {
+  constructor({ clock = () => new Date(), otp = {}, realName = {} });
+  requestOtp({ phone });                       // -> { challengeId, expiresAt, devCodeOnlyInDev? }
+  register({ phone, code, displayName });      // -> { account: UNVERIFIED, session }
+  verifyRealName({ accountId, realName, idNumber });  // -> { state: 'VERIFIED', idNumberHash, maskedTail }
+  login({ phone, code });                      // -> { account, session }
+  authenticate({ accessToken });               // -> { account, session }；过期 SESSION_EXPIRED
+  canUsePaidMessaging({ accountId });          // -> { ok, code }：必须 VERIFIED 且非 SUSPENDED
+  suspend({ accountId, reason }); get(accountId);
+}
+```
+**不变量**：①`idNumber` **只存 `sha256(salt + idNumber)` 与尾号掩码，绝不存明文**；②OTP 单次有效、有 TTL、有尝试次数上限；③未实名账号 `canUsePaidMessaging` 恒 `{ok:false, code:'REALNAME_REQUIRED'}`；④`SUSPENDED` 阻断登录以外的所有写操作；⑤access token 有 TTL，过期是 `SESSION_EXPIRED` 而不是"静默续期"。
+
+---
+
+## 37. `services/payment/src/wallet.mjs`（v0.0.1 产品版新增）
+
+**职责**：**余额、充值、扣费与退款**。账本（§8）只记不可变流水；钱包回答"这个人现在能花多少、能不能退"。
+
+```js
+export const WALLET_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', INVALID_AMOUNT: 'INVALID_AMOUNT', INSUFFICIENT_FUNDS: 'INSUFFICIENT_FUNDS',
+  REFUND_WINDOW_CLOSED: 'REFUND_WINDOW_CLOSED', DAILY_CAP_EXCEEDED: 'DAILY_CAP_EXCEEDED', SUSPENDED: 'SUSPENDED'
+});
+export class WalletError extends Error {}
+
+export class Wallet {
+  constructor({ clock = () => new Date(), ledger = null, dailySendCapCents = 50000, messageState = () => null });
+  topUp({ userId, amountCents, idempotencyKey, channel = 'manual' });   // 充值（幂等键）
+  balance({ userId });                                                  // -> { availableCents, frozenCents }
+  chargeForMessage({ userId, messageId, amountCents });                 // 幂等键 pay:<messageId>
+  refund({ userId, messageId, reason });                                // 仅未回复态可退
+  summary({ userId });
+}
+```
+**不变量**：①**禁止"先扣后退"**：扣费走余额扣减，退款仅限"对方尚未回复"（按注入的 `messageState` 判定）；②充值/扣费都幂等，同一幂等键重放返回首次结果；③日发送上限按自然日累计，超限 `DAILY_CAP_EXCEEDED`；④余额不允许为负；⑤每笔变动都写账本（`DEPOSIT/CHARGE/REFUND`），钱包自身不持有"影子余额"以外的真相。
+
+---
+
+## 38. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1107,7 +1162,7 @@ export class ScopedGrant {
 
 ---
 
-## 37. 验证命令
+## 39. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1146,6 +1201,10 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.1 产品版新增模块（§36–§37）
+node E:\GPT\agent-im\scripts\test.mjs --filter=account
+node E:\GPT\agent-im\scripts\test.mjs --filter=wallet
 
 # v8 新增模块（§33–§35）
 node E:\GPT\agent-im\scripts\test.mjs --filter=person-runtime

@@ -12,3 +12,10 @@ export {
   PaidMessageError,
   PaidMessageService,
 } from './paid-message.mjs';
+
+// v0.0.1 §37 钱包：余额/充值/扣费/退款（金额真相仍在 §8 账本，钱包是投影 + 策略）
+export {
+  WALLET_CODE,
+  WalletError,
+  Wallet,
+} from './wallet.mjs';

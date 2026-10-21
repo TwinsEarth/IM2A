@@ -14,6 +14,18 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.1-product — 2026-10-21
+
+**产品版第一个可内测闭环**（与 `v0.0.1-demo` 技术 tag 同名不同义：那个证明"能跑"，这个要求"能对真实的人收钱且能退"）。
+
+- **§36 账户/实名/付费准入**（`services/account`，15 项测试）：手机 OTP 登录、实名核验只存 `sha256(salt+idNumber)` + 尾号掩码、未实名 `REALNAME_REQUIRED`、SUSPENDED 阻断写操作、会话过期不静默续期
+- **§37 钱包**（`services/payment/src/wallet.mjs`，14 项测试）：充值/扣费/退款全幂等、**禁止负余额**、日发送上限、**退款仅限未回复态**（`REFUND_WINDOW_CLOSED`）、金额真相仍只在 §8 账本（新增 `DEPOSIT` 类型，纯加法）
+- **产品端点**：`/api/account/{otp,register,verify}`、`/api/wallet{,/topup}`、`/api/paid/{send,reply,refund}`；未实名先拦、扣费失败不产生消息
+- 文档：`docs/21-v0.0.1-产品版范围与验收.md`（In/Out 7/4、A1–A8 验收 Gate、合规口径、最可能翻车点）
+- 契约：R12；`ENTRY_TYPE` 加法 DEPOSIT
+
+验证：全量 **569/569**；verify **67/67**；e2e 12/12；im2agent **12/12**（含产品闭环）。
+
 ## v1.2.0-context — 2026-10-21
 
 把「Context 主权」落成代码（§33–§35，契约 R11）：

@@ -535,6 +535,54 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 17. v0.0.1 产品版「可付费准入」交付完整性 ─────────────────────────
+{
+  const v001Modules = [
+    ['services/account/src/account.mjs', 'services/account/test/account.test.mjs'],
+    ['services/payment/src/wallet.mjs', 'services/payment/test/wallet.test.mjs']
+  ];
+  const missing = [];
+  for (const [impl, test] of v001Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v0.0.1 账户/钱包模块与测试齐备（${v001Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v001Codes = ['REALNAME_REQUIRED', 'OTP_EXPIRED', 'OTP_ATTEMPTS_EXCEEDED', 'SESSION_EXPIRED', 'INSUFFICIENT_FUNDS', 'REFUND_WINDOW_CLOSED', 'DAILY_CAP_EXCEEDED'];
+  const missingCodes = v001Codes.filter((code) => !contract.includes(code) || !srcText.includes(`'${code}'`));
+  record(`v0.0.1 关键错误码契约↔实现一致（${v001Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+
+  const v001Sections = ['36', '37'];
+  const missingSections = v001Sections.filter((section) => !contract.includes(`## ${section}. `));
+  record('契约含 v0.0.1 §36–§37 两节', missingSections.length === 0, missingSections.join(', '));
+
+  // 合规硬要求：实名证件号只能以 hash 形式出现
+  const accountSrc = await exists(path.join(ROOT, 'services/account/src/account.mjs'))
+    ? await read(path.join(ROOT, 'services/account/src/account.mjs'))
+    : '';
+  record(
+    '账户模块做了证件号哈希（不存明文）',
+    /sha256|createHash/.test(accountSrc) && /idNumberHash|maskedTail/.test(accountSrc),
+    '未发现 hash/掩码实现'
+  );
+
+  const doc21 = path.join(ROOT, 'docs/21-v0.0.1-产品版范围与验收.md');
+  if (await exists(doc21)) {
+    const t21 = await read(doc21);
+    const required = ['实名', '退款', '验收', '内测'];
+    const missingKeywords = required.filter((word) => !t21.includes(word));
+    record('docs/21 覆盖 v0.0.1 范围与验收', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/21 v0.0.1 范围文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

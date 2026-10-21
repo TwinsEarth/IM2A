@@ -1,10 +1,12 @@
-// 模块职责：不可变账本（CHARGE / REFUND / SETTLE 条目只追加、exactly-once 入账）/ 契约来源：contracts/INTERFACES.md §8 / 关键不变量：idempotencyKey 全局唯一、重复投递返回首次结果且 duplicate:true、条目永不修改、金额必须是正整数分。
+// 模块职责：不可变账本（DEPOSIT / CHARGE / REFUND / SETTLE 条目只追加、exactly-once 入账）/ 契约来源：contracts/INTERFACES.md §8（§37 v0.0.1 追加 DEPOSIT 充值流水，向后兼容：既有三类型语义不变）/ 关键不变量：idempotencyKey 全局唯一、重复投递返回首次结果且 duplicate:true、条目永不修改、金额必须是正整数分。
 import { randomUUID } from 'node:crypto';
 
 export const ENTRY_TYPE = Object.freeze({
   CHARGE: 'CHARGE',
   REFUND: 'REFUND',
   SETTLE: 'SETTLE',
+  // v0.0.1 §37 加法：钱包充值流水（只追加的入金事件；balanceOf 的 CHARGE/REFUND 口径不变，钱包自行用条目推导可用余额）
+  DEPOSIT: 'DEPOSIT',
 });
 
 const ENTRY_TYPES = new Set(Object.values(ENTRY_TYPE));

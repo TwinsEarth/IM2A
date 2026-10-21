@@ -314,6 +314,65 @@ test('⑫ 两级权限与限流：viewer 只读、operator 可写、越限 429�
   });
 });
 
+test('⑬ v0.0.1 产品版：未实名拦截 → 实名 → 充值 → 扣费 → 退款窗口', async () => {
+  await withApp({ RATE_LIMIT_PER_MIN: '0' }, async (app) => {
+    const base = app.urls[0];
+    const post = (pathname, body, token = null) =>
+      json(`${base}${pathname}`, {
+        method: 'POST',
+        headers: token === null ? {} : { authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+
+    // 1) 手机 OTP 登录（dev 模式返回固定码）
+    const otp = await post('/api/account/otp', { phone: '13800000001' });
+    assert.equal(otp.status, 200);
+    assert.ok(otp.body.devCode, 'dev 模式应返回验证码（生产不下发）');
+    const registered = await post('/api/account/register', { phone: '13800000001', code: otp.body.devCode, displayName: '内测用户' });
+    assert.equal(registered.status, 200);
+    const token = registered.body.session.accessToken;
+    assert.ok(String(token).startsWith('sess-'));
+    assert.equal(registered.body.account.state, 'UNVERIFIED');
+
+    // 2) 未实名：不得收发付费消息
+    const blocked = await post('/api/paid/send', { amountCents: 5000 }, token);
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error, 'REALNAME_REQUIRED');
+
+    // 3) 实名：只回 hash/掩码，明文不得回传
+    const verified = await post('/api/account/verify', { realName: '张三', idNumber: '110101199001011234' }, token);
+    assert.equal(verified.status, 200);
+    assert.equal(verified.body.account.state, 'VERIFIED');
+    assert.ok(!JSON.stringify(verified.body).includes('110101199001011234'), '身份证明文不得回传');
+
+    // 4) 充值 100 元 → 扣 50 元
+    const topup = await post('/api/wallet/topup', { amountCents: 10000, idempotencyKey: 'topup-1' }, token);
+    assert.equal(topup.status, 200);
+    assert.equal(topup.body.balance.availableCents, 10000);
+    const sent = await post('/api/paid/send', { amountCents: 5000, messageId: 'msg-paid-test-1' }, token);
+    assert.equal(sent.status, 200);
+    assert.equal(sent.body.balance.availableCents, 5000);
+
+    // 5) 未回复可退（白嫖防线：消息还是 PAID）
+    const refunded = await post('/api/paid/refund', { messageId: 'msg-paid-test-1', reason: '不需要了' }, token);
+    assert.equal(refunded.status, 200);
+    assert.equal(refunded.body.balance.availableCents, 10000);
+
+    // 6) 已回复不可退
+    const second = await post('/api/paid/send', { amountCents: 5000, messageId: 'msg-paid-test-2' }, token);
+    assert.equal(second.status, 200);
+    assert.equal((await post('/api/paid/reply', { messageId: 'msg-paid-test-2' }, token)).status, 200);
+    const late = await post('/api/paid/refund', { messageId: 'msg-paid-test-2', reason: '再退一次' }, token);
+    assert.equal(late.status, 409);
+    assert.equal(late.body.error, 'REFUND_WINDOW_CLOSED');
+
+    // 7) 余额不足不得产生消息（余额 5000 分，尝试扣 6000 分）
+    const poor = await post('/api/paid/send', { amountCents: 6000, messageId: 'msg-paid-test-3' }, token);
+    assert.equal(poor.status, 402);
+    assert.equal(poor.body.error, 'INSUFFICIENT_FUNDS');
+  });
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

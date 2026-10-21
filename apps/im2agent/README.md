@@ -40,7 +40,6 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 ```
 
 ## 三、API
-
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
 | GET | `/healthz` | — | **Go 规范**：纯文本 `OK`（带 `Accept: application/json` 时回 JSON） |
@@ -55,7 +54,16 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 | GET | `/api/audit` | `x-admin-token` | 审计链 + 验链结果 |
 | POST | `/api/llm/draft` | `x-admin-token` | `{text}` 试三档降级 |
 | GET | `/api/config` | `x-admin-token` | 形态/存储/LLM/LAN 地址（token 打码） |
+| POST | `/api/account/otp` | — | 手机 OTP 挑战（dev 模式返回 `devCode`，生产不下发） |
+| POST | `/api/account/register` | — | `{phone, code}` → `{account(UNVERIFIED), session}` |
+| POST | `/api/account/verify` | `Bearer` | 实名：只回 hash/尾号，**明文不落库** |
+| POST | `/api/wallet/topup` | `Bearer` | 充值（幂等键） |
+| GET | `/api/wallet` | `Bearer` | 余额 + 账本摘要 + 付费准入判定 |
+| POST | `/api/paid/send` | `Bearer` | **未实名 → 403 `REALNAME_REQUIRED`**；扣费失败不产生消息 |
+| POST | `/api/paid/reply` | `Bearer` | 演示：接收方回复（推进到 `REPLIED`，关闭退款窗口） |
+| POST | `/api/paid/refund` | `Bearer` | 仅未回复可退；已回复 → 409 `REFUND_WINDOW_CLOSED` |
 
+> v0.0.1 产品版的完整范围与 8 条验收 Gate 见 [docs/21](../../docs/21-v0.0.1-产品版范围与验收.md)。
 > 验收矩阵见 [QA.md](./QA.md)；Go 目录/结构体/函数映射见 [PORTING-TO-GO.md](./PORTING-TO-GO.md)；
 > v0.6.1 之后的商业化缺口（登录实名 / WS 横向扩展 / 支付网关与防白嫖）见 [ROADMAP-v0.6.1+.md](./ROADMAP-v0.6.1+.md)。
 

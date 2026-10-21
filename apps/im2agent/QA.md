@@ -27,6 +27,11 @@
 | 21 | **部署产物静态检查** | install.sh/systemd/Dockerfile/compose/Caddyfile 必备项齐全、无危险缺失 | ✅ | `node scripts/deploy-lint.mjs` → 14/14 |
 | 22 | **Linux 目标机实测** | 纯净 Ubuntu 上 `install.sh` 装完 → `systemctl status` active → `/healthz` OK | ⚠ | 本机沙箱禁止命名管道，Git Bash 起不来；按 `deploy/linux/README.md` 在目标机执行 |
 | 23 | **LLM 降级压测** | 200 次、30% 上游失败：无异常穿透、无空回复、失败一律 `degraded` | ✅ | `node scripts/llm-stress.mjs --calls 200 --fail-rate 0.3` → fallback 62 / real 138 / thrown 0 |
+| 24 | **未实名拦截** | 未实名账号 `POST /api/paid/send` → 403 `REALNAME_REQUIRED` | ✅ | 测试 ⑬；契约 §36 |
+| 25 | **身份证明文不落库** | 只存 `sha256(salt+idNumber)` + `****1234`；接口不回传明文 | ✅ | 测试 ⑬ + account 15 项 |
+| 26 | **扣费幂等与负余额** | 同 messageId 只扣一次；余额不足 402 且不产生消息 | ✅ | 测试 ⑬ + wallet 14 项 |
+| 27 | **退款仅未回复** | `PAID/VIEWED` 可退并回补；`REPLIED/SETTLED` → 409 `REFUND_WINDOW_CLOSED` | ✅ | 测试 ⑬（含已回复夹具反向验证） |
+| 28 | **日发送上限** | 同日累计超限 → `DAILY_CAP_EXCEEDED`，次日恢复；退款不回滚额度 | ✅ | wallet 14 项 |
 
 ## 本地一键回归
 
