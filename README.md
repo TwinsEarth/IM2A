@@ -1,5 +1,13 @@
 # IM2A · AI 人机混合熟人社交 IM 平台
 
+[![CI](https://github.com/TwinsEarth/IM2A/actions/workflows/ci.yml/badge.svg)](https://github.com/TwinsEarth/IM2A/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/badge/npm-zero%20dependencies-lightgrey)](package.json)
+[![node](https://img.shields.io/badge/node-%3E%3D22-339933)](package.json)
+[![platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey)](#-快速开始)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+> **徽章说明（不写假的）**：CI 徽章指向真实 workflow（`.github/workflows/ci.yml`）；**npm 徽章标记“零依赖”而不是版本号**——本仓库是 `private: true` 的应用，未发布到 npm registry，写 `npm/v` 会指向一个不存在的包；Node 与平台徽章来自 `package.json` 的 `engines` 与 `deploy/` 实测路径。
+
 > **仓库主线说明（2026-10-21）**：本仓库主线为 **v0.1.3**（`apps/im2agent` + `contracts/INTERFACES.md` §1–§52 + 732 项测试 + 25 个版本 tag）。
 > 历史 `main` 上另有一条独立早期实现（`apps/im2a` + v0.2.0 TaskLedger），其文件未进入当前主线树，但**完整保留在 git 历史 `e2338a1`**，可用 `git show e2338a1:apps/im2a/server.mjs` 取回；
 > 如需要与主线并行维护，建议归档到 `legacy/im2a/` 并另开工作流，而不是混入同一目录。
