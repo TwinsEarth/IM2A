@@ -45,6 +45,11 @@
 | 39 | **告警越线触发** | 五条默认规则：恰好阈值不告警、越线告警；同输入同输出 | ✅ | metrics 13 项 + 测试 ⑯（21 条积压触发） |
 | 40 | **全链追溯可举证** | 一条消息串起审核/扣费/回复/退款；顺序正确、`complete=true` | ✅ | trace 8 项 + 测试 ⑯ |
 | 41 | **缺环显式** | 有扣费无审核 → `complete=false` 且 `missing` 明确列出 | ✅ | trace 8 项 |
+| 42 | **熔断快速失败** | 连续失败 → `OPEN`；此后**不再调用主方**，走备用通道并标 `usedFallback` | ✅ | provider-guard 18 项 + 测试 ⑰ |
+| 43 | **半开只探测一次** | 冷却到期 → `HALF_OPEN`；成功→`CLOSED`，失败→重新 `OPEN` 并重置计时 | ✅ | provider-guard 18 项 |
+| 44 | **机审故障 fail-closed** | 机审熔断 → `HUMAN_PENDING` 且 `machineUnavailable=true`，绝不自动放行 | ✅ | 测试 ⑰ |
+| 45 | **备份可验签** | 备份带 sha256；篡改任一字节 → `HASH_MISMATCH`；缺失 → `NOT_FOUND` | ✅ | backup 11 项 |
+| 46 | **恢复不自动应用** | `restore` 只返回数据，运行时状态不变（`applied:false`） | ✅ | 测试 ⑰ + backup 11 项 |
 
 ## 本地一键回归
 

@@ -74,6 +74,10 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 | GET | `/api/ops/metrics` | `x-admin-token` | 付费漏斗 + 计数器/直方图 + 转化率（0 分母返回 0） |
 | GET | `/api/ops/alerts` | `x-admin-token` | 五条默认告警规则求值（纯函数）+ gauges（人审积压/短信失败率/对账差异） |
 | GET | `/api/ops/trace` | `x-admin-token` | `?messageId=` 合并审核/账本/争议/审计四源；缺环显式 |
+| GET | `/api/ops/resilience` | `x-admin-token` | 短信/机审熔断状态与降级统计（usedFallback/primaryCalls） |
+| POST | `/api/ops/backup` | `x-admin-token` | 创建备份（含 sha256）；`IM2AGENT_SMS_FAULT=1`/`IM2AGENT_MACHINE_FAULT=1` 可演练故障 |
+| GET | `/api/ops/backup` | `x-admin-token` | 列出备份（坏文件显式标 `skipped`） |
+| POST | `/api/ops/backup/restore` | `x-admin-token` | 验签并返回数据；**不自动应用**（`applied:false`） |
 
 > v0.0.1 产品版的完整范围与 8 条验收 Gate 见 [docs/21](../../docs/21-v0.0.1-产品版范围与验收.md)。
 > 验收矩阵见 [QA.md](./QA.md)；Go 目录/结构体/函数映射见 [PORTING-TO-GO.md](./PORTING-TO-GO.md)；

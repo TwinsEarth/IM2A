@@ -391,7 +391,9 @@ test('⑭ v0.0.2：短信通道冷却 + 已回复只能走人工争议（账本�
     assert.equal(secondOtp.status, 429);
     assert.equal(secondOtp.body.error, 'OTP_COOLDOWN');
     const sms = await json(`${base}/api/sms`);
-    assert.equal(sms.body.provider.kind, 'dev');
+    assert.equal(sms.body.provider.name, 'sms-guard', '短信应经熔断守卫');
+    assert.equal(sms.body.provider.primary.kind, 'dev', '主通道是 dev 提供方');
+    assert.equal(sms.body.provider.breaker.state, 'CLOSED');
     assert.equal(sms.body.delivery.sent, 1, '冷却命中不应重发');
     assert.equal(sms.body.delivery.cooldownHits, 1);
 
@@ -560,6 +562,63 @@ test('⑯ v0.0.4 可观测：漏斗指标 / 告警 / 全链追溯', async () => 
     assert.equal(alerts.status, 200);
     assert.ok(alerts.body.gauges.humanReviewBacklog >= 21, '积压应被计数');
     assert.ok(alerts.body.alerts.some((alert) => alert.id === 'human-review-backlog'), '积压越线必须告警');
+  });
+});
+
+test('⑰ v0.0.5 内测保障：短信熔断降级 / 机审熔断 fail-closed / 备份恢复不自动应用', async () => {
+  await withApp({ RATE_LIMIT_PER_MIN: '0', IM2AGENT_SMS_FAULT: '1', IM2AGENT_MACHINE_FAULT: '1', IM2AGENT_SMS_KIND: 'dev' }, async (app) => {
+    const base = app.urls[0];
+    const post = (pathname, body, token = null) =>
+      json(`${base}${pathname}`, {
+        method: 'POST',
+        headers: { ...(token === null ? {} : { authorization: `Bearer ${token}` }) },
+        body: JSON.stringify(body)
+      });
+    const getJson = (pathname) => json(`${base}${pathname}`);
+
+    // ① 短信主通道故障 → 熔断 + 显式降级（每次仍 200，但必须标记 usedFallback）
+    const codes = [];
+    for (const phone of ['13800000011', '13800000012', '13800000013']) {
+      const otp = await post('/api/account/otp', { phone });
+      assert.equal(otp.status, 200, '主通道故障时应降级而不是整体失败');
+      codes.push(otp.body.devCode);
+    }
+    let resilience = await getJson('/api/ops/resilience');
+    assert.equal(resilience.body.sms.breaker.state, 'OPEN', '连续失败应打开熔断');
+    assert.ok(resilience.body.sms.fallbackUsed >= 3, '必须记录降级次数');
+    assert.ok(resilience.body.sms.lastCauseCode, '降级必须带原因码');
+
+    // ② OPEN 后不再调用主方（快速失败，避免雪崩）
+    const primaryCallsBefore = resilience.body.sms.primaryCalls;
+    const afterOpen = await post('/api/account/otp', { phone: '13800000014' });
+    assert.equal(afterOpen.status, 200, '熔断开放时仍应走备用通道');
+    resilience = await getJson('/api/ops/resilience');
+    assert.equal(resilience.body.sms.primaryCalls, primaryCallsBefore, 'OPEN 后不得再调用主方');
+
+    // ③ 机审熔断 → 必须 fail-closed 转人审（绝不自动放行）
+    const registered = await post('/api/account/register', { phone: '13800000011', code: codes[0] });
+    const token = registered.body.session.accessToken;
+    const firstSubmit = await post('/api/moderation/submit', { messageId: 'resil-1', content: '普通业务沟通' }, token);
+    assert.equal(firstSubmit.status, 200);
+    assert.equal(firstSubmit.body.case.state, 'HUMAN_PENDING', '机审故障必须转人审');
+    assert.equal(firstSubmit.body.case.machineUnavailable, true);
+    assert.equal(firstSubmit.body.deliverable.ok, false);
+    for (let index = 2; index <= 3; index += 1) {
+      await post('/api/moderation/submit', { messageId: `resil-${index}`, content: '普通业务沟通' }, token);
+    }
+    resilience = await getJson('/api/ops/resilience');
+    assert.equal(resilience.body.moderation.breaker.state, 'OPEN');
+
+    // ④ 备份：可创建、可列出、可验签恢复，但**不自动应用**
+    const created = await post('/api/ops/backup', { label: '内测演练' });
+    assert.equal(created.status, 200);
+    assert.ok(String(created.body.backup.sha256).length === 64, '备份必须带 sha256');
+    const listed = await getJson('/api/ops/backup');
+    assert.ok(listed.body.backups.length >= 1);
+    const restored = await post('/api/ops/backup/restore', { file: created.body.backup.file });
+    assert.equal(restored.status, 200);
+    assert.equal(restored.body.applied, false, 'restore 不得自动应用');
+    assert.ok(restored.body.summary.audit >= 1, '恢复数据应包含审计记录');
   });
 });
 

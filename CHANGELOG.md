@@ -14,6 +14,21 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.5-resilience — 2026-10-21
+
+**内测保障**：不加业务功能，只保证"挂了能降级、坏了能恢复、出事有话说"。
+
+- **§43 熔断与降级**（`services/resilience/src/provider-guard.mjs`，18 项测试）：`CLOSED/OPEN/HALF_OPEN` 三态；**OPEN 时不再调用主方**（快速失败）；半开只允许一次探测；降级必须标 `usedFallback + causeCode`；主备都失败 → `FALLBACK_FAILED`（不静默返回空值）
+- **§44 备份与恢复**（`services/persistence/src/backup.mjs`，11 项测试）：备份带 `sha256`，`restore` 前必须验签（篡改 → `HASH_MISMATCH`）；**restore 只返回数据、不自动应用**；轮转不删最新；坏文件在 list 中显式标注 `skipped`
+- **接线**：短信主通道故障（`IM2AGENT_SMS_FAULT=1`）→ 熔断 + 备用通道；机审故障（`IM2AGENT_MACHINE_FAULT=1`）→ 熔断 → `HUMAN_PENDING`（**fail-closed**，绝不放行）
+- 产品端点：`/api/ops/resilience`、`/api/ops/backup`、`/api/ops/backup/restore`
+- 文档：`docs/25-v0.0.5-内测保障.md`（降级矩阵、熔断值班、恢复 5 步、协议要点、E1–E6）
+- 契约：R16
+
+**过程中修掉的两个接线缺陷**：①重构短信守卫后残留 `smsProvider` 引用导致服务起不来（全量测试瞬间全红暴露）；②memory 存储下 `persist()` 跳过写入，备份拿到空快照（149 字节）——改为备份前显式写 store。
+
+验证：全量 **677/677**；verify **89/89**；im2agent **16/16**；provider-guard 18 · backup 11。
+
 ## v0.0.4-observability — 2026-10-21
 
 **可运营内测**：从"能跑的内测"变成"能看数、能告警、能举证的内测"。

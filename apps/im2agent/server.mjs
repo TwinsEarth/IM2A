@@ -40,6 +40,8 @@ import { DisputeService } from '../../services/payment/src/dispute.mjs';
 import { ModerationService } from '../../services/moderation/src/moderation.mjs';
 import { Metrics, METRIC, evaluateAlerts } from '../../services/observability/src/metrics.mjs';
 import { AuditTrace } from '../../services/observability/src/trace.mjs';
+import { CircuitBreaker, ProviderGuard } from '../../services/resilience/src/provider-guard.mjs';
+import { BackupService } from '../../services/persistence/src/backup.mjs';
 import { createWorld, decide, previewContext, recordAudit, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -88,10 +90,29 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   holder.limiter = createRateLimiter({ max: rt.rateLimitPerMin });
 
   // v0.0.2：短信通道 + OTP 投递（验证码只经 otp.deliver 注入，永不出 API）
+  // v0.0.5：主通道 + 熔断 + 显式备用通道（IM2AGENT_SMS_FAULT=1 可演练运营商故障）
   const smsKind = env.IM2AGENT_SMS_KIND ?? (rt.profile === PROFILE.PROD ? 'log' : 'dev');
-  const smsProvider = createSmsProvider({ kind: smsKind });
+  const smsPrimaryProvider =
+    env.IM2AGENT_SMS_FAULT === '1'
+      ? createSmsProvider({ kind: 'vendor', transport: () => { throw new Error('模拟运营商故障'); } })
+      : createSmsProvider({ kind: smsKind });
+  const smsFallbackProvider = createSmsProvider({ kind: 'log' });
+  const smsBreaker = new CircuitBreaker({ name: 'sms', failureThreshold: 3, cooldownMs: 30_000 });
+  const smsGuard = new ProviderGuard({
+    name: 'sms',
+    primary: (args) => smsPrimaryProvider.sendOtp(args),
+    fallback: (args) => smsFallbackProvider.sendOtp(args),
+    breaker: smsBreaker,
+    onAudit: (event) => recordAudit(holder.world, { source: 'provider-guard', action: event.action, actor: 'provider-guard', decision: event.decision, detail: event.detail })
+  });
+  const guardedSmsProvider = Object.freeze({
+    name: 'sms-guard',
+    kind: 'guarded',
+    info: () => ({ name: 'sms-guard', primary: smsPrimaryProvider.info(), fallback: smsFallbackProvider.info(), breaker: smsBreaker.stats() }),
+    sendOtp: (args) => smsGuard.execute(args).value
+  });
   const otpDelivery = new OtpDelivery({
-    provider: smsProvider,
+    provider: guardedSmsProvider,
     onAudit: (event) => recordAudit(holder.world, { source: 'otp-delivery', action: 'OTP_DELIVERY', actor: null, decision: event?.causeCode ?? event?.type ?? null, detail: event })
   });
 
@@ -115,7 +136,7 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   });
   holder.accounts = accounts;
   holder.wallet = wallet;
-  holder.sms = { provider: smsProvider, delivery: otpDelivery };
+  holder.sms = { provider: guardedSmsProvider, delivery: otpDelivery };
   holder.disputes = new DisputeService({
     clock: () => new Date(),
     ledger: world.ledger,
@@ -125,6 +146,7 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
 
   // v0.0.3：审核链（dev 机审 = 关键词规则；真实接入时替换 machine 即可，接口不变）
   const moderationMachine = ({ content }) => {
+    if (env.IM2AGENT_MACHINE_FAULT === '1') throw new Error('模拟机审服务故障');
     const text = String(content ?? '');
     const ruleVersion = 'rule-v1';
     const modelVersion = 'dev-keyword-v1';
@@ -132,9 +154,25 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
     if (/稳赚|内部消息|加我微信|私下转账|高回报/.test(text)) return { verdict: 'FLAG', ruleVersion, modelVersion, hits: ['flagged_keyword'] };
     return { verdict: 'PASS', ruleVersion, modelVersion, hits: [] };
   };
+  // v0.0.5：机审也走熔断——OPEN 时 machine 返回 null → 审核链 fail-closed 转人审（绝不 fail-open）
+  const machineBreaker = new CircuitBreaker({ name: 'moderation-machine', failureThreshold: 3, cooldownMs: 30_000 });
+  const machineGuard = new ProviderGuard({
+    name: 'moderation-machine',
+    primary: (args) => moderationMachine(args),
+    breaker: machineBreaker,
+    onAudit: (event) => recordAudit(holder.world, { source: 'provider-guard', action: event.action, actor: 'provider-guard', decision: event.decision, detail: event.detail })
+  });
+  const guardedMachine = (args) => {
+    try {
+      return machineGuard.execute(args).value;
+    } catch {
+      // 熔断打开/主方失败：返回 null，交由 §40 审核链转 HUMAN_PENDING
+      return null;
+    }
+  };
   holder.moderation = new ModerationService({
     clock: () => new Date(),
-    machine: moderationMachine,
+    machine: guardedMachine,
     onAudit: (event) => recordAudit(holder.world, { source: 'moderation', action: 'MODERATION_EVENT', actor: event?.actor ?? null, decision: event?.to ?? null, detail: event })
   });
   /** messageId -> caseId：同一条消息重试时复用同一审核案（申诉改判后才能投递） */
@@ -147,6 +185,15 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
     moderation: holder.moderation,
     disputes: holder.disputes,
     audit: world.audit,
+    clock: () => new Date()
+  });
+
+  // v0.0.5：备份服务（文件级；restore 只返回数据，不自动应用）
+  holder.resilience = { smsBreaker, smsGuard, machineBreaker, machineGuard };
+  holder.backup = new BackupService({
+    store: storeImpl,
+    dir: path.join(HERE, '.data', 'backups'),
+    keep: 5,
     clock: () => new Date()
   });
 
@@ -787,6 +834,61 @@ async function route(req, res, holder, persist) {
       return;
     }
     sendJson(res, 200, holder.trace.trace({ messageId }), holder.rt);
+    return;
+  }
+
+  // ── v0.0.5 内测保障：熔断状态 / 备份与恢复 ──
+  if (method === 'GET' && pathname === '/api/ops/resilience') {
+    if (!requireAccess(req, res, holder)) return;
+    sendJson(res, 200, {
+      sms: holder.resilience.smsGuard.stats(),
+      moderation: holder.resilience.machineGuard.stats()
+    }, holder.rt);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/ops/backup') {
+    if (!requireAccess(req, res, holder, { write: true })) return;
+    const body = await readJson(req);
+    try {
+      // 备份前先把当前状态写入 store（memory 存储下 persist() 会跳过，但备份必须能读到快照）
+      holder.store.write(serialize(holder.world));
+      const created = holder.backup.create({ label: body.label ?? null });
+      sendJson(res, 200, { ok: true, backup: created }, holder.rt);
+    } catch (error) {
+      sendJson(res, 500, { error: error?.code ?? 'BACKUP_FAILED', message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/ops/backup') {
+    if (!requireAccess(req, res, holder)) return;
+    sendJson(res, 200, { backups: holder.backup.list() }, holder.rt);
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/ops/backup/restore') {
+    if (!requireAccess(req, res, holder, { write: true })) return;
+    const body = await readJson(req);
+    try {
+      const restored = holder.backup.restore({ file: String(body.file ?? '') });
+      // restore 只返回可验签的数据；**不自动应用**（切换线上状态必须由人决定）
+      sendJson(res, 200, {
+        ok: true,
+        applied: false,
+        note: 'restore 仅返回并校验备份数据，未改动当前运行状态；应用需人工确认（见 docs/25 §4）',
+        meta: restored.meta,
+        summary: {
+          agents: Array.isArray(restored.data?.agents) ? restored.data.agents.length : 0,
+          tickets: Array.isArray(restored.data?.tickets) ? restored.data.tickets.length : 0,
+          messages: Array.isArray(restored.data?.messages) ? restored.data.messages.length : 0,
+          audit: Array.isArray(restored.data?.audit) ? restored.data.audit.length : 0
+        }
+      }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'RESTORE_FAILED';
+      sendJson(res, code === 'NOT_FOUND' ? 404 : 409, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
     return;
   }
 

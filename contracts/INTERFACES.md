@@ -1,4 +1,4 @@
-﻿# 冻结接口契约 v1.0（FROZEN CONTRACT）
+# 冻结接口契约 v1.0（FROZEN CONTRACT）
 
 > 本文件是**唯一**的模块级契约来源。所有实现必须与本文签名、错误码、状态机逐字一致。
 > 修改本文件需要 Lead 明确授权；实现方**不得**擅自改变签名或状态名。
@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R16 | 2026-10-21 | **v0.0.5 内测保障增补**：§43 外部依赖熔断与降级（OPEN 快速失败不调用主方 / 半开只探测一次 / 降级必须标记 usedFallback 与原因码 / 不静默返回空值）、§44 数据备份与恢复（sha256 校验后才 restore、restore 不自动应用、轮转不删最新、文件级备份边界写清）；原 §43→§45 禁止事项、§44→§46 验证命令 | 加法（v1–v0.0.4 语义全保留） |
 | R15 | 2026-10-21 | **v0.0.4 可观测性增补**：§41 运营指标与告警（付费漏斗/审核时效/机审失败率/退款率；告警规则为纯函数，默认五条阈值）、§42 全链审计追溯（按 messageId 串起审核→扣费→回复→退款；**缺环显式列出而非隐藏**）；原 §41→§43 禁止事项、§42→§44 验证命令 | 加法（v1–v0.0.3 语义全保留） |
 | R14 | 2026-10-21 | **v0.0.3 审核链增补**：§40 付费消息审核（机审 PASS/FLAG/BLOCK + 人审队列 + 申诉改判；机审不可用 fail-closed；只有 APPROVED/APPEAL_GRANTED 可投递与扣费；审核状态机与 §4 审批引擎分离）；原 §40→§41 禁止事项、§41→§42 验证命令 | 加法（v1–v0.0.2 语义全保留） |
 | R13 | 2026-10-21 | **v0.0.2 内测就绪增补**：§38 短信通道与 OTP 投递（60s 冷却 / 日上限 / 投递失败不静默 / 验证码永不离开 AccountService）、§39 退款争议与时间线（已回复争议走人工，批准后只能经账本 efund-dispute:<id> 幂等退款，不得绕过窗口改余额）；原 §38→§40 禁止事项、§39→§41 验证命令 | 加法（v1–v0.0.1 语义全保留） |
@@ -1283,7 +1284,56 @@ export class AuditTrace {
 
 ---
 
-## 43. 禁止事项（对所有实现者）
+## 43. `services/resilience/src/provider-guard.mjs`（v0.0.5 新增）
+
+**职责**：**外部依赖熔断与降级**。内测的外部依赖（短信、实名、机审）都会挂；挂了要**快速失败并显式降级**，不能让请求线程卡在超时上，也不能假装成功。
+
+```js
+export const CIRCUIT_STATE = Object.freeze({ CLOSED: 'CLOSED', OPEN: 'OPEN', HALF_OPEN: 'HALF_OPEN' });
+export const GUARD_CODE = Object.freeze({
+  CIRCUIT_OPEN: 'CIRCUIT_OPEN', PRIMARY_FAILED: 'PRIMARY_FAILED', FALLBACK_FAILED: 'FALLBACK_FAILED',
+  NO_FALLBACK: 'NO_FALLBACK', INVALID_CONFIG: 'INVALID_CONFIG'
+});
+export class GuardError extends Error {}
+
+export class CircuitBreaker {
+  constructor({ name = 'breaker', failureThreshold = 3, cooldownMs = 30_000, clock = () => Date.now() });
+  get state(); stats();            // { name, state, failures, successes, openedAt, lastError }
+  execute(fn);                     // 电路 OPEN → 抛 GuardError(CIRCUIT_OPEN) 且**不调用 fn**
+}
+
+export class ProviderGuard {
+  constructor({ name, primary, fallback = null, breaker = null, onAudit = () => {} });
+  execute(args);                   // -> { value, provider: 'primary'|'fallback', usedFallback, causeCode }
+  stats();
+}
+```
+**不变量**：①`OPEN` 时**不调用主提供方**（快速失败，避免雪崩）；②半开态只允许**一次**探测，成功 → `CLOSED`，失败 → 重新 `OPEN` 并重置冷却；③只有声明了 `fallback` 才降级，且结果必须标 `usedFallback:true` 与 `causeCode`；④主备都失败 → `FALLBACK_FAILED`（带两个原因码），**不得静默返回空值**；⑤每次熔断状态迁移与每次降级都写审计。
+
+---
+
+## 44. `services/persistence/src/backup.mjs`（v0.0.5 新增）
+
+**职责**：**数据备份与恢复演练**。生产会换 PostgreSQL，但内测跑在 `jsonfile` 上：没有备份就没有"可运营"，而且恢复必须可演练、可验签。
+
+```js
+export const BACKUP_CODE = Object.freeze({ NOT_FOUND: 'NOT_FOUND', HASH_MISMATCH: 'HASH_MISMATCH', IO_FAILED: 'IO_FAILED', INVALID: 'INVALID' });
+export class BackupError extends Error {}
+
+export class BackupService {
+  constructor({ store, dir, keep = 5, clock = () => new Date() });
+  create({ label = null } = {});   // -> { file, sha256, bytes, createdAt, label }
+  list();                          // -> 元数据数组（按时间倒序）
+  verify({ file });                // -> { ok, code }：重算 sha256 比对，不抛
+  restore({ file });               // -> { data, meta }：先 verify，失败抛 HASH_MISMATCH
+  rotate();                        // 只保留最近 keep 份，返回 { removed: [] }
+}
+```
+**不变量**：①备份文件必须带 `sha256`，`restore` 前**必须**校验，损坏/篡改 → `HASH_MISMATCH`；②`restore` 只返回数据，**不自动应用**（由调用方决定何时切换，避免"恢复动作"隐式改线上状态）；③备份不存在 → `NOT_FOUND`；④轮转不删除最新一份；⑤**明确边界**：这是文件级备份（jsonfile/快照），PostgreSQL 备份走数据库自身机制，不在本模块范围（文档写清）。
+
+---
+
+## 45. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1297,7 +1347,7 @@ export class AuditTrace {
 
 ---
 
-## 44. 验证命令
+## 46. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1336,6 +1386,10 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.5 内测保障新增模块（§43–§44）
+node E:\GPT\agent-im\scripts\test.mjs --filter=provider-guard
+node E:\GPT\agent-im\scripts\test.mjs --filter=backup
 
 # v0.0.4 可观测性新增模块（§41–§42）
 node E:\GPT\agent-im\scripts\test.mjs --filter=metrics
