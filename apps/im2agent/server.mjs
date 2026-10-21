@@ -30,6 +30,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createStore, STORE_KIND } from './store.mjs';
 import { createLlm, resolveLlmConfig, LLM_MODE } from './llm.mjs';
+import { createRateLimiter, clientKey } from './ratelimit.mjs';
 import { createWorld, decide, previewContext, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -37,9 +38,13 @@ const PUBLIC_DIR = path.join(HERE, 'public');
 
 export const PROFILE = Object.freeze({ DEMO: 'demo', LAN: 'lan', PROD: 'prod' });
 
+/** 两级权限：operator 可写（决策/预览），viewer 只读（看板/账本/审计） */
+export const ROLE = Object.freeze({ OPERATOR: 'operator', VIEWER: 'viewer' });
+
 export function resolveRuntime(env = process.env) {
   const profile = String(env.PROFILE ?? PROFILE.DEMO).toLowerCase();
   const adminToken = env.ADMIN_TOKEN ?? null;
+  const viewerToken = env.VIEWER_TOKEN ?? null;
   if (!Object.values(PROFILE).includes(profile)) {
     throw new Error(`未知 PROFILE: ${profile}（允许 demo/lan/prod）`);
   }
@@ -47,11 +52,17 @@ export function resolveRuntime(env = process.env) {
     // 生产形态没有管理员令牌 = 运维修界面裸奔；宁可起不来
     throw new Error('PROFILE=prod 必须设置 ADMIN_TOKEN（≥8 字符）');
   }
+  if (viewerToken !== null && viewerToken === adminToken) {
+    throw new Error('VIEWER_TOKEN 不能与 ADMIN_TOKEN 相同（只读与可写必须是两个凭证）');
+  }
   return {
     profile,
     port: Number(env.PORT ?? (profile === PROFILE.DEMO ? 8787 : 8080)),
     host: env.HOST ?? (profile === PROFILE.DEMO ? '127.0.0.1' : '0.0.0.0'),
     adminToken,
+    viewerToken,
+    trustProxy: String(env.TRUST_PROXY ?? '0') === '1',
+    rateLimitPerMin: Number(env.RATE_LIMIT_PER_MIN ?? 120),
     storeKind: env.STORE ?? (profile === PROFILE.DEMO ? STORE_KIND.MEMORY : STORE_KIND.JSONFILE),
     storeFile: env.STORE_FILE ?? path.join(HERE, '.data', 'im2agent.json'),
     llm: resolveLlmConfig(env)
@@ -65,6 +76,7 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   const restored = storeImpl.read();
   const world = createWorld({ restored });
   const holder = { world, rt, store: storeImpl, llm: llmImpl };
+  holder.limiter = createRateLimiter({ max: rt.rateLimitPerMin });
 
   const persist = () => {
     if (holder.store.kind === STORE_KIND.MEMORY) return;
@@ -105,17 +117,36 @@ function securityHeaders(res, profile) {
 }
 
 function authorized(req, holder) {
-  const token = holder.rt.adminToken;
-  if (token === null) return holder.rt.profile !== PROFILE.PROD; // demo/lan 未设令牌时放行（生产起不来）
-  const header = req.headers['x-admin-token'];
-  const provided = Array.isArray(header) ? header[0] : header;
-  return typeof provided === 'string' && provided === token;
+  return roleOf(req, holder) !== null;
 }
 
-function requireAdmin(req, res, holder) {
-  if (authorized(req, holder)) return true;
-  sendJson(res, 401, { error: 'UNAUTHENTICATED', hint: '请求头 x-admin-token 必须等于服务端 ADMIN_TOKEN' }, holder.rt);
-  return false;
+/** 角色判定：operator（可写）> viewer（只读）；未配置任何令牌时仅 demo/lan 放行为 operator */
+function roleOf(req, holder) {
+  const { adminToken, viewerToken, profile } = holder.rt;
+  if (adminToken === null && viewerToken === null) return profile === PROFILE.PROD ? null : ROLE.OPERATOR;
+  const header = req.headers['x-admin-token'];
+  const provided = Array.isArray(header) ? header[0] : header;
+  if (typeof provided !== 'string') return null;
+  if (adminToken !== null && provided === adminToken) return ROLE.OPERATOR;
+  if (viewerToken !== null && provided === viewerToken) return ROLE.VIEWER;
+  return null;
+}
+
+/**
+ * 访问控制。write=true 要求 operator；write=false 允许 operator 或 viewer。
+ * @returns {string|false} 通过时返回角色
+ */
+function requireAccess(req, res, holder, { write = false } = {}) {
+  const role = roleOf(req, holder);
+  if (role === null) {
+    sendJson(res, 401, { error: 'UNAUTHENTICATED', hint: '请求头 x-admin-token 必须等于 ADMIN_TOKEN（可写）或 VIEWER_TOKEN（只读）' }, holder.rt);
+    return false;
+  }
+  if (write && role !== ROLE.OPERATOR) {
+    sendJson(res, 403, { error: 'FORBIDDEN_ROLE', role, hint: 'viewer 只读；写操作需要 ADMIN_TOKEN' }, holder.rt);
+    return false;
+  }
+  return role;
 }
 
 async function route(req, res, holder, persist) {
@@ -123,6 +154,19 @@ async function route(req, res, holder, persist) {
   const { pathname, searchParams } = url;
   const method = (req.method ?? 'GET').toUpperCase();
   securityHeaders(res, holder.rt.profile);
+
+  // 应用层限流：健康检查放行，其余 /api/* 按客户端 key 计数（反代后需 TRUST_PROXY=1 才采信 XFF）
+  if (pathname.startsWith('/api/') && pathname !== '/api/health' && holder.limiter.enabled) {
+    const key = clientKey(req, { trustProxy: holder.rt.trustProxy });
+    const verdict = holder.limiter.check(key);
+    res.setHeader('x-ratelimit-limit', String(holder.limiter.max));
+    res.setHeader('x-ratelimit-remaining', String(Math.max(0, Number.isFinite(verdict.remaining) ? verdict.remaining : holder.limiter.max)));
+    if (!verdict.ok) {
+      res.setHeader('retry-after', String(Math.ceil(verdict.retryAfterMs / 1000)));
+      sendJson(res, 429, { error: 'RATE_LIMITED', retryAfterMs: verdict.retryAfterMs, hint: '按 IP 计数；反代后请设 TRUST_PROXY=1 与 RATE_LIMIT_PER_MIN' }, holder.rt);
+      return;
+    }
+  }
 
   if (method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
     const html = await readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
@@ -196,11 +240,14 @@ async function route(req, res, holder, persist) {
   }
 
   if (method === 'GET' && pathname === '/api/config') {
-    if (!requireAdmin(req, res, holder)) return;
+    const role = requireAccess(req, res, holder);
+    if (!role) return;
     const { llm, ...safeRt } = holder.rt;
     sendJson(res, 200, {
       ...safeRt,
+      role,
       adminToken: holder.rt.adminToken === null ? null : '***',
+      viewerToken: holder.rt.viewerToken === null ? null : '***',
       storeInfo: holder.store.info(),
       llm: holder.llm.config(),
       lanUrls: lanUrls(holder.rt.port)
@@ -209,7 +256,8 @@ async function route(req, res, holder, persist) {
   }
 
   if (method === 'GET' && pathname === '/api/admin/state') {
-    if (!requireAdmin(req, res, holder)) return;
+    const role = requireAccess(req, res, holder);
+    if (!role) return;
     const snap = snapshot(holder.world);
     // 同时给出 Go 规范视图（Ticket/AuditLog/Ledger 的 snake_case 形态），便于 Flutter/Go 客户端直接消费
     const ticketsView = snap.tickets.map((ticket) => ({
@@ -241,6 +289,7 @@ async function route(req, res, holder, persist) {
       ticketsView,
       audits: auditsView,
       ledgers: ledgersView,
+      role,
       profile: holder.rt.profile,
       store: holder.store.info(),
       llm: holder.llm.stats(),
@@ -249,9 +298,9 @@ async function route(req, res, holder, persist) {
     return;
   }
 
-  // 让 LLM 生成审批单的上下文摘要（Go 规范里的 Ticket.Context）
+  // 让 LLM 生成审批单的上下文摘要（Go 规范里的 Ticket.Context）—— 写操作，需 operator
   if (method === 'POST' && pathname === '/api/approval/preview') {
-    if (!requireAdmin(req, res, holder)) return;
+    if (!requireAccess(req, res, holder, { write: true })) return;
     const body = await readJson(req);
     try {
       const result = await previewContext(holder.world, { ticketId: String(body.ticket_id ?? body.ticketId ?? ''), llm: holder.llm });
@@ -266,7 +315,7 @@ async function route(req, res, holder, persist) {
   }
 
   if (method === 'POST' && pathname === '/api/approval/decide') {
-    if (!requireAdmin(req, res, holder)) return;
+    if (!requireAccess(req, res, holder, { write: true })) return;
     const body = await readJson(req);
     // 兼容两种写法：{ticketId, action:"APPROVE"} 与规范写法 {ticket_id, action|decision:"approve"}
     const ticketId = String(body.ticket_id ?? body.ticketId ?? '');
@@ -290,19 +339,19 @@ async function route(req, res, holder, persist) {
   }
 
   if (method === 'GET' && pathname === '/api/ledger') {
-    if (!requireAdmin(req, res, holder)) return;
+    if (!requireAccess(req, res, holder)) return;
     sendJson(res, 200, { entries: holder.world.ledger.entries({}), stats: holder.world.ledger.stats() }, holder.rt);
     return;
   }
 
   if (method === 'GET' && pathname === '/api/audit') {
-    if (!requireAdmin(req, res, holder)) return;
+    if (!requireAccess(req, res, holder)) return;
     sendJson(res, 200, { chain: holder.world.audit.verify(), entries: holder.world.audit.records({ limit: 50 }) }, holder.rt);
     return;
   }
 
   if (method === 'POST' && pathname === '/api/llm/draft') {
-    if (!requireAdmin(req, res, holder)) return;
+    if (!requireAccess(req, res, holder, { write: true })) return;
     const body = await readJson(req);
     const draft = await holder.llm.draft({ text: String(body.text ?? ''), topic: body.topic ?? null });
     sendJson(res, 200, { draft, stats: holder.llm.stats() }, holder.rt);

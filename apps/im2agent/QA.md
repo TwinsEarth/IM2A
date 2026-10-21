@@ -22,15 +22,21 @@
 | 16 | **HTTPS 自动签发** | 测试域名解析到机器，Caddy 自动申请 Let's Encrypt | ⚠ | 需公网域名 + 80/443；`deploy/prod/` |
 | 17 | 纯净 Ubuntu 免 Go 运行 | 无 Go 环境可直接跑 | ✅（Node 形态） | `deploy/linux/install.sh` 只需 Node ≥22 |
 | 18 | PostgreSQL 读写 | migration + CRUD | ⛔ | 未实现驱动；`STORE=postgres` 显式报错 |
+| 19 | **两级权限** | viewer 只读（看板/账本/审计），operator 可写（审批/起草）；两者配同一凭证拒绝启动 | ✅ | 测试 ⑫：viewer 写 → 403 `FORBIDDEN_ROLE`；operator 写 → 200 |
+| 20 | **应用层限流** | 超窗 → 429 + `Retry-After`；健康检查豁免；反代后需 `TRUST_PROXY=1` | ✅ | 测试 ⑫：3 次放行、第 4 次 429，`/api/health` 不受影响 |
+| 21 | **部署产物静态检查** | install.sh/systemd/Dockerfile/compose/Caddyfile 必备项齐全、无危险缺失 | ✅ | `node scripts/deploy-lint.mjs` → 14/14 |
+| 22 | **Linux 目标机实测** | 纯净 Ubuntu 上 `install.sh` 装完 → `systemctl status` active → `/healthz` OK | ⚠ | 本机沙箱禁止命名管道，Git Bash 起不来；按 `deploy/linux/README.md` 在目标机执行 |
+| 23 | **LLM 降级压测** | 200 次、30% 上游失败：无异常穿透、无空回复、失败一律 `degraded` | ✅ | `node scripts/llm-stress.mjs --calls 200 --fail-rate 0.3` → fallback 62 / real 138 / thrown 0 |
 
 ## 本地一键回归
 
 ```powershell
-node tests/im2agent.test.mjs          # 10 项（上述 ✅ 的大部分）
-node scripts/test.mjs --filter=im2agent
-node scripts/test.mjs                 # 全量 498+ 项
-node scripts/verify.mjs               # 文档/契约/代码一致性 55 项
-node scripts/quickstart.mjs --check   # 主仓库 13 项自检
+node tests/im2agent.test.mjs            # 11 项（含权限/限流/SSE/持久化）
+node scripts/llm-stress.mjs --calls 200 --fail-rate 0.3   # 降级压测（无需网络）
+node scripts/deploy-lint.mjs            # 部署产物静态检查 14 项
+node scripts/test.mjs                   # 全量 500+ 项
+node scripts/verify.mjs                 # 文档/契约/代码一致性 55 项
+node scripts/quickstart.mjs --check     # 主仓库 13 项自检
 ```
 
 ## QA 里最容易"看起来通过"的三处

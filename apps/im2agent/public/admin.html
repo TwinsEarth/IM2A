@@ -81,11 +81,12 @@
   <div class="card" style="margin-top:14px">
     <h3>LLM 引擎<span class="hint">template → fallback → real</span></h3>
     <div id="llm"></div>
-    <div class="row" style="margin-top:8px">
+    <div class="row" style="margin-top:8px" id="draftRow">
       <input id="draftText" placeholder="随便输入一句，观察三档降级" style="flex:1;min-width:220px" />
       <button id="draft">起草</button>
     </div>
     <div id="draftResult"></div>
+    <div id="roleNote"></div>
   </div>
 </main>
 
@@ -112,8 +113,10 @@ async function load() {
   try {
     const [state, llm, ledger, audit] = await Promise.all([api('/api/admin/state'), api('/api/llm'), api('/api/ledger'), api('/api/audit')]);
     // 概览
+    const role = state.role ?? 'operator';
     $('overview').innerHTML = `<dl class="kv">
       <dt>形态</dt><dd class="mono">${esc(state.profile)}</dd>
+      <dt>角色</dt><dd><span class="tag ${role === 'operator' ? 'ok' : ''}">${role === 'operator' ? '操作者（可写）' : '只读观察者'}</span></dd>
       <dt>存储</dt><dd class="mono">${esc(state.store?.kind)}${state.store?.durable ? '（持久）' : '（内存）'}</dd>
       <dt>审计链</dt><dd>${state.auditChain?.ok ? '<span class="tag ok">完整</span>' : '<span class="tag bad">断裂</span>'} <span class="mono">${esc(state.auditChain?.length ?? 0)} 条</span></dd>
       <dt>LLM</dt><dd><span class="tag ${llm.stats?.mode === 'real' ? 'ok' : llm.stats?.mode === 'fallback' ? 'warn' : ''}">${esc(llm.stats?.mode)}</span> <span class="mono">${esc(llm.stats?.model)}</span> · 调用 ${esc(llm.stats?.calls)} · 失败 ${esc(llm.stats?.failures)}</dd>
@@ -137,7 +140,7 @@ async function load() {
         <td class="mono">${esc(t.id)}</td>
         <td>${esc(t.payload?.topic ?? t.payload?.item ?? t.ticketType)}<div class="mono">${t.payload?.amountCents != null ? '¥' + yuan(t.payload.amountCents) : ''}</div></td>
         <td><span class="tag ${t.state === 'PENDING' ? 'warn' : t.state === 'COMPLETED' ? 'ok' : 'bad'}">${esc(TICKET[t.state] ?? t.state)}</span></td>
-        <td>${t.state === 'PENDING' ? `<button class="ok" data-approve="${esc(t.id)}">通过</button> <button class="bad" data-reject="${esc(t.id)}">驳回</button>` : '<span class="sub">—</span>'}</td>
+        <td>${t.state === 'PENDING' && role === 'operator' ? `<button class="ok" data-approve="${esc(t.id)}">通过</button> <button class="bad" data-reject="${esc(t.id)}">驳回</button>` : '<span class="sub">—</span>'}</td>
       </tr>`).join('')
     }</tbody></table>`;
 
@@ -178,6 +181,15 @@ async function load() {
       <dt>调用/失败</dt><dd class="mono">${esc(llm.stats?.calls)} / ${esc(llm.stats?.failures)}</dd>
       <dt>最近错误</dt><dd class="mono">${esc(llm.stats?.lastError ?? '—')}</dd>
     </dl>`;
+
+    // 只读角色：隐藏所有写操作入口（服务端仍会二次校验，这里只是不误导人）
+    if (role !== 'operator') {
+      $('draftRow').style.display = 'none';
+      $('roleNote').innerHTML = '<div class="note warn" style="border-color:#4a3a12;color:#fcd34d">只读观察者：可以看看板/账本/审计，但不能审批或触发 LLM 起草。写操作需要 ADMIN_TOKEN。</div>';
+    } else {
+      $('draftRow').style.display = '';
+      $('roleNote').innerHTML = '';
+    }
   } catch (error) {
     $('overview').innerHTML = `<div class="note bad">加载失败：${esc(error.message)}${error.status === 401 ? '（请先填 ADMIN_TOKEN 并点"应用令牌"）' : ''}</div>`;
   }

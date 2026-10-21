@@ -263,6 +263,55 @@ test('⑩ 多端同步：SSE 在决策后推送事件（客户端也可退化为
   });
 });
 
+test('⑫ 两级权限与限流：viewer 只读、operator 可写、越限 429、健康检查豁免', async () => {
+  // 只读/可写必须是两个凭证；配成同一个直接拒绝启动
+  assert.throws(() => resolveRuntime({ PROFILE: 'lan', ADMIN_TOKEN: 'same-token', VIEWER_TOKEN: 'same-token' }), /VIEWER_TOKEN/);
+
+  await withApp({ PROFILE: 'lan', ADMIN_TOKEN: 'op-token-123', VIEWER_TOKEN: 'view-token-123', RATE_LIMIT_PER_MIN: '0' }, async (app) => {
+    const base = app.urls[0];
+    const viewer = { 'x-admin-token': 'view-token-123' };
+    const operator = { 'x-admin-token': 'op-token-123' };
+
+    const read = await json(`${base}/api/admin/state`, { headers: viewer });
+    assert.equal(read.status, 200, 'viewer 可以看板');
+    assert.equal(read.body.role, 'viewer');
+
+    const viewerWrite = await json(`${base}/api/approval/decide`, {
+      method: 'POST',
+      headers: viewer,
+      body: JSON.stringify({ ticket_id: 'tkt-procurement-1', action: 'approve' })
+    });
+    assert.equal(viewerWrite.status, 403, 'viewer 不能审批');
+    assert.equal(viewerWrite.body.error, 'FORBIDDEN_ROLE');
+
+    const viewerPreview = await json(`${base}/api/approval/preview`, {
+      method: 'POST',
+      headers: viewer,
+      body: JSON.stringify({ ticket_id: 'tkt-stranger-1' })
+    });
+    assert.equal(viewerPreview.status, 403, 'viewer 不能触发起草');
+
+    const operatorWrite = await json(`${base}/api/approval/decide`, {
+      method: 'POST',
+      headers: operator,
+      body: JSON.stringify({ ticket_id: 'tkt-procurement-1', action: 'approve' })
+    });
+    assert.equal(operatorWrite.status, 200, 'operator 可以审批');
+  });
+
+  await withApp({ PROFILE: 'demo', RATE_LIMIT_PER_MIN: '3' }, async (app) => {
+    const base = app.urls[0];
+    const codes = [];
+    for (let i = 0; i < 4; i += 1) codes.push((await json(`${base}/api/state`)).status);
+    assert.deepEqual(codes.slice(0, 3), [200, 200, 200], '前 3 次放行');
+    assert.equal(codes[3], 429, '第 4 次应被限流');
+    const limited = await json(`${base}/api/state`);
+    assert.equal(limited.body.error, 'RATE_LIMITED');
+    const health = await fetch(`${base}/api/health`);
+    assert.equal(health.status, 200, '健康检查不受限流影响');
+  });
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });
