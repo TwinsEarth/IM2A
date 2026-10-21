@@ -314,20 +314,18 @@ agent-im/
 
 | 项 | 状态 |
 |---|---|
-| 冻结契约（`contracts/INTERFACES.md` v1.0 · 修订 R3） | ✅ 含变更记录；语义只加不改 |
-| 编排层 7 模块（信任/注册表/门控/审批/协商/记忆/护栏） | ✅ 107 项单测 |
-| 资金与消息通道（账本/付费消息/封装/序号/去重） | ✅ 58 项单测 |
-| 端到端集成（业务主线 + HTTP 协议面 + MODIFY patch） | ✅ 8 项 |
-| 全量测试 | ✅ **180 passed / 0 failed**，exit 0 |
-| 交付物一致性验收 | ✅ **11/11**，exit 0 |
+| 版本 / 契约 / 数据 schema | **v0.1.3** · `contracts/INTERFACES.md` v1.0 **R24** · schema **2**（25 个版本 tag） |
+| 冻结契约（§1–§52，含变更记录 R1–R24） | ✅ 语义只加不改；破坏性变更需升 schema 并走迁移 |
+| 服务层（orchestrator / payment / messaging / identity / gateway / audit / account / moderation / observability / resilience / persistence / acceptance） | ✅ 模块级冻结契约 + 单测 |
+| 全量测试 | ✅ **732 passed / 0 failed**，exit 0 |
+| 交付物一致性验收 | ✅ **134/134**，exit 0 |
+| 发布检查（`scripts/release-check.mjs`） | ✅ 6/6 PASS（含版本↔tag 一致性） |
 | 演示服务 + 审批态/巡视态控制台 | ✅ 本地可跑 |
-| 人机混合 IM 实时 Demo（`apps/im-live`） | ✅ 浏览器可用；8 项端到端测试；fleet 面板 simulated/live 双态 |
-| Agent 大模型燃料（DeepSeek-V4.1-Flash） | ✅ OpenAI 兼容接入 + 离线降级 + 出口护栏前置；7 项单测（注入 fetch，不依赖真网） |
-| Agent Runtime + W2M Skill 执行层 | ✅ DSH 风格 规划→权限→Skill→起草→护栏 闭环；10 项单测；fleet.devices/fleet.run 走真实 relay |
-| SQLite 持久化（`apps/im-live/store.mjs`） | ✅ Node 24 内置 node:sqlite；会话/消息/审计链跨重启恢复并校验；4 项单测 |
-| 登录鉴权（`apps/im-live/auth.mjs`） | ✅ scrypt 口令 + HMAC HttpOnly Cookie + 会话身份（忽略 body/query userId）+ 越权审批 403；5 项单测 |
-| HTTPS（可选 TLS） | ✅ `IM_TLS_CERT/IM_TLS_KEY` 启用 https；缺证书抛 TLS_CONFIG_MISSING 不静默降级；3 项测试 |
-| 技术文档集（00 总览 + 10 篇专题） | ✅ 约 3000 行 |
-| 契约文件（4 proto + OpenAPI 3.1 + 索引） | ✅ 人工自检；CI 待补 protoc/buf |
-| Flutter 客户端骨架 | ⚠ 未编译（本机无 Flutter SDK，README 已声明） |
-| 生产化：Go 微服务、IM PaaS 接入、实机、硬件 ODM | ⬜ 见 [09-开发计划](docs/09-开发计划与里程碑.md) |
+| 人机混合 IM 实时 Demo（`apps/im-live`） | ✅ 浏览器可用；`/v2` 含 8 类机制演示 |
+| 极轻量原型（`apps/im2agent`，7 形态） | ✅ 本机 20 项集成测试（含重启持久化/审核链/支付验签/对账） |
+| Web/PWA 客户端（`apps/im2agent/public/app/`） | ✅ 可打开；三态导航 + 角色门控 + 离线壳（3 项测试） |
+| 多节点广播总线（memory / tcp） | ✅ 两实例跨节点 SSE 实测通过（4 项测试） |
+| Flutter 客户端（`client/`） | ⚠ 未编译（本机无 Flutter SDK） |
+| Linux 真机 / Docker / Caddy / PostgreSQL | ⚠ 脚本与配置齐备，**未在目标机执行**（见 `deploy/`、docs/26） |
+| 真实短信 / 实名 / 机审 / 支付渠道 | ⚠ 均为可插拔 mock，**未接真实供应商**（见 docs/22/23/29） |
+| 生产化：Go 微服务、IM PaaS 接入、实机、硬件 ODM | ⬜ 见 [09-开发计划](docs/09-开发计划与里程碑.md) 与 [docs/30 的 17 条缺口](docs/30-v0.1.0-发布说明RC.md) |
