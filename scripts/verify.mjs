@@ -916,6 +916,20 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
       '版本 bump 漏改 package.json（见 docs/35 §1）'
     );
     record('发布 SOP 文档存在（docs/35）', await exists(path.join(ROOT, 'docs/35-版本发布SOP.md')), '缺 docs/35-版本发布SOP.md');
+    // v0.1.5：33 条 Gate 的人工签核 Issue 模板
+    const signoffTemplate = path.join(ROOT, '.github/ISSUE_TEMPLATE/gate-signoff.yml');
+    if (await exists(signoffTemplate)) {
+      const template = await read(signoffTemplate);
+      const gateLabels = (template.match(/^\s{8}- label: "/gm) ?? []).length;
+      const hasGroups = ['gates_a', 'gates_b', 'gates_c', 'gates_d', 'gates_e'].every((id) => template.includes(`id: ${id}`));
+      record(`Gate 签核模板覆盖 33 条 Gate + 3 项确认（${gateLabels} 个选项）`, gateLabels >= 36 && hasGroups, `选项 ${gateLabels} / 分组 ${hasGroups}`);
+      record('模板说明自动化只覆盖 D1/E4（不假装全自动）', template.includes('G-METRICS') && template.includes('G-BACKUP') && template.includes('31 条'), '缺自动/人工分工说明');
+      record('模板要求证据链接且禁止口头通过', template.includes('证据链接（必填）') && template.includes('未勾选项'), '缺证据/例外要求');
+      const sopText = await read(path.join(ROOT, 'docs/35-版本发布SOP.md'));
+      record('SOP 引用了签核模板', sopText.includes('gate-signoff.yml'), 'docs/35 未引用模板');
+    } else {
+      record('Gate 签核 Issue 模板存在', false, '缺 .github/ISSUE_TEMPLATE/gate-signoff.yml');
+    }
   }
   // v0.1.1 缺陷修复：迁移工具 + 契约约定 + release-check 的 tag 一致性检查
   record('v0.1.1 迁移工具与测试存在', (await exists(path.join(ROOT, 'scripts/migrate-state.mjs'))) && (await exists(path.join(ROOT, 'tests/migrate.test.mjs'))), '缺 migrate-state.mjs / 测试');

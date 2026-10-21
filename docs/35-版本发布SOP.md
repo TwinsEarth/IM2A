@@ -119,6 +119,10 @@ POST /repos/{owner}/{repo}/git/refs             # {"ref":"refs/tags/vX.Y.Z","sha
 | 批什么 | 是否允许把该版本作为 Stable 对真实用户开放 |
 | 前置 | §0 四项全绿 + 真实环境预检（`accept.mjs` 预检 7/7）+ 已知缺口公告（docs/30 §6） |
 | 记录 | 在 GitHub Release 正文或发布记录里写"批准人 + 时间 + 范围"，可追溯 |
+**人工签核入口**：33 条业务 Gate 用 Issue 模板逐条勾选（含证据链接与例外说明）：
+[新建 Gate 签核 Issue](https://github.com/TwinsEarth/IM2A/issues/new?template=gate-signoff.yml) ·
+模板文件 `.github/ISSUE_TEMPLATE/gate-signoff.yml`。
+未勾选项必须在「例外与豁免」里写明原因/影响/批准人/补救时间，否则视为未签核。
 | 拒绝后 | 保持 RC/预发，不对外宣称 Stable；缺口修完再申请 |
 
 ---

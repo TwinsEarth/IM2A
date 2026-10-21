@@ -1,0 +1,174 @@
+name: 发布 Gate 人工签核（33 条）
+description: 发布前逐条核验 docs/21–25 的 33 条业务 Gate（A1–A8 / B1–B7 / C1–C6 / D1–D6 / E1–E6）
+title: "[Gate 签核] vX.Y.Z — "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 使用前提（不通过就不要开这个 Issue）
+
+        1. `node scripts/release-check.mjs` 全绿（6/6），报告已在 `reports/RELEASE-REPORT.md`；
+        2. 已对真实目标跑过预检与默认 Gate：
+           `node scripts/accept.mjs --target https://<域名> --token <ADMIN_TOKEN> --viewer-token <VIEWER_TOKEN> --require-real-providers`
+        3. 已知缺口（docs/30 §6 的 17 条）已随版本公告；
+
+        **自动化覆盖说明**：33 条业务 Gate 中，仅 **D1 → `G-METRICS`**、**E4 → `G-BACKUP`** 由 `accept.mjs` 默认 Gate 自动覆盖；
+        其余 **31 条必须由人逐条核验并在本 Issue 勾选**，不允许口头通过。
+        流程与判定标准见 [docs/35 发布 SOP](https://github.com/TwinsEarth/IM2A/blob/main/docs/35-版本发布SOP.md) 与 [docs/26 验收 Runbook](https://github.com/TwinsEarth/IM2A/blob/main/docs/26-v0.0.6-真实环境验收Runbook.md)。
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本三元组
+      description: 必须与 `/api/version`、`package.json`、tag 完全一致
+      placeholder: "0.1.3 / R24 / schema 2"
+    validations:
+      required: true
+
+  - type: input
+    id: target
+    attributes:
+      label: 目标环境
+      placeholder: "https://im.example.com（或内网 http://10.0.0.5:8080）"
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: commit / tag
+      placeholder: "01114db / v0.1.3-fix"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## A. 准入与资金（8 条）· 来源 docs/21
+
+  - type: checkboxes
+    id: gates_a
+    attributes:
+      label: A1–A8
+      options:
+        - label: "A1 未实名不能收发付费消息：canUsePaidMessaging → {ok:false, code:'REALNAME_REQUIRED'}"
+        - label: "A2 实名明文不落库：存储/日志/审计中无 idNumber 明文，只有 sha256 + 尾号掩码"
+        - label: "A3 OTP 单次有效：二次使用 OTP_INVALID；过期 OTP_EXPIRED；超次数 OTP_ATTEMPTS_EXCEEDED"
+        - label: "A4 余额不为负：并发/重试扣费不出现负余额；不足 INSUFFICIENT_FUNDS"
+        - label: "A5 同消息只扣一次：连点/重放 10 次账本只有 1 条 CHARGE（pay:<messageId> 幂等）"
+        - label: "A6 已回复不可退：已回复 refund → REFUND_WINDOW_CLOSED；未回复可退"
+        - label: "A7 日上限生效：同日累计超 dailySendCapCents → DAILY_CAP_EXCEEDED，次日恢复"
+        - label: "A8 SUSPENDED 阻断：封禁账号除登录外的写操作被阻断"
+
+  - type: markdown
+    attributes:
+      value: |
+        ## B. 短信与争议（7 条）· 来源 docs/22
+
+  - type: checkboxes
+    id: gates_b
+    attributes:
+      label: B1–B7
+      options:
+        - label: "B1 同号 60s 冷却：二次请求 OTP_COOLDOWN 且不重发，cooldownHits 递增"
+        - label: "B2 OTP 日上限：同日超 dailyCap → OTP_DAILY_CAP，次日恢复"
+        - label: "B3 验证码不出现在日志/错误/审计：SmsError 消息不含 code"
+        - label: "B4 未回复不能开争议：dispute.open → NOT_ELIGIBLE（引导走自助退款）"
+        - label: "B5 已回复争议 APPROVE 只退一次：账本仅 1 条 refund-dispute:<id>，重放幂等"
+        - label: "B6 争议 REJECT 不动余额：无 REFUND 流水，重复 resolve → ILLEGAL_STATE"
+        - label: "B7 投递失败不静默：OTP_DELIVERY_FAILED / SMS_TIMEOUT，stats.failed 递增，不返回成功"
+
+  - type: markdown
+    attributes:
+      value: |
+        ## C. 审核链（6 条）· 来源 docs/23
+
+  - type: checkboxes
+    id: gates_c
+    attributes:
+      label: C1–C6
+      options:
+        - label: "C1 机审 PASS 自动放行：APPROVED，canDeliver ok，记录 rule/model 版本"
+        - label: "C2 机审 FLAG 转人审且不扣费：HUMAN_PENDING，canDeliver false，无 CHARGE"
+        - label: "C3 机审 BLOCK 自动拒且不扣费：REJECTED，canDeliver false，无 CHARGE"
+        - label: "C4 机审抛错 fail-closed：→ HUMAN_PENDING，绝不自动 APPROVED"
+        - label: "C5 申诉 GRANT 后可投递：REJECTED → APPEALED → APPEAL_GRANTED，canDeliver ok"
+        - label: "C6 不能自审：原审核人复审自己的案子 → SELF_REVIEW_FORBIDDEN"
+
+  - type: markdown
+    attributes:
+      value: |
+        ## D. 可观测（6 条）· 来源 docs/24
+
+  - type: checkboxes
+    id: gates_d
+    attributes:
+      label: D1–D6
+      options:
+        - label: "D1 漏斗六段转化正确：分母为 0 → 0，不得 NaN/Infinity（可由 G-METRICS 自动覆盖）"
+        - label: "D2 五条默认告警逐条触发：超阈值返回对应 id/severity/value/threshold；未超不告警"
+        - label: "D3 完整追溯：trace(messageId) 四源 steps、按 at 升序、同刻 moderation<ledger<reply<dispute"
+        - label: "D4 缺环显式：有 CHARGE 无审核 → complete=false 且 missing 明确列出"
+        - label: "D5 追溯只读：调用前后业务/账本/争议状态不变"
+        - label: "D6 告警纯函数确定性：evaluateAlerts 同输入同输出，不读环境、不发网络"
+
+  - type: markdown
+    attributes:
+      value: |
+        ## E. 内测保障（6 条）· 来源 docs/25
+
+  - type: checkboxes
+    id: gates_e
+    attributes:
+      label: E1–E6
+      options:
+        - label: "E1 短信挂不阻断老用户：已登录 session 仍可查看/付费；新 OTP 明确失败不静默"
+        - label: "E2 实名挂不放开付费：仍返回 REALNAME_REQUIRED，无临时白名单"
+        - label: "E3 机审挂转人审：HUMAN_PENDING 且不扣费，积压告警可触发"
+        - label: "E4 备份可 verify 且篡改被发现：改 1 字节 → HASH_MISMATCH（可由 G-BACKUP 自动覆盖）"
+        - label: "E5 恢复后对账一致：恢复副本与账本/钱包/审计一致；restore 不自动应用"
+        - label: "E6 降级事件有审计与告警：熔断/降级写审计（usedFallback/causeCode），OPEN>10min 告警"
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据链接（必填）
+      description: 贴 RELEASE-REPORT、accept 报告（JSON/MD）、CI run、关键截图/审计条目；没有证据的勾选视为无效
+      placeholder: |
+        - RELEASE-REPORT: reports/RELEASE-REPORT.md
+        - accept 报告: reports/acceptance-XXXX.md
+        - CI run: https://github.com/TwinsEarth/IM2A/actions/runs/XXXX
+        - 关键日志/截图: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: exceptions
+    attributes:
+      label: 例外与豁免（未勾选项必须在此说明）
+      description: 哪条没勾、为什么、影响范围、谁批准、补救时间。未说明的未勾选项 = 未签核。
+      placeholder: "E6：告警联动尚未接入，已列入 0.2.0；批准人：…；补救时间：…"
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: 签核确认（全部必勾）
+      options:
+        - label: "我确认已跑 release-check（6/6）且报告已归档"
+          required: true
+        - label: "我确认以上 33 条已逐条核验；未勾选项已在「例外与豁免」中记录"
+          required: true
+        - label: "我确认本版本对真实用户开放（Stable）需要用户/产品负责人批准，技术负责人不得自批"
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ### Stable 批准（只能由用户/产品负责人填写）
+
+        批准人：__________　时间：__________　范围：__________
+
+        > 未填写视为未批准：该版本维持 RC/预发，不得对外宣称 Stable。
+        > 红线：未跑 release-check 就打 tag、版本号与 tag 不一致、带 schema 变更却无迁移、把未验证能力写成"已完成"、强推 `main` —— 任一违反即回滚。

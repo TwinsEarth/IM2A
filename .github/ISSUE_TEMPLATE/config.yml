@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 版本发布 SOP（发版前必读）
+    url: https://github.com/TwinsEarth/IM2A/blob/main/docs/35-版本发布SOP.md
+    about: 发布前条件、版本 bump 四处、门禁命令、tag 流程、五方核验、回滚与红线
+  - name: 验收 Runbook（真实环境）
+    url: https://github.com/TwinsEarth/IM2A/blob/main/docs/26-v0.0.6-真实环境验收Runbook.md
+    about: 预检、默认 Gate、33 条业务 Gate 的自动/人工分工与证据要求
