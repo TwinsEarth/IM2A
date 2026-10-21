@@ -71,6 +71,9 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 | POST | `/api/moderation/appeal` | `Bearer` | 发送者本人对 `REJECTED`/`APPEAL_UPHELD` 申诉 |
 | POST | `/api/moderation/appeal/resolve` | `x-admin-token` | 改判 `GRANT`/`UPHOLD`；改判后才可投递与扣费 |
 | GET | `/api/moderation` | `x-admin-token` | 审核案列表 + 统计（byState / machineUnavailable） |
+| GET | `/api/ops/metrics` | `x-admin-token` | 付费漏斗 + 计数器/直方图 + 转化率（0 分母返回 0） |
+| GET | `/api/ops/alerts` | `x-admin-token` | 五条默认告警规则求值（纯函数）+ gauges（人审积压/短信失败率/对账差异） |
+| GET | `/api/ops/trace` | `x-admin-token` | `?messageId=` 合并审核/账本/争议/审计四源；缺环显式 |
 
 > v0.0.1 产品版的完整范围与 8 条验收 Gate 见 [docs/21](../../docs/21-v0.0.1-产品版范围与验收.md)。
 > 验收矩阵见 [QA.md](./QA.md)；Go 目录/结构体/函数映射见 [PORTING-TO-GO.md](./PORTING-TO-GO.md)；

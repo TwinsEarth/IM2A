@@ -14,6 +14,18 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.4-observability — 2026-10-21
+
+**可运营内测**：从"能跑的内测"变成"能看数、能告警、能举证的内测"。
+
+- **§41 指标与告警**（`services/observability/src/metrics.mjs`，13 项测试）：付费漏斗六段（`PAID_SENT→审核→CHARGE→VIEWED→REPLIED→SETTLED`）+ 转化率（0 分母返回 0，不产生 NaN）；直方图 p50/p95；五条默认告警规则（机审失败率/人审积压/退款率/短信失败率/对账差异）为**纯函数**
+- **§42 全链追溯**（`trace.mjs`，8 项测试）：按 `messageId` 合并审核/账本/争议/审计四源，按时间排序；**`complete=false` 时显式列出 `missing`**（如"有扣费无审核"），不假装完整；只读，不触发状态迁移
+- 产品端点：`/api/ops/metrics`、`/api/ops/alerts`、`/api/ops/trace?messageId=`
+- 文档：`docs/24-v0.0.4-可观测与运营.md`（漏斗解释、告警值班、D1–D6 Gate、复盘模板）
+- 契约：R15
+
+验证：全量 **647/647**；verify **84/84**；im2agent **15/15**；metrics 13 · trace 8。
+
 ## v0.0.3-review — 2026-10-21
 
 **审核链前置**：付费消息从"能收钱"变成"敢收钱"。

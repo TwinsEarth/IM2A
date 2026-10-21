@@ -1,4 +1,4 @@
-# 冻结接口契约 v1.0（FROZEN CONTRACT）
+﻿# 冻结接口契约 v1.0（FROZEN CONTRACT）
 
 > 本文件是**唯一**的模块级契约来源。所有实现必须与本文签名、错误码、状态机逐字一致。
 > 修改本文件需要 Lead 明确授权；实现方**不得**擅自改变签名或状态名。
@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R15 | 2026-10-21 | **v0.0.4 可观测性增补**：§41 运营指标与告警（付费漏斗/审核时效/机审失败率/退款率；告警规则为纯函数，默认五条阈值）、§42 全链审计追溯（按 messageId 串起审核→扣费→回复→退款；**缺环显式列出而非隐藏**）；原 §41→§43 禁止事项、§42→§44 验证命令 | 加法（v1–v0.0.3 语义全保留） |
 | R14 | 2026-10-21 | **v0.0.3 审核链增补**：§40 付费消息审核（机审 PASS/FLAG/BLOCK + 人审队列 + 申诉改判；机审不可用 fail-closed；只有 APPROVED/APPEAL_GRANTED 可投递与扣费；审核状态机与 §4 审批引擎分离）；原 §40→§41 禁止事项、§41→§42 验证命令 | 加法（v1–v0.0.2 语义全保留） |
 | R13 | 2026-10-21 | **v0.0.2 内测就绪增补**：§38 短信通道与 OTP 投递（60s 冷却 / 日上限 / 投递失败不静默 / 验证码永不离开 AccountService）、§39 退款争议与时间线（已回复争议走人工，批准后只能经账本 efund-dispute:<id> 幂等退款，不得绕过窗口改余额）；原 §38→§40 禁止事项、§39→§41 验证命令 | 加法（v1–v0.0.1 语义全保留） |
 | R12 | 2026-10-21 | **v0.0.1 产品版增补「可付费准入」**：§36 账户/手机号登录/实名（idNumber 只存 hash 与尾号掩码，未实名不得收发付费消息）、§37 钱包（充值/扣费/退款幂等·禁止先扣后退·日发送上限）；原 §36→§38 禁止事项、§37→§39 验证命令 | 加法（v1–v8 语义全保留） |
@@ -1241,7 +1242,48 @@ export class ModerationService {
 
 ---
 
-## 41. 禁止事项（对所有实现者）
+## 41. `services/observability/src/metrics.mjs`（v0.0.4 新增）
+
+**职责**：**运营指标与告警**。内测阶段最怕"出了问题只能猜"：必须能看到付费漏斗、审核时效、机审失败率、退款率，并在越线时告警。
+
+```js
+export const METRIC = Object.freeze({
+  PAID_SENT: 'PAID_SENT', MODERATION_PASS: 'MODERATION_PASS', MODERATION_FLAG: 'MODERATION_FLAG',
+  MODERATION_BLOCK: 'MODERATION_BLOCK', MODERATION_APPROVE: 'MODERATION_APPROVE', MODERATION_REJECT: 'MODERATION_REJECT',
+  CHARGE: 'CHARGE', VIEWED: 'VIEWED', REPLIED: 'REPLIED', REFUND: 'REFUND',
+  DISPUTE_OPEN: 'DISPUTE_OPEN', DISPUTE_APPROVE: 'DISPUTE_APPROVE', DISPUTE_REJECT: 'DISPUTE_REJECT',
+  OTP_SENT: 'OTP_SENT', OTP_FAILED: 'OTP_FAILED'
+});
+export class Metrics {
+  constructor({ clock = () => new Date() });
+  inc(name, value = 1, labels = {});
+  observe(name, ms, labels = {});         // 直方图：count/min/p50/p95/max
+  snapshot();                             // { counters, histograms, rates, funnel, generatedAt }
+}
+export const ALERT_SEVERITY = Object.freeze({ INFO: 'INFO', WARN: 'WARN', CRITICAL: 'CRITICAL' });
+export function evaluateAlerts({ snapshot, gauges = {} }, rules = []);   // -> [{ id, severity, message, value, threshold }]
+export const DEFAULT_ALERT_RULES;        // 见下：机审失败率/人审积压/退款率/短信失败率/对账差异
+```
+**判定（冻结）**：①漏斗固定为 `PAID_SENT → MODERATION_PASS|HUMAN_PENDING → CHARGE → VIEWED → REPLIED → SETTLED`，用计数器推导**转化率**（分母为 0 时返回 0，不得 NaN）；②`observe` 的 p50/p95 用最近窗口样本（窗口内样本 <1 时返回 0）；③告警规则是**纯函数**（输入快照/gauges，输出告警数组），不读环境、不发网络；④默认规则阈值：机审失败率 >10% → WARN、人审积压 >20 → WARN、退款率 >30% → CRITICAL、短信失败率 >10% → WARN、对账差异 ≠0 → CRITICAL。
+
+---
+
+## 42. `services/observability/src/trace.mjs`（v0.0.4 新增）
+
+**职责**：**全链审计追溯**。客户申诉、监管调取、内部复盘都需要"从一条消息串起审核→扣费→投递→回复→退款"的证据链，而不是在四个系统里手工拼。
+
+```js
+export class AuditTrace {
+  constructor({ ledger, moderation, disputes, audit, clock = () => new Date() });
+  trace({ messageId });                   // -> { messageId, steps: [{ at, source, type, actor, amountCents?, ref }], complete, missing }
+  byAccount({ accountId, limit = 20 });   // -> 该账号相关消息的追踪列表
+}
+```
+**判定（冻结）**：①`steps` 按 `at` 升序，同刻按固定优先级（`moderation < ledger < reply < dispute`）；②每条 step 必须带 `source`（`'moderation'|'ledger'|'dispute'|'audit'`）与 `type`；③**缺环不是隐藏而是显式**：`complete=false` 时 `missing` 列出缺失环节（例如"有 CHARGE 无审核记录"），这对复盘比"看起来完整"更重要；④追溯是**只读**，不触发任何状态迁移。
+
+---
+
+## 43. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1255,7 +1297,7 @@ export class ModerationService {
 
 ---
 
-## 42. 验证命令
+## 44. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1294,6 +1336,10 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.4 可观测性新增模块（§41–§42）
+node E:\GPT\agent-im\scripts\test.mjs --filter=metrics
+node E:\GPT\agent-im\scripts\test.mjs --filter=trace
 
 # v0.0.3 审核链新增模块（§40）
 node E:\GPT\agent-im\scripts\test.mjs --filter=moderation

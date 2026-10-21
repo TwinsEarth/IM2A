@@ -498,6 +498,71 @@ test('⑮ v0.0.3 审核链：待审不扣费 / 拒绝可申诉改判 / 审核是
   });
 });
 
+test('⑯ v0.0.4 可观测：漏斗指标 / 告警 / 全链追溯', async () => {
+  await withApp({ RATE_LIMIT_PER_MIN: '0', IM2AGENT_SMS_KIND: 'dev' }, async (app) => {
+    const base = app.urls[0];
+    const post = (pathname, body, token = null) =>
+      json(`${base}${pathname}`, {
+        method: 'POST',
+        headers: { ...(token === null ? {} : { authorization: `Bearer ${token}` }) },
+        body: JSON.stringify(body)
+      });
+    const getJson = (pathname) => json(`${base}${pathname}`);
+
+    const otp = await post('/api/account/otp', { phone: '13800000005' });
+    const registered = await post('/api/account/register', { phone: '13800000005', code: otp.body.devCode });
+    const token = registered.body.session.accessToken;
+    await post('/api/account/verify', { realName: '赵六', idNumber: '110101199004044567' }, token);
+    await post('/api/wallet/topup', { amountCents: 10000, idempotencyKey: 'topup-obs' }, token);
+
+    // 走一条完整链：FLAG → 人审通过 → 扣费 → 回复 → 争议 → 退款
+    const flagged = await post('/api/paid/send', { amountCents: 5000, messageId: 'obs-1', topic: '稳赚项目', summary: '内部消息' }, token);
+    assert.equal(flagged.status, 202);
+    await post('/api/moderation/review', { caseId: flagged.body.caseId, decision: 'APPROVE' });
+    assert.equal((await post('/api/paid/send', { amountCents: 5000, messageId: 'obs-1', topic: '稳赚项目', summary: '内部消息' }, token)).status, 200);
+    assert.equal((await post('/api/paid/reply', { messageId: 'obs-1' }, token)).status, 200);
+    const opened = await post('/api/dispute/open', { messageId: 'obs-1', reason: '服务未提供' }, token);
+    assert.equal(opened.status, 200);
+    const resolved = await post('/api/dispute/resolve', { disputeId: opened.body.dispute.id, decision: 'APPROVE' }, token);
+    assert.equal(resolved.status, 200);
+
+    // ① 指标：计数与漏斗（转化率必须是有限数，不是 NaN）
+    const metrics = await getJson('/api/ops/metrics');
+    assert.equal(metrics.status, 200);
+    const counters = metrics.body.counters;
+    assert.ok(counters.PAID_SENT >= 2, '两次发送尝试都计入');
+    assert.ok(counters.MODERATION_FLAG >= 1);
+    assert.ok(counters.MODERATION_APPROVE >= 1);
+    assert.ok(counters.CHARGE >= 1);
+    assert.ok(counters.REPLIED >= 1);
+    assert.ok(counters.REFUND >= 1);
+    for (const [stage, rate] of Object.entries(metrics.body.funnel.conversionRates)) {
+      assert.ok(Number.isFinite(rate), `漏斗 ${stage} 转化率必须是有限数（不得 NaN）`);
+    }
+
+    // ② 追溯：一条消息串起审核与资金链，且顺序正确
+    const trace = await getJson('/api/ops/trace?messageId=obs-1');
+    assert.equal(trace.status, 200);
+    const sources = new Set(trace.body.steps.map((step) => step.source));
+    assert.ok(sources.has('moderation'), '追溯应包含审核来源');
+    assert.ok(sources.has('ledger'), '追溯应包含账本来源');
+    assert.equal(trace.body.complete, true, '完整链应 complete=true');
+    const chargeIndex = trace.body.steps.findIndex((step) => step.type === 'CHARGE');
+    const refundIndex = trace.body.steps.findIndex((step) => step.type === 'REFUND');
+    assert.ok(chargeIndex >= 0 && refundIndex > chargeIndex, '退款必须晚于扣费');
+
+    // ③ 告警：制造 21 条待审积压 → 应触发 human-review-backlog
+    for (let index = 0; index < 21; index += 1) {
+      const caseRes = await post('/api/moderation/submit', { messageId: `obs-backlog-${index}`, content: '内部消息，加我微信' }, token);
+      assert.equal(caseRes.status, 200);
+    }
+    const alerts = await getJson('/api/ops/alerts');
+    assert.equal(alerts.status, 200);
+    assert.ok(alerts.body.gauges.humanReviewBacklog >= 21, '积压应被计数');
+    assert.ok(alerts.body.alerts.some((alert) => alert.id === 'human-review-backlog'), '积压越线必须告警');
+  });
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

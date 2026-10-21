@@ -38,6 +38,8 @@ import { OtpDelivery } from '../../services/account/src/otp-delivery.mjs';
 import { Wallet } from '../../services/payment/src/wallet.mjs';
 import { DisputeService } from '../../services/payment/src/dispute.mjs';
 import { ModerationService } from '../../services/moderation/src/moderation.mjs';
+import { Metrics, METRIC, evaluateAlerts } from '../../services/observability/src/metrics.mjs';
+import { AuditTrace } from '../../services/observability/src/trace.mjs';
 import { createWorld, decide, previewContext, recordAudit, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -137,6 +139,16 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   });
   /** messageId -> caseId：同一条消息重试时复用同一审核案（申诉改判后才能投递） */
   holder.moderationCases = new Map();
+
+  // v0.0.4：可观测性（指标/告警/全链追溯）——只读消费者，不改变任何业务状态
+  holder.metrics = new Metrics({ clock: () => new Date() });
+  holder.trace = new AuditTrace({
+    ledger: world.ledger,
+    moderation: holder.moderation,
+    disputes: holder.disputes,
+    audit: world.audit,
+    clock: () => new Date()
+  });
 
   const persist = () => {
     if (holder.store.kind === STORE_KIND.MEMORY) return;
@@ -422,8 +434,11 @@ async function route(req, res, holder, persist) {
   if (method === 'POST' && pathname === '/api/account/otp') {
     const body = await readJson(req);
     try {
-      sendJson(res, 200, { ok: true, ...holder.accounts.requestOtp({ phone: body.phone }) }, holder.rt);
+      const otp = holder.accounts.requestOtp({ phone: body.phone });
+      holder.metrics.inc(METRIC.OTP_SENT);
+      sendJson(res, 200, { ok: true, ...otp }, holder.rt);
     } catch (error) {
+      holder.metrics.inc(METRIC.OTP_FAILED);
       const code = error?.code ?? 'OTP_FAILED';
       // 投递层失败对用户是"稍后重试"，对运维是告警：429 冷却/额度、502 通道故障
       const status =
@@ -504,6 +519,7 @@ async function route(req, res, holder, persist) {
     }
     const amountCents = Number(body.amountCents ?? 5000);
     const messageId = body.messageId ?? `msg-paid-${randomUUID()}`;
+    holder.metrics.inc(METRIC.PAID_SENT);
 
     // v0.0.3 审核闸门：**扣费之前**必须先过审核；待审/被拒一律不扣费、不产生消息
     let moderationCaseId = holder.moderationCases.get(messageId) ?? null;
@@ -517,6 +533,9 @@ async function route(req, res, holder, persist) {
         });
         moderationCaseId = created.caseId;
         holder.moderationCases.set(messageId, moderationCaseId);
+        const verdictMetric =
+          created.verdict === 'PASS' ? METRIC.MODERATION_PASS : created.verdict === 'FLAG' ? METRIC.MODERATION_FLAG : METRIC.MODERATION_BLOCK;
+        holder.metrics.inc(verdictMetric);
       } catch (error) {
         sendJson(res, 400, { error: error?.code ?? 'MODERATION_FAILED', message: String(error?.message ?? error) }, holder.rt);
         return;
@@ -539,6 +558,7 @@ async function route(req, res, holder, persist) {
 
     try {
       const charge = holder.wallet.chargeForMessage({ userId: accountId, messageId, amountCents });
+      if (charge.duplicate !== true) holder.metrics.inc(METRIC.CHARGE);
       holder.world.state.messages.push({
         id: messageId,
         senderUserId: accountId,
@@ -571,6 +591,8 @@ async function route(req, res, holder, persist) {
       return;
     }
     message.state = 'REPLIED';
+    holder.metrics.inc(METRIC.VIEWED);
+    holder.metrics.inc(METRIC.REPLIED);
     persist();
     sendJson(res, 200, { ok: true, messageId: message.id, state: message.state }, holder.rt);
     return;
@@ -582,6 +604,7 @@ async function route(req, res, holder, persist) {
     const body = await readJson(req);
     try {
       const result = holder.wallet.refund({ userId: session.session.accountId, messageId: String(body.messageId ?? ''), reason: String(body.reason ?? '用户申请退款') });
+      if (result.duplicate !== true) holder.metrics.inc(METRIC.REFUND);
       persist();
       sendJson(res, 200, { ok: true, ...result, balance: holder.wallet.balance({ userId: session.session.accountId }) }, holder.rt);
     } catch (error) {
@@ -608,6 +631,7 @@ async function route(req, res, holder, persist) {
         reason: String(body.reason ?? ''),
         evidence: Array.isArray(body.evidence) ? body.evidence : []
       });
+      holder.metrics.inc(METRIC.DISPUTE_OPEN);
       persist();
       sendJson(res, 200, { ok: true, dispute }, holder.rt);
     } catch (error) {
@@ -628,6 +652,8 @@ async function route(req, res, holder, persist) {
         decision: String(body.decision ?? '').toUpperCase(),
         note: body.note ?? null
       });
+      holder.metrics.inc(dispute.state === 'APPROVED' ? METRIC.DISPUTE_APPROVE : METRIC.DISPUTE_REJECT);
+      if (dispute.state === 'APPROVED') holder.metrics.inc(METRIC.REFUND);
       persist();
       sendJson(res, 200, { ok: true, dispute, timeline: holder.disputes.timeline({ messageId: dispute.messageId }) }, holder.rt);
     } catch (error) {
@@ -676,6 +702,7 @@ async function route(req, res, holder, persist) {
         decision: String(body.decision ?? '').toUpperCase(),
         note: body.note ?? null
       });
+      holder.metrics.inc(moderationCase.state === 'APPROVED' ? METRIC.MODERATION_APPROVE : METRIC.MODERATION_REJECT);
       persist();
       sendJson(res, 200, { ok: true, case: moderationCase, deliverable: holder.moderation.canDeliver({ caseId: moderationCase.caseId }) }, holder.rt);
     } catch (error) {
@@ -727,6 +754,39 @@ async function route(req, res, holder, persist) {
   if (method === 'GET' && pathname === '/api/moderation') {
     if (!requireAccess(req, res, holder)) return;
     sendJson(res, 200, { cases: holder.moderation.list({}), stats: holder.moderation.stats() }, holder.rt);
+    return;
+  }
+
+  // ── v0.0.4 可观测性：指标 / 告警 / 全链追溯 ──
+  if (method === 'GET' && pathname === '/api/ops/metrics') {
+    if (!requireAccess(req, res, holder)) return;
+    sendJson(res, 200, holder.metrics.snapshot(), holder.rt);
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/ops/alerts') {
+    if (!requireAccess(req, res, holder)) return;
+    const snapshot = holder.metrics.snapshot();
+    const deliveryStats = holder.sms.delivery.stats();
+    const otpAttempts = (deliveryStats.sent ?? 0) + (deliveryStats.failed ?? 0);
+    const gauges = {
+      humanReviewBacklog: holder.moderation.list({ state: 'HUMAN_PENDING' }).length,
+      smsFailureRate: otpAttempts === 0 ? 0 : (deliveryStats.failed ?? 0) / otpAttempts,
+      reconcileMismatch: 0
+    };
+    const alerts = evaluateAlerts({ snapshot, gauges });
+    sendJson(res, 200, { alerts, gauges, generatedAt: new Date().toISOString() }, holder.rt);
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/ops/trace') {
+    if (!requireAccess(req, res, holder)) return;
+    const messageId = url.searchParams.get('messageId');
+    if (!messageId) {
+      sendJson(res, 400, { error: 'MESSAGE_ID_REQUIRED', hint: 'GET /api/ops/trace?messageId=<id>' }, holder.rt);
+      return;
+    }
+    sendJson(res, 200, holder.trace.trace({ messageId }), holder.rt);
     return;
   }
 
