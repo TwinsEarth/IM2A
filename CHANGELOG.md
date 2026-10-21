@@ -14,6 +14,20 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.1.1-fix — 2026-10-21
+
+**缺陷修复（0.1.x 只修缺陷、不加能力）**：
+
+- **缺陷一：旧数据升不上来**。v0.0.9 的 `state.json` 无 `schemaVersion`，v0.1.0 启动即 `SCHEMA_MISMATCH`，但没有迁移工具 → 升级即停服。
+  新增 `scripts/migrate-state.mjs --file <path> [--dry-run]`：先备份（sha256）→ tmp+rename 原子改写 → **用 `createWorld` 实际加载并核对五类数据条数** → 失败自动回滚 → `CURRENT` 幂等 / 未来 schema `UNSUPPORTED`；**服务启动时永不自动迁移**。
+- **缺陷二：§51 不变量⑤未实现**。契约写着"版本号与 git tag 必须一致"，但 `release-check` 没查。
+  新增 tag 三态检查：HEAD 有匹配 tag → PASS；无 tag → WARN（打 tag 后复跑）；有不匹配 tag → FAIL。
+- 版本三元组升级：`0.1.1 / R22 / schema 1`（`verify` 与测试改为动态读取，不再硬编码版本号）
+- 文档：`docs/31-v0.1.1-缺陷修复说明.md`（迁移操作手册、为什么必须停写、tag 检查三态）
+- 契约：R22
+
+**验收**：migrate **6/6**；全量 **729/729**；verify **122/122**。发布前 `release-check` 因 HEAD 仍指 `v0.1.0-rc` 而 tag 检查 WARN——打 `v0.1.1-fix` 后复跑转 PASS（这正是检查生效的证明）。
+
 ## v0.1.0-rc — 2026-10-21
 
 **内测发布候选（RC）**：不再加业务功能，只做发布工程——版本契约、schema 闸门、一键发布检查。

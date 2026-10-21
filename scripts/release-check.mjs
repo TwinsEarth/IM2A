@@ -9,8 +9,10 @@
  * 用法：node scripts/release-check.mjs [--report <path>]
  */
 import path from 'node:path';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import * as fsSync from 'node:fs';
 
 import { VERSION, CONTRACT_REVISION, SCHEMA_VERSION } from '../apps/im2agent/version.mjs';
 import { startServer } from '../apps/im2agent/server.mjs';
@@ -75,6 +77,51 @@ async function runAcceptanceInProcess() {
   }
 }
 
+/**
+ * v0.1.1 缺陷修复：§51 不变量⑤「版本号与 git tag 必须一致」原先只有文字、没有检查。
+ * 用文件描述符重定向 git 输出（沙箱下捕获管道不可用），无法取到时降级为 WARN 而**不误判通过**。
+ */
+function checkVersionTag() {
+  const started = Date.now();
+  const { openSync, closeSync, readFileSync, unlinkSync } = fsSync;
+  const tmp = path.join(os.tmpdir(), `im2a-tags-${process.pid}.txt`);
+  let tags = null;
+  try {
+    const fd = openSync(tmp, 'w');
+    const result = spawnSync('git', ['tag', '--points-at', 'HEAD'], { stdio: ['ignore', fd, 'ignore'], cwd: process.cwd() });
+    closeSync(fd);
+    if (result.status === 0) {
+      tags = readFileSync(tmp, 'utf8').split('\n').map((line) => line.trim()).filter(Boolean);
+    }
+  } catch {
+    tags = null;
+  } finally {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      // 忽略清理失败
+    }
+  }
+
+  const ms = Date.now() - started;
+  const expected = `v${VERSION}`;
+  let ok = true;
+  let detail;
+  if (tags === null) {
+    detail = 'git 不可用，跳过 tag 检查（**需人工核对** HEAD 上的 tag 与 VERSION）';
+  } else if (tags.some((tag) => tag === expected || tag.startsWith(`${expected}-`))) {
+    detail = `HEAD 有匹配 tag：${tags.join(', ')}`;
+  } else if (tags.length === 0) {
+    detail = `HEAD 暂无 tag（发布时创建 ${expected} 后需复跑本检查）`;
+  } else {
+    ok = false;
+    detail = `HEAD tag 与 VERSION(${VERSION}) 不一致：${tags.join(', ')}`;
+  }
+  steps.push({ name: '版本 ↔ tag 一致性', command: 'git tag --points-at HEAD', ok, ms, status: ok ? 0 : 1, detail });
+  console.log(`${ok ? '✔' : '△'} 版本 ↔ tag 一致性  ${ms}ms  ${detail}`);
+  return ok;
+}
+
 console.log(`\n发布检查 · version ${VERSION} · contract ${CONTRACT_REVISION} · schema ${SCHEMA_VERSION}\n${'─'.repeat(56)}`);
 
 const results = [];
@@ -83,6 +130,7 @@ results.push(runStep('一致性验收', process.execPath, ['scripts/verify.mjs']
 results.push(runStep('自检 quickstart', process.execPath, ['scripts/quickstart.mjs', '--check']));
 results.push(runStep('部署产物检查', process.execPath, ['scripts/deploy-lint.mjs']));
 results.push(await runAcceptanceInProcess());
+results.push(checkVersionTag());
 
 const ok = results.every(Boolean);
 const finishedAt = new Date();

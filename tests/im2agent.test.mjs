@@ -706,15 +706,16 @@ test('⑲ v0.1.0 版本契约与数据 schema 闸门', async () => {
   assert.throws(() => createWorld({ restored: { ...snapshot, schemaVersion: undefined } }), /SCHEMA_MISMATCH|schema/);
 
   await withApp({ RATE_LIMIT_PER_MIN: '0' }, async (app) => {
+    const { VERSION, CONTRACT_REVISION } = await import('../apps/im2agent/version.mjs');
     const version = await json(`${app.urls[0]}/api/version`);
     assert.equal(version.status, 200);
-    assert.equal(version.body.version, '0.1.0');
-    assert.equal(version.body.contractRevision, 'R21');
+    assert.equal(version.body.version, VERSION);
+    assert.equal(version.body.contractRevision, CONTRACT_REVISION);
     assert.equal(version.body.schemaVersion, SCHEMA_VERSION);
     assert.ok(version.body.capabilities >= 10, '能力清单应列出对外能力数');
 
     const health = await json(`${app.urls[0]}/api/health`);
-    assert.equal(health.body.version, '0.1.0');
+    assert.equal(health.body.version, VERSION);
     assert.equal(health.body.schemaVersion, SCHEMA_VERSION);
   });
 });
