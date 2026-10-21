@@ -1,4 +1,4 @@
-﻿# 冻结接口契约 v1.0（FROZEN CONTRACT）
+# 冻结接口契约 v1.0（FROZEN CONTRACT）
 
 > 本文件是**唯一**的模块级契约来源。所有实现必须与本文签名、错误码、状态机逐字一致。
 > 修改本文件需要 Lead 明确授权；实现方**不得**擅自改变签名或状态名。
@@ -20,6 +20,7 @@
 | R8 | 2026-10-21 | **v5 增补「可信传达」机制**：§26 签名信封 + 重放保护 + TOFU（Beacon）、§27 第三人称转达（Pisces/Convia，禁止冒充人类）、§28 确认层不可被 planner 预批准（ZLAgent）；原 §26→§29 禁止事项、§21→§30 验证命令 | 加法（v1–v4 语义全保留） |
 | R9 | 2026-10-21 | **v6 增补「持久与委托」机制**：§29 Agent 持久邮箱（Greft，修补 TurnInbox 重启丢失的已知缺陷）、§30 带衰减的委托（AGORA：scope 子集 / 时限不长于父 / 信任上限不放宽 / 跳数受限 / 撤销级联）；原 §29→§31 禁止事项、§30→§32 验证命令 | 加法（v1–v5 语义全保留） |
 | R10 | 2026-10-21 | **v7 增补「可替换底座」机制**：§31 IM 渠道适配层（AstrBot 统一 MessageEvent + 能力声明，使 PaaS 与自托管内核可切换、能力缺口显式暴露）、§32 陌生 Agent 通信的人类审批挂起（agentcomms/masumi）；**记录架构决策反转**：IM 底座 Phase0–1 回到 PaaS + 适配层（原 v2 自托管内核降为 Phase2 备选，见 docs/02 §19 与 docs/17）；原 §31→§33 禁止事项、§32→§34 验证命令 | 加法 + 一项决策反转（见文档） |
+| R14 | 2026-10-21 | **v0.0.3 审核链增补**：§40 付费消息审核（机审 PASS/FLAG/BLOCK + 人审队列 + 申诉改判；机审不可用 fail-closed；只有 APPROVED/APPEAL_GRANTED 可投递与扣费；审核状态机与 §4 审批引擎分离）；原 §40→§41 禁止事项、§41→§42 验证命令 | 加法（v1–v0.0.2 语义全保留） |
 | R13 | 2026-10-21 | **v0.0.2 内测就绪增补**：§38 短信通道与 OTP 投递（60s 冷却 / 日上限 / 投递失败不静默 / 验证码永不离开 AccountService）、§39 退款争议与时间线（已回复争议走人工，批准后只能经账本 efund-dispute:<id> 幂等退款，不得绕过窗口改余额）；原 §38→§40 禁止事项、§39→§41 验证命令 | 加法（v1–v0.0.1 语义全保留） |
 | R12 | 2026-10-21 | **v0.0.1 产品版增补「可付费准入」**：§36 账户/手机号登录/实名（idNumber 只存 hash 与尾号掩码，未实名不得收发付费消息）、§37 钱包（充值/扣费/退款幂等·禁止先扣后退·日发送上限）；原 §36→§38 禁止事项、§37→§39 验证命令 | 加法（v1–v8 语义全保留） |
 | R11 | 2026-10-21 | **v8 增补「Context 主权」机制**：§33 Person-scoped Runtime（PERSONAL/TASK/WORKING 三层 + 可迁移 snapshot + Secret 拒绝入层）、§34 确认锁定 Context（Agent 只能 propose，人确认才 LOCKED，冲突上抛不覆写）、§35 PACT 式 scoped 授权 + 签名回执（付费只解锁 scope、不扩权）；原 §33→§36 禁止事项、§34→§37 验证命令 | 加法（v1–v7 语义全保留） |
@@ -1204,7 +1205,43 @@ export class DisputeService {
 
 ---
 
-## 40. 禁止事项（对所有实现者）
+## 40. `services/moderation/src/moderation.mjs`（v0.0.3 新增）
+
+**职责**：**付费消息的审核链**。付费消息在"扣费/投递"之前必须先过审核；机器可自动拦，拿不准的转人审，被拒的可申诉。审核结论与规则/模型版本一起进审计，**审核状态机与 `§4 审批引擎` 分属两套，不复用 ticket 状态**。
+
+```js
+export const MODERATION_STATE = Object.freeze({
+  RECEIVED: 'RECEIVED', MACHINE_PASSED: 'MACHINE_PASSED', HUMAN_PENDING: 'HUMAN_PENDING',
+  APPROVED: 'APPROVED', REJECTED: 'REJECTED', APPEALED: 'APPEALED',
+  APPEAL_GRANTED: 'APPEAL_GRANTED', APPEAL_UPHELD: 'APPEAL_UPHELD'
+});
+export const VERDICT = Object.freeze({ PASS: 'PASS', FLAG: 'FLAG', BLOCK: 'BLOCK' });
+export const MODERATION_CODE = Object.freeze({
+  NOT_FOUND: 'NOT_FOUND', ILLEGAL_STATE: 'ILLEGAL_STATE', ALREADY_DECIDED: 'ALREADY_DECIDED',
+  FORBIDDEN: 'FORBIDDEN', SELF_REVIEW_FORBIDDEN: 'SELF_REVIEW_FORBIDDEN',
+  MACHINE_UNAVAILABLE: 'MACHINE_UNAVAILABLE', APPEAL_WINDOW_CLOSED: 'APPEAL_WINDOW_CLOSED', CONTENT_REQUIRED: 'CONTENT_REQUIRED'
+});
+export class ModerationError extends Error {}
+
+export class ModerationService {
+  constructor({ clock = () => new Date(), machine = null, onAudit = () => {}, appealWindowMs = 7 * 24 * 3600e3 });
+  submit({ messageId, senderUserId, content, channel = 'PAID_MESSAGE' });   // -> 冻结 case
+  review({ caseId, actorUserId, decision, note = null });                     // 'APPROVE' | 'REJECT'
+  appeal({ caseId, userId, reason });                                          // 仅 senderUserId，且状态 REJECTED/APPEAL_UPHELD
+  resolveAppeal({ caseId, actorUserId, decision, note = null });               // 'GRANT' | 'UPHOLD'；不得与原审核人相同
+  canDeliver({ caseId });                                                      // -> { ok, code }
+  get(caseId); list({ state = null } = {}); stats();
+}
+```
+**判定（冻结）**：`machine({messageId, content, senderUserId})` 返回 `{ verdict, ruleVersion, modelVersion, hits[] }`。
+①`PASS` → `APPROVED`（自动通过也必须记录 rule/model 版本）；②`FLAG` → `HUMAN_PENDING`；③`BLOCK` → `REJECTED`（可申诉）；
+④**机审不可用/抛错 → `HUMAN_PENDING`（fail-closed），绝不自动放行**；⑤`review` 仅对 `HUMAN_PENDING`，重复 → `ILLEGAL_STATE`；
+⑥`appeal` 只能由发送者本人、仅对 `REJECTED`/`APPEAL_UPHELD` 且在窗口内；⑦`resolveAppeal` 的审核人不得与原审核人相同（`SELF_REVIEW_FORBIDDEN`）；
+⑧**只有 `APPROVED`/`APPEAL_GRANTED` 允许投递与扣费**（`canDeliver` 为唯一判定）；⑨每次迁移写审计（含 `caseId/messageId/ruleVersion/modelVersion/actor/decision`）。
+
+---
+
+## 41. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -1218,7 +1255,7 @@ export class DisputeService {
 
 ---
 
-## 41. 验证命令
+## 42. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -1257,6 +1294,9 @@ node E:\GPT\agent-im\scripts\test.mjs --filter=delegation
 # v7 新增模块（§31–§32）
 node E:\GPT\agent-im\scripts\test.mjs --filter=im-adapter
 node E:\GPT\agent-im\scripts\test.mjs --filter=agent-correspondence
+
+# v0.0.3 审核链新增模块（§40）
+node E:\GPT\agent-im\scripts\test.mjs --filter=moderation
 
 # v0.0.2 内测就绪新增模块（§38–§39）
 node E:\GPT\agent-im\scripts\test.mjs --filter=sms-provider

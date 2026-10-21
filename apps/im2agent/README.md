@@ -66,6 +66,11 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 | POST | `/api/dispute/open` | `Bearer` | 已回复/已结算才可开；未回复 → 409 `NOT_ELIGIBLE` |
 | POST | `/api/dispute/resolve` | `Bearer` | 属主 APPROVE/REJECT；批准后经账本 `refund-dispute:<id>` 幂等退款 |
 | GET | `/api/dispute/timeline` | `Bearer` | `?messageId=` 还原 CHARGE→…→REFUND 举证时间线 |
+| POST | `/api/moderation/submit` | `Bearer` | 提交审核（机审立即分流：PASS/FLAG/BLOCK） |
+| POST | `/api/moderation/review` | `x-admin-token` | 人审：仅 `HUMAN_PENDING` 可裁决（原审核人不得复审申诉） |
+| POST | `/api/moderation/appeal` | `Bearer` | 发送者本人对 `REJECTED`/`APPEAL_UPHELD` 申诉 |
+| POST | `/api/moderation/appeal/resolve` | `x-admin-token` | 改判 `GRANT`/`UPHOLD`；改判后才可投递与扣费 |
+| GET | `/api/moderation` | `x-admin-token` | 审核案列表 + 统计（byState / machineUnavailable） |
 
 > v0.0.1 产品版的完整范围与 8 条验收 Gate 见 [docs/21](../../docs/21-v0.0.1-产品版范围与验收.md)。
 > 验收矩阵见 [QA.md](./QA.md)；Go 目录/结构体/函数映射见 [PORTING-TO-GO.md](./PORTING-TO-GO.md)；

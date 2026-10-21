@@ -36,6 +36,11 @@
 | 30 | **投递失败不静默** | vendor 失败/超时 → `OTP_DELIVERY_FAILED`/`SMS_*`，502；且挑战回滚（防"收不到码却报 OTP_INVALID"） | ✅ | otp-delivery 13 项 + 测试 ⑭ |
 | 31 | **验证码不落日志** | dev/log/vendor 的日志、错误、审计均无 code 明文 | ✅ | sms-provider 10 项 |
 | 32 | **已回复争议只能人工** | 未回复 → `NOT_ELIGIBLE`；已回复 APPROVE → 账本恰一条 `refund-dispute:<id>`；重放 409 不增加退款 | ✅ | 测试 ⑭ + dispute 14 项 |
+| 33 | **机审通过才放行** | `PASS` → `APPROVED` 且记录 rule/model 版本 | ✅ | moderation 17 项 |
+| 34 | **待审/被拒不扣费** | `FLAG` → 202 `HUMAN_PENDING`、`BLOCK` → 403 `REJECTED`，余额不变、无消息 | ✅ | 测试 ⑮ |
+| 35 | **审核是唯一前置** | 所有付费入口先过 `canDeliver`；申诉改判后才可投递并扣费 | ✅ | 测试 ⑮ + docs/23 警告（老路径先扣费则整链失效） |
+| 36 | **机审异常 fail-closed** | machine 抛错/null/非法 verdict → `HUMAN_PENDING`，绝不自动放行 | ✅ | moderation 17 项 |
+| 37 | **不能自审** | 原审核人复核自己的案子 → `SELF_REVIEW_FORBIDDEN` | ✅ | moderation 17 项 |
 
 ## 本地一键回归
 

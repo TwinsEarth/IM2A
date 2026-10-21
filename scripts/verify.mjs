@@ -628,6 +628,47 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 19. v0.0.3 审核链交付完整性 ─────────────────────────
+{
+  const v003Modules = [['services/moderation/src/moderation.mjs', 'services/moderation/test/moderation.test.mjs']];
+  const missing = [];
+  for (const [impl, test] of v003Modules) {
+    if (!(await exists(path.join(ROOT, impl)))) missing.push(impl);
+    if (!(await exists(path.join(ROOT, test)))) missing.push(test);
+  }
+  record(`v0.0.3 审核模块与测试齐备（${v003Modules.length} 组）`, missing.length === 0, missing.join('; '));
+
+  const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+  const srcText = (
+    await Promise.all(
+      (await walk(path.join(ROOT, 'services'), [], (f) => f.endsWith('.mjs') && !rel(f).includes('/test/'))).map(read)
+    )
+  ).join('\n');
+  const v003Codes = ['HUMAN_PENDING', 'SELF_REVIEW_FORBIDDEN', 'APPEAL_WINDOW_CLOSED', 'CONTENT_REQUIRED', 'APPEAL_GRANTED'];
+  const missingCodes = v003Codes.filter((code) => !contract.includes(code) || !srcText.includes(`'${code}'`));
+  record(`v0.0.3 关键错误码/状态契约↔实现一致（${v003Codes.length} 个）`, missingCodes.length === 0, missingCodes.join(', '));
+
+  record('契约含 v0.0.3 §40 审核链', contract.includes('## 40. `services/moderation/src/moderation.mjs`'), '缺 §40');
+  record('v0.0.3 明确 fail-closed 原则', contract.includes('fail-closed'), '缺 fail-closed 表述');
+
+  const moderationSrc = await exists(path.join(ROOT, 'services/moderation/src/moderation.mjs'))
+    ? await read(path.join(ROOT, 'services/moderation/src/moderation.mjs'))
+    : '';
+  record('审核模块对机审异常做了 fail-closed 处理', /HUMAN_PENDING/.test(moderationSrc) && /catch|machineUnavailable/.test(moderationSrc), '未发现 fail-closed 分支');
+
+  const doc23 = path.join(ROOT, 'docs/23-v0.0.3-审核链.md');
+  if (await exists(doc23)) {
+    const t23 = await read(doc23);
+    const required = ['机审', '人审', '申诉'];
+    const missingKeywords = required.filter((word) => !t23.includes(word));
+    const failClosed = t23.includes('fail-closed') || t23.includes('fail closed') || t23.includes('fail–closed');
+    record('docs/23 覆盖审核链与申诉', missingKeywords.length === 0, missingKeywords.join(', '));
+    record('docs/23 明确 fail-closed 原则', failClosed, '缺 fail-closed 表述');
+  } else {
+    record('docs/23 v0.0.3 审核链文档存在', false, '缺文件');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);

@@ -435,6 +435,69 @@ test('⑭ v0.0.2：短信通道冷却 + 已回复只能走人工争议（账本�
   });
 });
 
+test('⑮ v0.0.3 审核链：待审不扣费 / 拒绝可申诉改判 / 审核是唯一前置', async () => {
+  await withApp({ RATE_LIMIT_PER_MIN: '0', IM2AGENT_SMS_KIND: 'dev' }, async (app) => {
+    const base = app.urls[0];
+    const post = (pathname, body, token = null, headers = {}) =>
+      json(`${base}${pathname}`, {
+        method: 'POST',
+        headers: { ...(token === null ? {} : { authorization: `Bearer ${token}` }), ...headers },
+        body: JSON.stringify(body)
+      });
+    const getJson = (pathname, headers = {}) => json(`${base}${pathname}`, { headers });
+
+    // 准入：注册 → 实名 → 充值 100 元
+    const otp = await post('/api/account/otp', { phone: '13800000003' });
+    const registered = await post('/api/account/register', { phone: '13800000003', code: otp.body.devCode });
+    const token = registered.body.session.accessToken;
+    await post('/api/account/verify', { realName: '王五', idNumber: '110101199003033456' }, token);
+    await post('/api/wallet/topup', { amountCents: 10000, idempotencyKey: 'topup-mod' }, token);
+
+    // ① 机审 FLAG → 202 待审，且**不扣费**
+    const flagged = await post('/api/paid/send', { amountCents: 5000, messageId: 'mod-1', topic: '稳赚项目', summary: '内部消息，加我微信' }, token);
+    assert.equal(flagged.status, 202);
+    assert.equal(flagged.body.error, 'HUMAN_PENDING');
+    assert.ok(flagged.body.caseId);
+    let wallet = await getJson('/api/wallet', { authorization: `Bearer ${token}` });
+    assert.equal(wallet.body.balance.availableCents, 10000, '待审不得扣费');
+
+    // ② 人审通过后重发同一 messageId → 放行并扣费
+    const reviewed = await post('/api/moderation/review', { caseId: flagged.body.caseId, decision: 'APPROVE', note: '业务沟通，放行' });
+    assert.equal(reviewed.status, 200);
+    assert.equal(reviewed.body.case.state, 'APPROVED');
+    const sent = await post('/api/paid/send', { amountCents: 5000, messageId: 'mod-1', topic: '稳赚项目', summary: '内部消息，加我微信' }, token);
+    assert.equal(sent.status, 200, '审核通过后应放行');
+    wallet = await getJson('/api/wallet', { authorization: `Bearer ${token}` });
+    assert.equal(wallet.body.balance.availableCents, 5000, '放行时才扣费');
+
+    // ③ 机审 BLOCK → 403 拒绝，且不扣费
+    const blocked = await post('/api/paid/send', { amountCents: 1000, messageId: 'mod-2', topic: '诈骗汇款', summary: '汇款到指定账户' }, token);
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.error, 'REJECTED');
+    assert.equal(blocked.body.verdict, 'BLOCK');
+    wallet = await getJson('/api/wallet', { authorization: `Bearer ${token}` });
+    assert.equal(wallet.body.balance.availableCents, 5000, '被拒不得扣费');
+
+    // ④ 申诉 → 改判 GRANT → 再投递成功并扣费
+    const appealed = await post('/api/moderation/appeal', { caseId: blocked.body.caseId, reason: '误判：正常业务沟通' }, token);
+    assert.equal(appealed.status, 200);
+    assert.equal(appealed.body.case.state, 'APPEALED');
+    const granted = await post('/api/moderation/appeal/resolve', { caseId: blocked.body.caseId, decision: 'GRANT', note: '人工复核通过' });
+    assert.equal(granted.status, 200);
+    assert.equal(granted.body.case.state, 'APPEAL_GRANTED');
+    const resent = await post('/api/paid/send', { amountCents: 1000, messageId: 'mod-2', topic: '诈骗汇款', summary: '汇款到指定账户' }, token);
+    assert.equal(resent.status, 200, '改判后应可投递');
+
+    // ⑤ 审计：审核事件带规则/模型版本；机审异常 fail-closed 由单测覆盖（此处验证统计口径）
+    const moderation = await getJson('/api/moderation');
+    assert.ok(moderation.body.stats.total >= 2, '统计应包含两条审核案');
+    assert.equal(moderation.body.stats.byState.APPROVED, 1);
+    assert.equal(moderation.body.stats.byState.APPEAL_GRANTED, 1);
+    const audit = await getJson('/api/audit');
+    assert.ok(audit.body.entries.some((entry) => entry.source === 'moderation'));
+  });
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

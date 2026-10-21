@@ -37,6 +37,7 @@ import { createSmsProvider } from '../../services/account/src/sms-provider.mjs';
 import { OtpDelivery } from '../../services/account/src/otp-delivery.mjs';
 import { Wallet } from '../../services/payment/src/wallet.mjs';
 import { DisputeService } from '../../services/payment/src/dispute.mjs';
+import { ModerationService } from '../../services/moderation/src/moderation.mjs';
 import { createWorld, decide, previewContext, recordAudit, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -119,6 +120,23 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
     messageState: (messageId) => holder.world.state.messages.find((m) => m.id === messageId)?.state ?? null,
     onAudit: (event) => recordAudit(holder.world, { source: 'dispute', action: 'DISPUTE_EVENT', actor: event?.actor ?? null, decision: event?.type ?? null, detail: event })
   });
+
+  // v0.0.3：审核链（dev 机审 = 关键词规则；真实接入时替换 machine 即可，接口不变）
+  const moderationMachine = ({ content }) => {
+    const text = String(content ?? '');
+    const ruleVersion = 'rule-v1';
+    const modelVersion = 'dev-keyword-v1';
+    if (/诈骗|赌博|裸聊|洗钱|验证码给我|汇款到/.test(text)) return { verdict: 'BLOCK', ruleVersion, modelVersion, hits: ['blocked_keyword'] };
+    if (/稳赚|内部消息|加我微信|私下转账|高回报/.test(text)) return { verdict: 'FLAG', ruleVersion, modelVersion, hits: ['flagged_keyword'] };
+    return { verdict: 'PASS', ruleVersion, modelVersion, hits: [] };
+  };
+  holder.moderation = new ModerationService({
+    clock: () => new Date(),
+    machine: moderationMachine,
+    onAudit: (event) => recordAudit(holder.world, { source: 'moderation', action: 'MODERATION_EVENT', actor: event?.actor ?? null, decision: event?.to ?? null, detail: event })
+  });
+  /** messageId -> caseId：同一条消息重试时复用同一审核案（申诉改判后才能投递） */
+  holder.moderationCases = new Map();
 
   const persist = () => {
     if (holder.store.kind === STORE_KIND.MEMORY) return;
@@ -486,6 +504,39 @@ async function route(req, res, holder, persist) {
     }
     const amountCents = Number(body.amountCents ?? 5000);
     const messageId = body.messageId ?? `msg-paid-${randomUUID()}`;
+
+    // v0.0.3 审核闸门：**扣费之前**必须先过审核；待审/被拒一律不扣费、不产生消息
+    let moderationCaseId = holder.moderationCases.get(messageId) ?? null;
+    if (moderationCaseId === null) {
+      try {
+        const created = holder.moderation.submit({
+          messageId,
+          senderUserId: accountId,
+          content: `${body.topic ?? '付费消息'} ${body.summary ?? ''}`.trim() || '（无正文）',
+          channel: 'PAID_MESSAGE'
+        });
+        moderationCaseId = created.caseId;
+        holder.moderationCases.set(messageId, moderationCaseId);
+      } catch (error) {
+        sendJson(res, 400, { error: error?.code ?? 'MODERATION_FAILED', message: String(error?.message ?? error) }, holder.rt);
+        return;
+      }
+    }
+    const deliverable = holder.moderation.canDeliver({ caseId: moderationCaseId });
+    if (!deliverable.ok) {
+      const moderationCase = holder.moderation.get(moderationCaseId);
+      persist();
+      // HUMAN_PENDING → 202（等审核）；REJECTED/APPEAL_UPHELD → 403（可申诉）
+      const status = moderationCase.state === 'HUMAN_PENDING' ? 202 : 403;
+      sendJson(res, status, {
+        error: moderationCase.state,
+        caseId: moderationCaseId,
+        verdict: moderationCase.verdict,
+        hint: status === 202 ? '已进入人审队列，审核通过前不扣费' : '审核未通过；可申诉，改判后才可投递与扣费'
+      }, holder.rt);
+      return;
+    }
+
     try {
       const charge = holder.wallet.chargeForMessage({ userId: accountId, messageId, amountCents });
       holder.world.state.messages.push({
@@ -591,6 +642,91 @@ async function route(req, res, holder, persist) {
     if (session === null) return;
     const messageId = url.searchParams.get('messageId') ?? '';
     sendJson(res, 200, { messageId, timeline: holder.disputes.timeline({ messageId }), disputes: holder.disputes.list({}) }, holder.rt);
+    return;
+  }
+
+  // ── v0.0.3 审核链（机审 → 人审 → 申诉）──
+  if (method === 'POST' && pathname === '/api/moderation/submit') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const moderationCase = holder.moderation.submit({
+        messageId: String(body.messageId ?? `msg-manual-${randomUUID()}`),
+        senderUserId: session.session.accountId,
+        content: String(body.content ?? '')
+      });
+      holder.moderationCases.set(moderationCase.messageId, moderationCase.caseId);
+      persist();
+      sendJson(res, 200, { ok: true, case: moderationCase, deliverable: holder.moderation.canDeliver({ caseId: moderationCase.caseId }) }, holder.rt);
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'MODERATION_FAILED', message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/moderation/review') {
+    const role = requireAccess(req, res, holder, { write: true });
+    if (!role) return;
+    const body = await readJson(req);
+    try {
+      const moderationCase = holder.moderation.review({
+        caseId: String(body.caseId ?? ''),
+        actorUserId: `operator-${role}`,
+        decision: String(body.decision ?? '').toUpperCase(),
+        note: body.note ?? null
+      });
+      persist();
+      sendJson(res, 200, { ok: true, case: moderationCase, deliverable: holder.moderation.canDeliver({ caseId: moderationCase.caseId }) }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'REVIEW_FAILED';
+      sendJson(res, code === 'NOT_FOUND' ? 404 : 409, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/moderation/appeal') {
+    const session = requireSession(req, res, holder);
+    if (session === null) return;
+    const body = await readJson(req);
+    try {
+      const moderationCase = holder.moderation.appeal({
+        caseId: String(body.caseId ?? ''),
+        userId: session.session.accountId,
+        reason: String(body.reason ?? '')
+      });
+      persist();
+      sendJson(res, 200, { ok: true, case: moderationCase }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'APPEAL_FAILED';
+      sendJson(res, code === 'NOT_FOUND' ? 404 : code === 'FORBIDDEN' ? 403 : 409, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/moderation/appeal/resolve') {
+    const role = requireAccess(req, res, holder, { write: true });
+    if (!role) return;
+    const body = await readJson(req);
+    try {
+      const moderationCase = holder.moderation.resolveAppeal({
+        caseId: String(body.caseId ?? ''),
+        actorUserId: `appeal-reviewer-${role}`,
+        decision: String(body.decision ?? '').toUpperCase(),
+        note: body.note ?? null
+      });
+      persist();
+      sendJson(res, 200, { ok: true, case: moderationCase, deliverable: holder.moderation.canDeliver({ caseId: moderationCase.caseId }) }, holder.rt);
+    } catch (error) {
+      const code = error?.code ?? 'APPEAL_RESOLVE_FAILED';
+      sendJson(res, code === 'NOT_FOUND' ? 404 : 409, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/moderation') {
+    if (!requireAccess(req, res, holder)) return;
+    sendJson(res, 200, { cases: holder.moderation.list({}), stats: holder.moderation.stats() }, holder.rt);
     return;
   }
 

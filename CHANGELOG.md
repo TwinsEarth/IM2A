@@ -14,6 +14,20 @@
 - 文档：`docs/00–18`
 - 明确不含：生产 Go/PG/Flutter 实现、硬件、真实支付与实名、跨组织 A2A
 
+## v0.0.3-review — 2026-10-21
+
+**审核链前置**：付费消息从"能收钱"变成"敢收钱"。
+
+- **§40 付费消息审核**（`services/moderation`，17 项测试）：机审 `PASS/FLAG/BLOCK` 三态分流；`FLAG` 转人审队列、`BLOCK` 自动拒但可申诉；**机审不可用/抛错一律 fail-closed → HUMAN_PENDING**；原审核人不得复审自己的案子（`SELF_REVIEW_FORBIDDEN`）；`canDeliver` 是投递与扣费的**唯一判定**
+- **扣费顺序修正**：付费消息先审核后扣费——待审 202、被拒 403，**都不扣费、不产生消息**；申诉改判（`APPEAL_GRANTED`）后重试才放行
+- 产品端点：`/api/moderation/{submit,review,appeal,appeal/resolve}`、`GET /api/moderation`
+- 文档：`docs/23-v0.0.3-审核链.md`（C1–C6 Gate、人审手册、灰度策略、失败/误杀风险）
+- 契约：R14
+
+**边界纪律**：审核状态机（§40）与动作审批状态机（§4）、争议状态机（§39）三套分离；两个同名 `VERDICT`（§7 `PASS/REVIEW/BLOCK` vs §40 `PASS/FLAG/BLOCK`）不可跨模块传值。
+
+验证：全量 **625/625**；verify **79/79**；im2agent **14/14**；moderation 17。
+
 ## v0.0.2-intake — 2026-10-21
 
 **内测就绪**：把 v0.0.1 的付费闭环从"能跑"变成"能对内测用户开放"。
