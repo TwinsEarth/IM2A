@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>im2agent · 运维控制台</title>
+<style>
+  :root{--bg:#080c11;--panel:#111823;--panel2:#16202e;--line:#22303f;--text:#e6edf6;--muted:#8b9bb0;--accent:#4da3ff;--ok:#34d399;--warn:#fbbf24;--bad:#f87171}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:13.5px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:9;display:flex;gap:14px;align-items:center;padding:12px 20px;background:rgba(8,12,17,.94);border-bottom:1px solid var(--line)}
+  .brand{font-weight:700}
+  .brand span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+  .spacer{margin-left:auto}
+  input,button{font:inherit}
+  input{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:6px 10px;border-radius:7px;font-size:12.5px}
+  button{cursor:pointer;background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:6px 12px;border-radius:7px;font-size:12.5px}
+  button:hover{border-color:var(--accent)}
+  button.ok{background:var(--ok);color:#04120c;border-color:var(--ok);font-weight:600}
+  button.bad{color:var(--bad);border-color:#4a1d1d}
+  main{max-width:1320px;margin:0 auto;padding:18px 20px 70px}
+  .grid{display:grid;gap:14px;grid-template-columns:1fr 1fr}
+  @media(max-width:1000px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h3{margin:0 0 4px;font-size:13.5px}
+  .card h3 .hint{color:var(--muted);font-weight:400;font-size:11.5px;margin-left:8px}
+  .card .sub{color:var(--muted);font-size:11.5px;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:5px 7px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:500;white-space:nowrap}
+  .mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:#a8c0da}
+  .tag{font-size:10.5px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .tag.ok{color:var(--ok);border-color:#1c4637}
+  .tag.warn{color:var(--warn);border-color:#4a3a12}
+  .tag.bad{color:var(--bad);border-color:#4a1d1d}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .note{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12px;color:#cfe0f2}
+  .note.bad{border-color:#4a1d1d;color:#ffb4b4}
+  pre{white-space:pre-wrap;word-break:break-word;font-size:11.5px;color:#cfe0f2;margin:6px 0 0}
+  .kv{display:grid;grid-template-columns:96px 1fr;gap:4px 10px;font-size:12px}
+  .kv dt{color:var(--muted)} .kv dd{margin:0}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">im2agent<span>运维控制台 · Agent 注册表 / 审批流 / 付费账本 / 审计流</span></div>
+  <div class="spacer"></div>
+  <input id="token" type="password" placeholder="ADMIN_TOKEN" style="width:200px" />
+  <button id="save">应用令牌</button>
+  <button id="refresh">刷新</button>
+</header>
+
+<main>
+  <div class="card" style="margin-bottom:14px">
+    <h3>运行概览<span class="hint">形态 / 存储 / 审计链 / LLM 三档</span></h3>
+    <div id="overview" class="sub">加载中…</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Agent 注册表<span class="hint">谁在替谁做事</span></h3>
+      <div id="agents"></div>
+    </div>
+    <div class="card">
+      <h3>审批流<span class="hint">人的唯一落点</span></h3>
+      <div id="tickets"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card">
+      <h3>付费账本<span class="hint">幂等键 pay:&lt;msgId&gt;</span></h3>
+      <div id="ledger"></div>
+    </div>
+    <div class="card">
+      <h3>审计流<span class="hint">哈希链可验</span></h3>
+      <div id="audit"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>LLM 引擎<span class="hint">template → fallback → real</span></h3>
+    <div id="llm"></div>
+    <div class="row" style="margin-top:8px">
+      <input id="draftText" placeholder="随便输入一句，观察三档降级" style="flex:1;min-width:220px" />
+      <button id="draft">起草</button>
+    </div>
+    <div id="draftResult"></div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const short = (iso) => (iso ? new Date(iso).toLocaleTimeString('zh-CN', { hour12: false }) : '—');
+const yuan = (cents) => (Number(cents || 0) / 100).toFixed(2);
+const TICKET = { PENDING:'待审批', APPROVED:'已通过', REJECTED:'已驳回', EXECUTING:'执行中', COMPLETED:'已完成' };
+const MSG = { INTENT:'意向', AWAITING_PAYMENT:'待付费', PAID:'已付费', VIEWED:'已查看', REPLIED:'已回复', SETTLED:'已结算', REFUSED:'已拒绝' };
+
+let token = localStorage.getItem('im2agent.token') ?? '';
+$('token').value = token;
+
+async function api(path, options = {}) {
+  const res = await fetch(path, { ...options, headers: { 'content-type': 'application/json', 'x-admin-token': token, ...(options.headers ?? {}) } });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(body.message ?? body.error ?? `HTTP ${res.status}`), { code: body.error, status: res.status });
+  return body;
+}
+
+async function load() {
+  $('overview').textContent = '加载中…';
+  try {
+    const [state, llm, ledger, audit] = await Promise.all([api('/api/admin/state'), api('/api/llm'), api('/api/ledger'), api('/api/audit')]);
+    // 概览
+    $('overview').innerHTML = `<dl class="kv">
+      <dt>形态</dt><dd class="mono">${esc(state.profile)}</dd>
+      <dt>存储</dt><dd class="mono">${esc(state.store?.kind)}${state.store?.durable ? '（持久）' : '（内存）'}</dd>
+      <dt>审计链</dt><dd>${state.auditChain?.ok ? '<span class="tag ok">完整</span>' : '<span class="tag bad">断裂</span>'} <span class="mono">${esc(state.auditChain?.length ?? 0)} 条</span></dd>
+      <dt>LLM</dt><dd><span class="tag ${llm.stats?.mode === 'real' ? 'ok' : llm.stats?.mode === 'fallback' ? 'warn' : ''}">${esc(llm.stats?.mode)}</span> <span class="mono">${esc(llm.stats?.model)}</span> · 调用 ${esc(llm.stats?.calls)} · 失败 ${esc(llm.stats?.failures)}</dd>
+    </dl>`;
+
+    // Agent 注册表
+    $('agents').innerHTML = `<table><thead><tr><th>Agent</th><th>属主</th><th>领域</th><th>信任下限</th><th>日预算</th></tr></thead><tbody>${
+      (state.agents ?? []).map((a) => `<tr>
+        <td class="mono">${esc(a.agentId.replace('agent-',''))}</td>
+        <td>${esc(state.usernames?.[a.ownerUserId] ?? a.ownerUserId)}</td>
+        <td>${esc(a.domain)}</td>
+        <td>${esc(a.trustZoneMin)}</td>
+        <td class="mono">¥${yuan(a.budgetCentsPerDay)}</td>
+      </tr>`).join('')
+    }</tbody></table>`;
+
+    // 审批流
+    const tickets = state.tickets ?? [];
+    $('tickets').innerHTML = tickets.length === 0 ? '<div class="sub">没有审批单</div>' : `<table><thead><tr><th>单号</th><th>事项</th><th>状态</th><th>动作</th></tr></thead><tbody>${
+      tickets.map((t) => `<tr>
+        <td class="mono">${esc(t.id)}</td>
+        <td>${esc(t.payload?.topic ?? t.payload?.item ?? t.ticketType)}<div class="mono">${t.payload?.amountCents != null ? '¥' + yuan(t.payload.amountCents) : ''}</div></td>
+        <td><span class="tag ${t.state === 'PENDING' ? 'warn' : t.state === 'COMPLETED' ? 'ok' : 'bad'}">${esc(TICKET[t.state] ?? t.state)}</span></td>
+        <td>${t.state === 'PENDING' ? `<button class="ok" data-approve="${esc(t.id)}">通过</button> <button class="bad" data-reject="${esc(t.id)}">驳回</button>` : '<span class="sub">—</span>'}</td>
+      </tr>`).join('')
+    }</tbody></table>`;
+
+    // 付费消息状态
+    const messages = state.messages ?? [];
+    $('tickets').insertAdjacentHTML('beforeend', messages.length ? `<div class="note"><b>付费消息</b><br>${
+      messages.map((m) => `${esc(m.topic)} · <span class="tag">${esc(MSG[m.state] ?? m.state)}</span> · ¥${yuan(m.amountCents)}`).join('<br>')
+    }</div>` : '');
+
+    // 账本
+    const entries = (ledger.entries ?? []).slice().reverse();
+    $('ledger').innerHTML = `<div class="sub">条目 ${esc(ledger.stats?.count ?? 0)} · 扣费 ${esc(ledger.stats?.charged ?? 0)} · 结算 ${esc(ledger.stats?.settled ?? 0)}</div>
+      <table><thead><tr><th>时间</th><th>类型</th><th>用户</th><th>金额</th><th>幂等键</th></tr></thead><tbody>${
+      entries.slice(0, 12).map((e) => `<tr>
+        <td>${short(e.at)}</td><td>${esc(e.type)}</td>
+        <td class="mono">${esc(String(e.userId).replace('user-',''))}</td>
+        <td class="mono">¥${yuan(e.amountCents)}</td>
+        <td class="mono">${esc(e.idempotencyKey)}</td>
+      </tr>`).join('') || '<tr><td colspan="5" class="sub">暂无</td></tr>'
+    }</tbody></table>`;
+
+    // 审计
+    $('audit').innerHTML = `<div class="sub">${audit.chain?.ok ? '链完整' : '链断裂'} · ${esc(audit.chain?.length ?? 0)} 条</div>
+      <table><thead><tr><th>seq</th><th>时间</th><th>来源</th><th>动作</th><th>hash</th></tr></thead><tbody>${
+      (audit.entries ?? []).slice(-12).reverse().map((r) => `<tr>
+        <td>${esc(r.seq)}</td><td>${short(r.at)}</td>
+        <td class="mono">${esc(r.source)}</td><td>${esc(r.action)}</td>
+        <td class="mono">${esc(String(r.hash).slice(0, 10))}…</td>
+      </tr>`).join('')
+    }</tbody></table>`;
+
+    // LLM
+    $('llm').innerHTML = `<dl class="kv">
+      <dt>当前档位</dt><dd><span class="tag ${llm.stats?.mode === 'real' ? 'ok' : llm.stats?.mode === 'fallback' ? 'warn' : ''}">${esc(llm.stats?.mode)}</span></dd>
+      <dt>模型</dt><dd class="mono">${esc(llm.stats?.model)}</dd>
+      <dt>上游</dt><dd class="mono">${esc(llm.config?.baseUrl)}</dd>
+      <dt>有密钥</dt><dd>${llm.config?.hasKey ? '是' : '否（走模板）'}</dd>
+      <dt>调用/失败</dt><dd class="mono">${esc(llm.stats?.calls)} / ${esc(llm.stats?.failures)}</dd>
+      <dt>最近错误</dt><dd class="mono">${esc(llm.stats?.lastError ?? '—')}</dd>
+    </dl>`;
+  } catch (error) {
+    $('overview').innerHTML = `<div class="note bad">加载失败：${esc(error.message)}${error.status === 401 ? '（请先填 ADMIN_TOKEN 并点"应用令牌"）' : ''}</div>`;
+  }
+}
+
+async function decideTicket(ticketId, action) {
+  try {
+    const result = await api('/api/approval/decide', { method: 'POST', body: JSON.stringify({ ticketId, action }) });
+    $('overview').innerHTML = `<div class="note">审批 ${esc(ticketId)} → <b>${esc(result.ticket?.state)}</b>${result.message?.replyTier ? ` · 回复由 ${esc(result.message.replyTier)} 起草` : ''}</div>`;
+    await load();
+  } catch (error) {
+    $('overview').innerHTML = `<div class="note bad">决策失败：${esc(error.message)}</div>`;
+  }
+}
+
+document.addEventListener('click', (event) => {
+  const approve = event.target.closest('[data-approve]');
+  if (approve) decideTicket(approve.dataset.approve, 'APPROVE');
+  const reject = event.target.closest('[data-reject]');
+  if (reject) decideTicket(reject.dataset.reject, 'REJECT');
+});
+
+$('save').addEventListener('click', () => {
+  token = $('token').value.trim();
+  localStorage.setItem('im2agent.token', token);
+  load();
+});
+$('refresh').addEventListener('click', load);
+$('draft').addEventListener('click', async () => {
+  try {
+    const result = await api('/api/llm/draft', { method: 'POST', body: JSON.stringify({ text: $('draftText').value || '帮我约个时间' }) });
+    $('draftResult').innerHTML = `<div class="note"><b>${esc(result.draft.tier)}</b>${result.draft.degraded ? '（已降级）' : ''} · ${esc(result.draft.latencyMs)}ms<br>${esc(result.draft.reply)}</div>`;
+  } catch (error) {
+    $('draftResult').innerHTML = `<div class="note bad">${esc(error.message)}</div>`;
+  }
+});
+
+// 首次进入：URL 上带 ?token= 时自动填入（方便局域网分享），随后从 localStorage 复用
+const urlToken = new URLSearchParams(location.search).get('token');
+if (urlToken) { token = urlToken; $('token').value = urlToken; localStorage.setItem('im2agent.token', urlToken); }
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>
