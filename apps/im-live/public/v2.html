@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentIM v2 · 面向 Agent 的 IM 内核</title>
+<style>
+  :root {
+    --bg:#080c11; --panel:#111823; --panel2:#16202e; --line:#22303f;
+    --text:#e6edf6; --muted:#8b9bb0; --accent:#4da3ff; --ok:#34d399;
+    --warn:#fbbf24; --bad:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:16px;padding:13px 22px;background:rgba(8,12,17,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+  .brand{font-weight:700}
+  .brand em{color:var(--violet);font-style:normal;margin-left:6px;font-size:12px;border:1px solid #3b2f63;border-radius:6px;padding:1px 7px}
+  .brand span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+  .spacer{margin-left:auto}
+  a.btn,button.btn{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:8px;padding:7px 14px;font-size:13px;text-decoration:none}
+  a.btn:hover,button.btn:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#04121f;border-color:var(--accent);font-weight:600}
+  button.danger{color:var(--bad);border-color:#4a1d1d}
+  main{max-width:1440px;margin:0 auto;padding:20px 22px 70px}
+  .lead{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .lead b{color:var(--text)}
+  .grid{display:grid;gap:16px}
+  .two{grid-template-columns:1.05fr .95fr}
+  .three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:1100px){.two,.three{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card h3{margin:0 0 4px;font-size:14px}
+  .card h3 .hint{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+  .card .sub{color:var(--muted);font-size:12px;margin:0 0 12px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:500;white-space:nowrap}
+  td.mono,.mono{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:#a8c0da}
+  .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .tag.ok{color:var(--ok);border-color:#1c4637}
+  .tag.bad{color:var(--bad);border-color:#4a1d1d}
+  .tag.warn{color:var(--warn);border-color:#4a3a12}
+  .tag.info{color:var(--accent);border-color:#1d3a5c}
+  .tag.violet{color:var(--violet);border-color:#3b2f63}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .log{max-height:230px;overflow:auto;font-size:12px}
+  .log div{padding:4px 0;border-bottom:1px dashed var(--line)}
+  .kv{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:12.5px}
+  .kv dt{color:var(--muted)}
+  .kv dd{margin:0;word-break:break-all}
+  .note{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-top:10px;font-size:12.5px;color:#cfe0f2}
+  .note.bad{border-color:#4a1d1d;color:#ffb4b4}
+  .note.ok{border-color:#1c4637;color:#a7f3d0}
+  .note.violet{border-color:#3b2f63;color:#ddd6fe}
+  footer{color:var(--muted);font-size:12px;padding:8px 22px 28px;max-width:1440px;margin:0 auto}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">AgentIM<em>v2</em><span>面向 Agent 的 IM 内核 · 身份 / 网关 / 可见域 / 频道 / 会话 / 签名审计</span></div>
+  <div class="spacer"></div>
+  <button class="btn" id="refresh">刷新</button>
+  <a class="btn" href="/">返回 IM 客户端</a>
+</header>
+
+<main>
+  <p class="lead">
+    v1 的 Agent 只是服务端里的函数调用；v2 把 Agent 变成<b>消息内核的一等公民</b>：
+    有自持身份、有独立连接、有订阅范围、有可验证的签章。<b>人类与 Agent 共用一条消息内核</b>，
+    靠<b>频道类型</b>隔离未读，靠<b>可见域</b>控制能看见什么，靠<b>签名审计</b>证明没被改过。
+  </p>
+
+  <div class="grid two">
+    <div class="card">
+      <h3>Agent 网络<span class="hint">在线状态来自会话层，不是配置表</span></h3>
+      <p class="sub">每个 Agent 的 Ed25519 身份、平台签发的 AgentCard（可见域 + 信任上限）、订阅的频道。</p>
+      <div id="agents"></div>
+    </div>
+    <div class="card">
+      <h3>频道与未读隔离<span class="hint">协商频道对人类未读恒为 0</span></h3>
+      <p class="sub">Agent 之间在 <span class="tag violet">AGENT_NEGOTIATION</span> 频道里协商，人只在审批卡出现时才被打扰。</p>
+      <div id="channels"></div>
+      <div class="row">
+        <button class="btn primary" id="turn">让两个 Agent 协商一轮</button>
+        <span class="sub" id="turnResult" style="margin:0"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid two" style="margin-top:16px">
+    <div class="card">
+      <h3>读侧可见域<span class="hint">同一个问题，不同 Agent 拿到的字段不同</span></h3>
+      <p class="sub">权限不只是"能不能做"，还包括"能看见什么"：陌生人档只回存在性，记忆域只回摘要。</p>
+      <div id="visibility"></div>
+    </div>
+    <div class="card">
+      <h3>Gateway 事件<span class="hint">所有 Agent 流量的唯一入口</span></h3>
+      <p class="sub">认证 → 限流 → 前置门控 → 出口护栏 → 签名审计，每一步都留痕。</p>
+      <div id="gateway" class="log"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h3>签名审计<span class="hint">哈希链 + Ed25519：两种攻击，两层防御</span></h3>
+      <p class="sub">
+        哈希链能抓住"改内容不重算哈希"；但拿到数据库写权限的人可以整链重算——这时只有签名能证明"是谁写的"。
+        下面两个按钮分别演示这两种攻击的结果差异。
+      </p>
+      <div id="auditHead"></div>
+      <div id="auditTable"></div>
+      <div class="row">
+        <button class="btn danger" id="tamperContent">攻击 A：改内容</button>
+        <button class="btn danger" id="tamperResign">攻击 B：换签名者</button>
+        <span class="sub" style="margin:0">两次都在独立的临时链上演示，不影响真实审计链</span>
+      </div>
+      <div id="tamperResult"></div>
+    </div>
+  </div>
+
+  <footer>
+    演示边界：transport 为内存队列 / SSE 适配器（生产为 WebSocket 或 QUIC）；私钥在进程内生成（生产应放 KMS/HSM）；
+    审计链以 v1 哈希链的链尾作为迁移锚点，历史不回签但保留连续性证据。
+  </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const short = (iso) => (iso ? new Date(iso).toLocaleTimeString('zh-CN', { hour12: false }) : '—');
+const STATE_TAG = { ONLINE: 'ok', OFFLINE: 'warn', CONNECTING: 'info', REVOKED: 'bad' };
+const DECISION_TAG = { ALLOW: 'ok', REDACT: 'warn', DENY: 'bad' };
+
+async function getJson(url, options) {
+  const res = await fetch(url, options);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`);
+  return body;
+}
+
+async function loadAgents() {
+  const data = await getJson('/api/v2/agents');
+  $('agents').innerHTML = `<table><thead><tr>
+      <th>Agent</th><th>状态</th><th>身份指纹</th><th>可见域</th><th>信任上限</th><th>订阅</th>
+    </tr></thead><tbody>${data.agents.map((a) => `<tr>
+      <td><b>${esc(a.displayName)}</b><div class="mono">${esc(a.agentId)}</div></td>
+      <td><span class="tag ${STATE_TAG[a.state] ?? ''}">${esc(a.state)}</span><div class="mono">${esc(a.protocol ?? '—')}</div></td>
+      <td class="mono" title="${esc(a.identity.cardHash)}">${esc(a.identity.fingerprint)}<div>${esc(a.identity.keyAlg)}</div></td>
+      <td class="mono">${esc((a.identity.domains || []).join(', ') || '—')}</td>
+      <td>${esc(a.identity.trustCeiling)}</td>
+      <td class="mono">${esc((a.subscriptions || []).map((s) => s.replace('ch-', '')).join(', ') || '—')}</td>
+    </tr>`).join('')}</tbody></table>
+    <div class="note">审计链 ${data.audit.ok ? '完整' : '异常'}：chain=${esc(String(data.audit.chainOk))} · signatures=${esc(String(data.audit.signaturesOk))} · ${esc(data.audit.length)} 条</div>`;
+}
+
+async function loadChannels() {
+  const data = await getJson('/api/v2/channels');
+  const humanUnread = data.unread?.['user-lin'] ?? { total: 0, byChannel: {} };
+  $('channels').innerHTML = `<table><thead><tr>
+      <th>频道</th><th>类型</th><th>成员</th><th>林总未读</th>
+    </tr></thead><tbody>${data.channels.map((c) => {
+      const unread = humanUnread.byChannel?.[c.channelId] ?? 0;
+      const tag = c.type === 'AGENT_NEGOTIATION' ? 'violet' : c.type === 'STRANGER_QUEUE' ? 'warn' : 'info';
+      return `<tr>
+        <td><b>${esc(c.title ?? c.channelId)}</b><div class="mono">${esc(c.channelId)}</div></td>
+        <td><span class="tag ${tag}">${esc(c.type)}</span></td>
+        <td class="mono">${c.members.map((m) => `${esc(m.memberId.replace('agent-', ''))}${m.kind === 'agent' ? '·A' : ''}`).join('<br>')}</td>
+        <td>${c.type === 'AGENT_NEGOTIATION' ? '<span class="tag ok">0</span>' : `<b>${unread}</b>`}</td>
+      </tr>`;
+    }).join('')}</tbody></table>
+    <div class="note">人类未读合计 <b>${humanUnread.total ?? 0}</b> 条；其中 AGENT_NEGOTIATION 频道贡献 <b>0</b> 条——这就是"协商不打扰人"的代码证据。</div>`;
+}
+
+async function loadVisibility() {
+  const data = await getJson('/api/v2/visibility');
+  $('visibility').innerHTML = `<table><thead><tr>
+      <th>场景</th><th>决策</th><th>允许字段</th><th>被裁字段</th><th>实际返回</th>
+    </tr></thead><tbody>${data.matrix.map((row) => {
+      const r = row.result;
+      const d = r.decision ?? {};
+      const allowed = (d.allowedFields ?? []).join(', ') || '—';
+      const redacted = (d.redactedFields ?? []).join(', ') || '—';
+      return `<tr>
+        <td>${esc(row.label)}<div class="mono">${esc(row.agentId.replace('agent-', ''))} · ${esc(r.domain)} · T${esc(r.requestedTrustLevel)}</div></td>
+        <td><span class="tag ${DECISION_TAG[d.decision] ?? ''}">${esc(d.decision ?? '?')}</span>
+            <div class="mono">${esc(d.code ?? '')}</div></td>
+        <td class="mono">${esc(allowed)}</td>
+        <td class="mono" style="color:var(--bad)">${esc(redacted)}</td>
+        <td class="mono">${esc(JSON.stringify(r.projection?.projected ?? {}).slice(0, 120))}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+async function loadGateway() {
+  const data = await getJson('/api/v2/agents');
+  const events = data.gatewayEvents ?? [];
+  $('gateway').innerHTML = events.length === 0
+    ? '<div class="sub">暂无网关事件（点上面的「协商一轮」或到 IM 里审批一次就会产生）</div>'
+    : events.slice().reverse().map((e) => `<div>
+        <span class="mono">${short(e.at)}</span>
+        <span class="tag ${e.decision === 'DENY' ? 'bad' : e.decision === 'REQUIRE_APPROVAL' ? 'warn' : 'ok'}">${esc(e.decision ?? e.action ?? 'INFO')}</span>
+        <span class="mono">${esc(e.agentId ?? e.actor ?? '')}</span>
+        <span style="color:var(--muted)">${esc(e.action ?? '')}${e.code ? ' · ' + esc(e.code) : ''}</span>
+      </div>`).join('');
+}
+
+async function loadAudit() {
+  const data = await getJson('/api/v2/audit');
+  const v = data.verify ?? {};
+  const chainOk = v.chain?.ok ?? v.ok;
+  const sigOk = v.signatures?.ok ?? v.ok;
+  $('auditHead').innerHTML = `<div class="note ${v.ok ? 'ok' : 'bad'}">
+      验签结果：<b>${v.ok ? '通过' : '失败'}</b> · 链 ${chainOk ? '完整' : '断裂@' + esc(v.chain?.brokenAt)} ·
+      签名 ${sigOk ? '全部有效' : '无效@' + esc(v.signatures?.invalidAt)} · 共 ${esc(v.length ?? 0)} 条
+    </div>`;
+  $('auditTable').innerHTML = `<table style="margin-top:10px"><thead><tr>
+      <th>seq</th><th>时间</th><th>action</th><th>actor</th><th>hash</th><th>签名</th>
+    </tr></thead><tbody>${(data.entries ?? []).map((e) => `<tr>
+      <td>${esc(e.seq)}</td>
+      <td class="mono">${short(e.at)}</td>
+      <td>${esc(e.action)}</td>
+      <td class="mono">${esc(e.actor ?? '')}</td>
+      <td class="mono" title="${esc(e.hash)}">${esc(String(e.hash).slice(0, 12))}…</td>
+      <td class="mono">${e.hasSignature ? `<span class="tag ok">ed25519</span> ${esc(e.signatureHead)}…` : '<span class="tag bad">无签名</span>'}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+async function tamper(kind) {
+  $('tamperResult').innerHTML = '<div class="note">正在演示…</div>';
+  try {
+    const data = await getJson('/api/v2/audit/tamper', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind })
+    });
+    const d = data.demo;
+    const asymmetric = kind === 'resign';
+    $('tamperResult').innerHTML = `<div class="note ${asymmetric ? 'violet' : 'bad'}">
+        <b>${esc(d.kind === 'content' ? '攻击 A：改内容' : '攻击 B：换签名者')}</b><br>
+        篡改前：链 ${d.baseline.chainOk ? '完整' : '断'} · 签名 ${d.baseline.signaturesOk ? '有效' : '无效'}<br>
+        篡改后：链 ${d.after.chainOk ? '仍完整' : '断裂@' + esc(d.after.chainBrokenAt)} ·
+        签名 ${d.after.signaturesOk ? '仍有效' : '无效@' + esc(d.after.signatureInvalidAt)}<br>
+        <span style="color:var(--muted)">${esc(d.conclusion)}</span>
+      </div>`;
+  } catch (error) {
+    $('tamperResult').innerHTML = `<div class="note bad">演示失败：${esc(error.message)}</div>`;
+  }
+}
+
+async function negotiateTurn() {
+  $('turnResult').textContent = '协商中…';
+  try {
+    const data = await getJson('/api/v2/negotiation/turn', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        fromAgentId: 'agent-zhou-butler',
+        intent: 'COUNTER',
+        payload: { summary: '周先生方接受周五 16:00，BP 已提前提交' }
+      })
+    });
+    $('turnResult').textContent = `已投递 ${data.deliveredTo.length} 个 Agent · 网关 decision=${data.gateway.decision} · audit#${data.gateway.auditSeq}`;
+    await Promise.all([loadChannels(), loadGateway(), loadAudit()]);
+  } catch (error) {
+    $('turnResult').textContent = '失败：' + error.message;
+  }
+}
+
+async function loadAll() {
+  try {
+    await Promise.all([loadAgents(), loadChannels(), loadVisibility(), loadGateway(), loadAudit()]);
+  } catch (error) {
+    document.querySelector('main').insertAdjacentHTML('beforeend', `<div class="note bad">加载失败：${esc(error.message)}</div>`);
+  }
+}
+
+$('refresh').addEventListener('click', loadAll);
+$('turn').addEventListener('click', negotiateTurn);
+$('tamperContent').addEventListener('click', () => tamper('content'));
+$('tamperResign').addEventListener('click', () => tamper('resign'));
+loadAll();
+setInterval(() => { loadAgents().catch(() => {}); loadGateway().catch(() => {}); }, 5000);
+</script>
+</body>
+</html>

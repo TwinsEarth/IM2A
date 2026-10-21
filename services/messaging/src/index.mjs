@@ -1,4 +1,22 @@
-// 模块职责：messaging 服务 barrel（envelope / seq / dedupe 统一导出）/ 契约来源：contracts/INTERFACES.md §10 / 关键不变量：仅供 re-export，不引入任何额外状态。
+// 模块职责：messaging 服务 barrel（§10 envelope/seq/dedupe + v2 §14 频道模型 + §15 Agent 会话层）/ 契约来源：contracts/INTERFACES.md §10、§14、§15 / 关键不变量：仅供 re-export，不引入任何额外状态；§10 既有导出保持不变。
 export { BIZ_TYPE, EnvelopeError, makeEnvelope, validateEnvelope } from './envelope.mjs';
 export { fnv1a32, SeqAllocator } from './seq.mjs';
 export { DedupeStore } from './dedupe.mjs';
+
+// v2 §14 频道模型
+export {
+  CHANNEL_TYPE,
+  MEMBER_KIND,
+  MESSAGE_KIND,
+  CHANNEL_CODE,
+  ChannelError,
+  ChannelRegistry,
+} from './channel.mjs';
+
+// v2 §15 Agent 会话层
+export {
+  SESSION_STATE,
+  SESSION_CODE,
+  SessionError,
+  AgentSessionRegistry,
+} from './session.mjs';

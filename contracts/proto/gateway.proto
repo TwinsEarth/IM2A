@@ -1,0 +1,211 @@
+// ============================================================================
+// 模块职责：Agent Gateway —— **所有 Agent 流量的唯一数据平面**（v2 新增，
+//           对应 V2-5 + V2-4）。认证、限流、前置门控、出口护栏、协议归一化、
+//           签名审计、读侧可见域裁剪，全部收口在这一个入口上，不再散落在编排层
+//           各处。对应 INTERFACES.md §12 `agent-gateway.mjs` 与 §13
+//           `visibility.mjs`（两者同属 L4.5 数据平面，故合并进本包）。
+// 契约来源：contracts/INTERFACES.md §12、§13（R4 新增；R5 写入 A1 token 下发/私钥
+//           边界与 A4 错误码→HTTP 收敛）。本文件只为 §12/§13 提供线格式。
+// 验证状态：⚠ **未编译验证**（本机无 protoc / buf）。CI 必须补 `buf lint` +
+//           `protoc` 编译 + `buf breaking --against`。本文件为人工自检源码。
+// 关键不变量：
+//   1. 管线顺序冻结、短路（§12）：authenticate → rateLimit → 前置门控
+//      → 出口护栏 → 协议归一化 → 签名审计。实现不得重排、不得并行化后合并判定。
+//   2. **认证只需要两样东西**：SignedAgentCard + token。principal、domains、
+//      trustCeiling、scope **一律由服务端从已验签的卡片与已签发的令牌导出**，
+//      客户端携带的同名字段必须被忽略（见 §12.4 定论）。
+//   3. **身份 ≠ 准入**：卡片验签通过只证明"持有私钥"；能否动作由 token（A1）与
+//      门控决定。`REQUIRE_APPROVAL` 不是错误：返回 ok=true、
+//      decision=REQUIRE_APPROVAL、normalized.execute=false，由审批流接管。
+//   4. 网关只做归一化，**不执行具体业务**（不调 Skill、不写业务库）。
+//   5. §13 的 VisibilityService 是**内部服务**，不暴露给 Agent；Agent 永远无法
+//      自行传入 scope 或 trustCeiling。
+//   6. **A1 裁定**：token 只能由平台签发（内置=注册中心 mTLS 服务身份；第三方=
+//      OAuth2 consent 回跳；外部 A2A=不签发本平台 token），`issueToken`/
+//      `revokeToken` **不是 Agent 面 RPC**，因此本文件只有 Route 等业务 RPC。
+//   7. **A4 裁定**：`UNKNOWN_ROUTE` → gRPC `INVALID_ARGUMENT` / HTTP 400
+//      （客户端错误、不可重试）；**不得**用 `UNIMPLEMENTED`，否则诱导 SDK 重试
+//      或降级到别的协议（错误码→HTTP 全表见 docs/03 §12.6）。
+// 枚举命名范围说明：本包内 Protocol / Domain / GatewayCode / VisibilityDecision /
+// VisibilityCode 五个枚举的取值名互不重复（proto 的枚举值是包级兄弟作用域，
+// 同名即编译错误），跨包同名（如 common.ErrorCode.UNAUTHENTICATED）安全。
+// 编译前提：protoc -I contracts/proto -I <well-known-types 目录>。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.gateway.v1;
+
+import "google/protobuf/struct.proto";
+import "common.proto";
+import "agent_identity.proto";
+
+// 接入协议。与 §12 `PROTOCOL` 逐字一致：
+// AGENT_WS / IM_CUSTOM / A2A_JSONRPC / MCP_TOOLS。
+// 含义：同一网关进程按 protocol 选择适配器，归一化后下游无差别。
+enum Protocol {
+  PROTOCOL_UNSPECIFIED = 0;  // 占位：缺省即拒绝（UNKNOWN_ROUTE，不做"猜协议"）
+  AGENT_WS = 1;              // Agent 长连接（生产 WebSocket / QUIC，见 docs/04 §8.2）
+  IM_CUSTOM = 2;             // IM 消息内核的自定义消息类型（频道投递路径）
+  A2A_JSONRPC = 3;           // 外部 A2A 边界适配（仅 Phase3，跨组织）
+  MCP_TOOLS = 4;             // 工具调用（Skill Runtime，Phase1 起）
+}
+
+// 网关错误码。与 §12 GATEWAY_CODE 逐字一致（大小写敏感）。
+// 业务语义的"拒绝"用本枚举 + trailing metadata `x-contract-error-bin` 承载；
+// gRPC status 只表达传输层类别（映射见 docs/03 §12.6）。
+enum GatewayCode {
+  GATEWAY_CODE_UNSPECIFIED = 0;  // 占位，禁止作为业务返回值
+
+  UNAUTHENTICATED = 1;     // 缺卡片/缺 token/结构非法（认证未通过）
+  CARD_EXPIRED = 2;        // 卡片过期（verifyAgentCard 返回 CARD_EXPIRED）
+  SIGNATURE_INVALID = 3;   // 卡片签名/哈希校验失败
+  TOKEN_MISMATCH = 4;      // token.agent_id != card.agent_id
+  TOKEN_REVOKED = 5;       // token 已撤销
+  PRINCIPAL_MISMATCH = 6;  // token.principal_user_id 与目标资源属主不一致
+  RATE_LIMITED = 7;        // 同一 agentId 在 windowMs 内超过 max 次
+  GATE_DENIED = 8;         // capabilityGate 判定 DENY（底层 code 保留在 detail）
+  EGRESS_BLOCKED = 9;      // egressGuard 判定 BLOCK
+  UNKNOWN_ROUTE = 10;      // action 不在路由表 / protocol 未知 → INVALID_ARGUMENT / HTTP 400（A4）
+  NOT_CONFIGURED = 11;     // 网关依赖未注入（capabilityGate / egressGuard / signer 缺失）
+}
+
+// 可见域（读侧权限）的域划分。与 §13 `DOMAIN` 逐字一致：
+// contact / group / task / schedule / memory。
+enum Domain {
+  DOMAIN_UNSPECIFIED = 0;  // 占位：未授权任何域（等价于空 domains）
+  CONTACT = 1;
+  GROUP = 2;
+  TASK = 3;
+  SCHEDULE = 4;
+  MEMORY = 5;
+}
+
+// 可见域判定结果。与 §13 evaluate 返回的 decision 一致。
+enum VisibilityDecision {
+  VISIBILITY_DECISION_UNSPECIFIED = 0;  // 占位，禁止作为业务返回值
+  ALLOW = 1;                            // 全字段放行
+  REDACT = 2;                           // 放行但裁剪了字段（allowedFields 非全量）
+  DENY = 3;                             // 拒绝（code 说明原因）
+}
+
+// 可见域错误码。与 §13 VISIBILITY_CODE 逐字一致。
+// 判定顺序（§13 冻结）：scope 过期 → 域未授权 → 超信任上限 → 裁剪。
+// 注：§12 的 HTTP 映射里出现的 `SCOPE_VIOLATION` 是可见域拒绝的**统称**，不是
+// 新错误码；具体判定必须落到本枚举之一（不得新增枚举值，新增须改契约）。
+enum VisibilityCode {
+  VISIBILITY_CODE_UNSPECIFIED = 0;  // 占位；decision=ALLOW 时保持 0
+
+  VISIBILITY_DENIED = 1;        // 通用拒绝（保留位，具体原因优先用更精确的码）
+  DOMAIN_NOT_GRANTED = 2;       // resource.domain 不在 scope.domains 内
+  TRUST_CEILING_EXCEEDED = 3;   // resource.trustLevel > scope.trustCeiling
+  SCOPE_EXPIRED = 4;            // scope 过期（短 TTL 15 min）
+  RESOURCE_NOT_FOUND = 5;       // 资源不存在（不区分"无权限"与"不存在"以防枚举）
+}
+
+// 归一化后的请求。§12 第 5 步的 `normalized` 对象；**网关是唯一产生者**。
+// 下游（编排/Skill Runtime/频道投递）只认这个结构，不再各自解析 A2A/MCP 原始体。
+message NormalizedRequest {
+  string action = 1;                                   // 原样回填 RouteRequest.action
+  Protocol protocol = 2;
+  bool execute = 3;                                    // REQUIRE_APPROVAL / DENY 时恒为 false
+  string skill_id = 4;                                 // 为空表示本次不调 Skill
+  string target_id = 5;                                // 目标资源（user-*/agent-*/msg-*）
+  string content = 6;                                  // 拟外发正文（已过出口护栏）
+  google.protobuf.Struct meta = 7;                     // 适配器附加信息（A2A/MCP 差异在此收口）
+}
+
+// 路由请求：Agent 外部动作的唯一入口（§17 第 7 条铁律）。
+message RouteRequest {
+  agentim.contracts.identity.v1.SignedAgentCard signed_card = 1;  // 已签名卡片
+  string token = 2;                                   // 平台签发的令牌（A1：Agent 不得自签）
+  Protocol protocol = 3;
+  string action = 4;                                  // 路由动作名，如 "skill.call:order_flowers"
+  google.protobuf.Struct payload = 5;                 // 业务载荷（可能含 skillId/targetId/content/amountCents）
+  agentim.contracts.common.v1.TraceContext trace = 6;
+  // 注意：**没有** principal_user_id / domains / trust_ceiling / visibility_scope 字段。
+  // 这是刻意的：身份与权限只来自 signed_card + token（服务端绑定）。
+}
+
+// 路由响应。ok=true 时 decision 可能是 ALLOW 或 REQUIRE_APPROVAL（都不是错误）。
+message RouteResponse {
+  bool ok = 1;
+  string agent_id = 2;                        // 与 token/card 一致的 agent-*
+  Protocol protocol = 3;
+  string action = 4;
+  agentim.contracts.common.v1.GateDecision decision = 5;  // ALLOW / REQUIRE_APPROVAL
+  uint64 audit_seq = 6;                       // 本次判定写入签名审计的序号（§16）
+  NormalizedRequest normalized = 7;           // 下游唯一消费形态
+  string denied_code = 8;                     // DENY 时回填底层 code（如 SKILL_NOT_ALLOWED），便于审计反查
+}
+
+// 可见域凭证（scope）。**只能由服务端构造**（网关/编排按 principal 构造），
+// Agent 无法提交或修改；proto 中定义它是为了让内部服务间可传递并写入审计。
+message VisibilityScope {
+  string principal_user_id = 1;                          // 授权人（人机混合的边界）
+  string agent_id = 2;                                   // 代理者
+  repeated Domain domains = 3;                           // 允许的域集合
+  agentim.contracts.common.v1.TrustLevel trust_ceiling = 4;  // 允许看到的最高信任档
+  string issued_at = 5;
+  string expires_at = 6;                                 // 默认 15 min
+}
+
+// 待判定的资源。§13 evaluate({scope, resource}) 的 resource 形参。
+message VisibilityResource {
+  Domain domain = 1;                                     // 资源所属域
+  agentim.contracts.common.v1.TrustLevel trust_level = 2; // 资源所属人的信任档（由 trust-zone 产出）
+  string id = 3;                                         // 资源 ID（user-*/msg-*/task-*）
+}
+
+// 判定请求。
+message VisibilityEvaluateRequest {
+  VisibilityScope scope = 1;
+  VisibilityResource resource = 2;
+}
+
+// 判定结果。裁剪表见 §13（SELF/FAMILY 全字段；TRUSTED 业务字段；KNOWN 三段；
+// STRANGER 仅 id/exists；MEMORY 域任何档只回 agentId/lastAt/count/summary）。
+message VisibilityEvaluateResponse {
+  VisibilityDecision decision = 1;
+  VisibilityCode code = 2;                     // DENY 原因；ALLOW/REDACT 时为 0
+  Domain domain = 3;
+  repeated string allowed_fields = 4;          // 允许返回的字段名
+  repeated string redacted_fields = 5;         // 被裁掉的字段名（用于审计与前端提示）
+}
+
+// 投影请求：一次完成"判定 + 字段裁剪"，返回可直接下发的对象。
+message VisibilityProjectRequest {
+  VisibilityScope scope = 1;
+  VisibilityResource resource = 2;
+  google.protobuf.Struct fields = 3;           // 候选字段全集
+}
+
+// 投影响应。
+message VisibilityProjectResponse {
+  VisibilityDecision decision = 1;
+  VisibilityCode code = 2;
+  repeated string allowed_fields = 3;
+  repeated string redacted_fields = 4;
+  google.protobuf.Struct projected = 5;        // 实际可下发内容（已裁剪）
+}
+
+// ---------------------------------------------------------------------------
+// 服务定义
+// ---------------------------------------------------------------------------
+
+// Agent 网关：所有 Agent 外部动作的唯一入口。
+// 错误通过 gRPC status + trailing metadata `x-contract-error-bin`（ErrorDetail，
+// code 取 GatewayCode）返回；REQUIRE_APPROVAL 不是错误，走 ok=true 响应。
+// issueToken/revokeToken **不在本服务**：仅注册中心/平台服务以 mTLS 服务身份调用
+// （A1），不构成 Agent 可调用的 RPC 面。
+service AgentGateway {
+  rpc Route(RouteRequest) returns (RouteResponse);
+}
+
+// 可见域服务：**内部服务**（网关/编排进程内调用），按 §17 第 8 条铁律，
+// 任何"代用户读数据"的列表/搜索接口都必须经过它；**不暴露给 Agent**。
+// 之所以仍定义成 RPC：便于网关与编排分离部署时保持同一裁剪实现（单一实现点）。
+service VisibilityService {
+  rpc Evaluate(VisibilityEvaluateRequest) returns (VisibilityEvaluateResponse);
+  rpc Project(VisibilityProjectRequest) returns (VisibilityProjectResponse);
+}

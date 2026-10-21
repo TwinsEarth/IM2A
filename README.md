@@ -5,6 +5,23 @@
 >
 > 本仓库 = **技术文档（架构 / 框架 / SDK / 协议 / 开发计划 / 产品 / UI / 运营）** + **可运行的参考实现**。
 
+> ## 🆕 v2：面向 Agent 的 IM（参考 9 个开源项目重新校准）
+>
+> v1 把 Agent 当成"服务端里的函数调用"，v2 把 **Agent 变成消息内核的一等公民**：
+>
+> | 变更 | 借鉴 | 修正了 v1 的什么 |
+> |---|---|---|
+> | V2-1 Agent 作为一等客户端（独立连接/在线状态/订阅，可第三方托管） | MagicChat、WKongAI、Buzz | Agent 无法独立部署、无法复用在线状态、第三方接不进来 |
+> | V2-2 消息内核自托管 + 频道类型化（DIRECT/GROUP/TASK/AGENT_NEGOTIATION/STRANGER_QUEUE） | WuKongIM、WKongAI | 依赖 IM PaaS 使"三流分离"名义化，厂商链路还占 P99 预算 |
+> | V2-3 Ed25519 自持身份 + 自签 AgentCard | Sigil、AICQ | Agent 只是个内部字符串 id，"它代表谁"无法向第三方证明 |
+> | V2-4 读侧可见域（按信任档裁剪字段，MEMORY 只回摘要） | MagicChat | 门控只管"能不能做"，不管"能看见什么" |
+> | V2-5 Agent Gateway 单一数据平面（认证→限流→门控→护栏→签名审计） | Agentgateway | 门控散落在编排层内部，第三方 Agent 无统一入口 |
+> | V2-6 签名审计（哈希链 + Ed25519） | Buzz | 只有哈希链：有权改库者可整链重算，无法证明"是谁写的" |
+>
+> 详见 [docs/11-AI原生IM架构-v2.md](docs/11-AI原生IM架构-v2.md)、[docs/12-开源IM项目对标与取舍.md](docs/12-开源IM项目对标与取舍.md)。
+> 契约扩到 §11–§16（`contracts/INTERFACES.md` R5），新增 `services/{identity,gateway}` 与 `services/messaging/{channel,session}.mjs`、`services/audit/signed-audit.mjs`。
+> 演示页：`node apps/im-live/server.mjs` → **http://127.0.0.1:8797/v2**（Agent 网络 / 未读隔离 / 可见域矩阵 / 网关事件 / 审计篡改演示）。
+
 ---
 
 ## 1. 三十秒理解这套架构

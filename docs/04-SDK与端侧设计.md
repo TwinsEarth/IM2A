@@ -314,3 +314,140 @@ telemetry:
 | 5 | 麦克风时长上限与法务 | 涉及录音合规 | 法务确认后写入 `CONFIG` 默认值 |
 | 6 | 离线 outbox 保留期 | 与 IM PaaS 重放窗口相关 | 核实后与 §03-6 的 dedupe TTL 对齐 |
 | 7 | 端侧功耗/时延数字 | 均为预算值 | 样机实测后替换并注明日期 |
+
+## 8. v2 修订：Agent SDK 与连接模型
+
+> 本节是 R4（v2.0）增量：v1 的「客户端 SDK 四层」不变（UI/Controller/Adapter/Persistence），新增的是**Agent 侧 SDK**——Agent 从"服务端内部组件"变成"消息内核的一等客户端"（V2-1）。
+> 权威来源：[`contracts/INTERFACES.md`](../contracts/INTERFACES.md) §11–§16；线格式见 [`contracts/proto/`](../contracts/proto/)（**均未编译验证**，本机无 protoc/buf，CI 补 `buf lint` + `protoc` + `buf breaking`）。协议语义见 [docs/03 §12](./03-协议设计.md)。
+
+### 8.0 结论先行
+
+| # | 决策 | 一句话 |
+|---|---|---|
+| 1 | Agent 三种接入形态，鉴权分三档 | 内置=平台托管密钥；第三方托管=自签卡片+token；外部 A2A=边界网关代验 |
+| 2 | 生产用长连接（WS/QUIC），演示用 SSE 下行 + POST 上行 | 两者**同一 transport 接口**，业务代码零改动 |
+| 3 | transport 接口只有两个方法：`{ send(obj), close() }` | 少到可以手写实现，也少到无法偷偷夹带权限逻辑 |
+| 4 | 订阅 = **频道集合**，不是全局广播 | 未订阅就收不到；投递过滤在服务端 |
+| 5 | 重连靠 `seq` 补拉；`CMD` **不重放** | 状态消息可恢复，控制消息不重复执行 |
+| 6 | 客户端不得携带 scope/principal/domains | 服务端绑定（docs/03 §12.4 定论） |
+
+### 8.1 三种 Agent 接入形态与鉴权
+
+| 形态 | 部署位置 | 密钥归属 | 卡片来源 | 鉴权链路 | 协议 | 限制 |
+|---|---|---|---|---|---|---|
+| **内置 Agent** | 平台侧（butler/subagent） | 平台密钥库托管 | `IdentityService.IssueCard`（服务端签发） | 内部身份 → token → 网关 | `AGENT_WS` / `IM_CUSTOM` | 可访问内部数据，但**读侧仍受可见域约束** |
+| **第三方托管 Agent** | 第三方机房/云函数 | **第三方自持 Ed25519 私钥** | 自签 `signAgentCard` → `VerifyCard` 注册 | 卡片验签 + 用户授权 → token → 网关 | `AGENT_WS`（推荐）/ `IM_CUSTOM` | 作用域以 token 内的 principal/domains 为上限 |
+| **外部 A2A Agent** | 外部组织 | 外部组织自持 | 外部 AgentCard（**仅 Phase3**） | 边界网关验签 + 映射为内部身份 + 注入两层令牌 | `A2A_JSONRPC` | 只走边界网关，绝不直连内核；⚠ 外部规范字段需复核 |
+
+| 形态 | 拿到 token 的方式 | 谁不能做 | 失败码 |
+|---|---|---|---|
+| 内置 | 注册流程内部签发（`issueToken`，TTL 15 min） | — | `NOT_CONFIGURED` / `UNAVAILABLE` |
+| 第三方 | 用户在其侧确认授权后，平台签发并安全回跳（⚠ **下发通道未冻结，见 docs/03 §12.7 A1**） | **Agent 不得自签 token** | `UNAUTHENTICATED` / `PRINCIPAL_MISMATCH` |
+| A2A | 网关按对端白名单注入 | 外部不得直接持有内部 token | `UNAUTHENTICATED` / `EGRESS_BLOCKED` |
+
+统一铁律：**卡片证明"你是谁"，token 证明"你代表谁、能做什么"**。两者都要，缺一即 `UNAUTHENTICATED`；`token.agentId !== card.agentId` → `TOKEN_MISMATCH`。
+
+### 8.2 连接模型：长连接 vs 演示 SSE + POST 上行
+
+| 维度 | 生产：WebSocket / QUIC | 演示：SSE 下行 + POST 上行 | 结论 |
+|---|---|---|---|
+| 双向 | 原生双向帧 | 下行 SSE、上行独立 HTTP POST | 演示版多一次 RTT，且无服务端推送 ACK |
+| 心跳/在线 | 内建 ping/pong，`heartbeat` 直达 | 靠 SSE 连接存活推断 + POST 心跳 | 演示版在线状态精度低 |
+| 多路复用 | 单连接多频道 | SSE 一路 + POST 每请求一连接 | 演示版连接开销高 |
+| 断线补拉 | 同连接重连 + 游标补拉 | SSE 重连（`Last-Event-ID` 或显式游标） | 一致：都按 `seq` 补拉 |
+| 部署门槛 | 需 WS 网关/QUIC 支持 | 只需 HTTP（本机零依赖可跑） | 演示版可单机跑通 |
+| 适用 | Phase1 起 | 仅 Demo / 单测 / 断网回归 | 演示版不得作为生产默认 |
+
+**为什么演示坚持 SSE+POST**：本仓库的参考实现跑在零依赖 Node 上，SSE 用原生 `http` 即可实现、POST 上行天然幂等可断言；而 WS 在无第三方库时需要自己实现帧解析，性价比低。SSE 只解决"下行推送"，上行一律走独立 POST（⚠ 具体路径未进 OpenAPI，暂记 `/api/agent/publish`），因此**不存在"SSE 假双向"的隐患**。
+
+transport 抽象（§15 冻结接口，SDK 只允许依赖它）：
+
+```js
+// 唯一传输契约：send 必须是异步、可失败的；close 必须幂等
+const transport = {
+  async send(obj) { /* 序列化并按当前承载发送；失败必须 throw */ },
+  async close() { /* 释放连接；重复调用不得抛错 */ }
+};
+```
+
+| 适配器 | 实现 | 用途 | 备注 |
+|---|---|---|---|
+| `WebSocketTransport` | `ws.send(JSON.stringify(obj))` / `close()` | 生产 | QUIC/WebTransport 可作为另一适配器（⚠ 移动端省电与穿透需实测） |
+| `SsePostTransport` | 下行 SSE 事件回调 → 派发；`send` → `POST` | Demo/本地 | ⚠ 需复核 SSE 断线语义与移动端后台保活 |
+| `MemoryTransport` | 直接调测试替身，记录 `sent[]` | 单测 | 契约测试用：断言"未订阅不投递" |
+
+SDK 不得在 transport 之上实现权限判断；`send` 抛错时由会话层置 `OFFLINE` 并计入 `failed`（§15 规则），**不静默丢消息**。
+
+### 8.3 订阅与在线状态：订阅 = 频道集合，非全局广播
+
+| 概念 | 语义 | 契约 |
+|---|---|---|
+| 订阅 | `subscribe({agentId, channelId})`；集合而非流 | §15 `subscribe` / `unsubscribe` |
+| 投递 | 只投给「在线 + 已订阅该频道」的 Agent | §15 `push` → `{delivered, failed}` |
+| 未订阅 | 不报错，但投递被跳过，不出现在 `deliveredTo` | §14 `AGENT_NOT_SUBSCRIBED` |
+| 在线 | `CONNECTING / ONLINE / OFFLINE / REVOKED` 四态 | §15 `SESSION_STATE` |
+| 多端 | 同一 Agent 多实例 → 第二个 connect 返回 `ALREADY_ONLINE` | §15（分布式租约需上层实现，⚠ 需复核） |
+| 心跳 | 90 s 无心跳 → `sweepStale` 置 `OFFLINE` | §15 `heartbeatTimeoutMs` |
+
+推论（直接约束 SDK 设计）：
+1. **不存在"全局广播"**：Agent 不订阅就收不到任何业务消息，因此 SDK 的 `connect()` 必须显式传 `subscriptions`，且重连后**重建同一集合**。
+2. 未读归属在频道成员上：`AGENT_NEGOTIATION` 频道对人类成员**恒为 0**（§14），因此 Agent SDK 不需要、也不允许替人类"清未读"。
+3. 一个 Agent 可同时订阅多个频道；建议按"任务/对象"分频道，而不是做一个大频道（未读与权限都按频道算）。
+
+### 8.4 幂等、序号与重连
+
+| 消息类别 | 是否落盘 | 是否有 `seq` | 断线补拉 | 重连后重放 | 计未读 |
+|---|---|---|---|---|---|
+| `TEXT` / `AGENT_TURN` / `APPROVAL_CARD` / `INTENT` | 是 | 是（频道内单调） | 是 | 是（按 seq） | 是（协商频道对人类恒 0） |
+| `CMD` | **否**（`stored=false`） | 否（不持久化） | **否** | **否** | 否 |
+
+- **seq 语义**：`seq` 是**频道内**单调递增（不是全局），由服务端分配；客户端只读。缺口即补拉：`GET /channels/{id}/messages?sinceSeq=N`（HTTP 面，⚠ 需复核是否并入 OpenAPI）。
+- **重连流程**：`connect` → 认证（卡片+token）→ 恢复订阅集合 → 对每个频道上报 `lastSeq` → 服务端补拉 → **CMD 一律不补**（控制指令过期即失效，重放会造成重复执行）。
+- **幂等键**（两层，互不替代）：
+
+| 层 | 键 | 窗口 | 行为 |
+|---|---|---|---|
+| 业务消息 | `bizId`（v1，§6） | 24 h | 重复投递返回首次结果并标 `duplicate:true` |
+| 频道发言 | `(channelId, seq)` | 由保留策略决定 | 同一 `seq` 重复 `Post` 返回首次结果（⚠ §14 未显式冻结该幂等语义，见 docs/03 §12.7 A2） |
+| 网关动作 | `(agentId, action, traceId)` | 每次请求 | 由签名审计 `auditSeq` 反查，重复成功动作不重复执行（⚠ 需复核是否要求 `idempotencyKey` 字段） |
+
+- **token 过期**：`SCOPE_EXPIRED` / `TOKEN_REVOKED` 是**不可自动重试**的会话终止态；SDK 必须重新走 §12.3 握手，**不得**用旧 token 重放积压消息。
+- **重连后的执行顺序**：认证 → 订阅 → 补拉 → 才允许 `send`。顺序反了会出现"发出去但服务端认为你未订阅"的竞态（`AGENT_NOT_SUBSCRIBED`）。
+
+### 8.5 Agent SDK 方法面
+
+| SDK 方法 | 对应契约 | 幂等 | 主要错误码 |
+|---|---|---|---|
+| `identity.create()` | §11 `createAgentIdentity` | — | `INVALID_KEY` |
+| `identity.card()` / `card.sign()` | §11 `createAgentCard` / `signAgentCard` | 是 | `BAD_CARD` |
+| `identity.verifyCard(card)` | §11 `verifyAgentCard` / `IdentityService.VerifyCard` | 是 | `HASH_MISMATCH` / `SIGNATURE_INVALID` / `CARD_EXPIRED` |
+| `session.connect({transport, subscriptions})` | §15 `connect` | 否 | `TRANSPORT_REQUIRED` / `ALREADY_ONLINE` |
+| `session.heartbeat()` / `subscribe()` / `unsubscribe()` | §15 | 是 | `NOT_ONLINE` / `UNKNOWN_AGENT` |
+| `channel.post({channelId, kind, payload})` | §14 `post` / `ChannelService.Post` | 按 `(channelId, seq)` | `NOT_MEMBER` / `POST_DENIED` / `TYPE_INVALID` |
+| `gateway.route({action, payload})` | §12 `route` / `AgentGateway.Route` | 否（由审计去重） | `GATEWAY_CODE` 全集（docs/03 §12.6） |
+| `visibility.project({resource, fields})` | §13 `project`（**内部调用，不暴露给 Agent**） | 是 | `VISIBILITY_CODE` 全集 |
+
+> SDK 不提供、也不得新增：`setScope()` / `setPrincipal()` / `setTrustCeiling()`。这类方法一旦存在，就会有人调用（这是 API 设计的自证预言）。
+
+### 8.6 错误处理与重试策略（与 docs/03 §12.6 对齐）
+
+| 错误类别 | 代表码 | SDK 行为 | 重试 |
+|---|---|---|---|
+| 身份不可信 | `SIGNATURE_INVALID` / `HASH_MISMATCH` / `BAD_CARD` | 终止，提示重新签卡 | 否 |
+| 令牌类 | `TOKEN_MISMATCH` / `TOKEN_REVOKED` / `SCOPE_EXPIRED` | 重新握手/重新授权 | 否（自动重试会放大风险） |
+| 限流/抖动 | `RATE_LIMITED` / `UNAVAILABLE` / `DEADLINE_EXCEEDED` | 指数退避 + 抖动 | 是（≤3 次） |
+| 权限/门控 | `GATE_DENIED` / `VISIBILITY_*` / `POST_DENIED` / `NOT_MEMBER` | 不重试；`REQUIRE_APPROVAL` 走审批 | 否 |
+| 内容拦截 | `EGRESS_BLOCKED` | 改内容后重试 | 否（原样重试必再拒） |
+| 一致性 | `AGENT_NOT_SUBSCRIBED` / `NOT_ONLINE` | 先 subscribe/heartbeat 再重试 | 是（1 次） |
+| 服务端缺陷 | `SIGNER_REQUIRED` / `CHAIN_BROKEN` | 告警，停止写入 | 否（人工介入） |
+
+### 8.7 v2 未验证清单
+
+| # | 项 | 原因 | 下一步 |
+|---|---|---|---|
+| 1 | `SsePostTransport` 断线/重连语义 | 无浏览器端到端环境 | 用 demo-server 做断网回归，核对补拉不重放 CMD |
+| 2 | QUIC/WebTransport 适配器 | 本机无运行时 | Phase2 评估；当前只用 WS 适配器 |
+| 3 | 第三方 Agent 的 token 下发通道 | 契约未冻结（docs/03 §12.7 A1） | Lead 裁定后补 SDK 方法 `auth.redeem()` |
+| 4 | `(channelId, seq)` 幂等语义 | §14 未显式冻结 | 与实现方对齐后回填 §14 或标为约定 |
+| 5 | 多实例同一 Agent 在线（租约） | §15 只保证单进程语义 | 分布式场景需频道内 leader 选举，⚠ 需复核 |
+| 6 | `sinceSeq` 补拉接口是否进 OpenAPI | 当前 HTTP 面未覆盖 | 与网关实现一并补齐 |

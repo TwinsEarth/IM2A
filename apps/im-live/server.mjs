@@ -43,6 +43,7 @@ import { createAgentRuntime } from './agent-runtime.mjs';
 import { createPersistence, defaultDbPath } from './store.mjs';
 import { createAuth } from './auth.mjs';
 import { TICKET_STATE } from '../../services/orchestrator/src/approval-engine.mjs';
+import { createV2Layer, AGENT_PROFILES } from './v2.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(HERE, 'public');
@@ -110,6 +111,7 @@ function buildDemo(llm, skills, persistence = null) {
   if (persistence !== null && persistence.hasSeed()) {
     demo.threads = persistence.loadThreads().map((thread) => ({ ...thread, messages: persistence.loadMessages(thread.id) }));
     demo.seq = persistence.loadSeq();
+    attachV2(demo);
     return demo;
   }
   // 种子审计：已发生的协商/预审/建单在链上留痕（重启从种子重建，链同样从创世开始）
@@ -122,6 +124,26 @@ function buildDemo(llm, skills, persistence = null) {
     }
     for (const record of demo.auditLog.snapshot()) persistence.appendAudit(record);
     persistence.saveSeq(demo.seq);
+  }
+  attachV2(demo);
+  return demo;
+}
+
+/**
+ * 挂载 v2 层（身份/网关/可见域/频道/会话/签名审计）。
+ * 签名审计链以 v1 哈希链的「链尾」作为迁移锚点：v1 历史不回签，但连续性有证据。
+ */
+function attachV2(demo) {
+  try {
+    demo.v2 = createV2Layer({
+      world: demo.world,
+      legacyHead: demo.auditLog.head(),
+      legacyLength: demo.auditLog.size()
+    });
+  } catch (error) {
+    // v2 模块缺失时不让整个 Demo 起不来：显式降级并在状态里标记，绝不假装 v2 可用。
+    demo.v2 = null;
+    demo.v2Error = String(error?.message ?? error);
   }
   return demo;
 }
@@ -431,6 +453,153 @@ async function route(req, res, holder, fleetOverride) {
     return;
   }
 
+  // ═══════════ v2：面向 Agent 的 IM（身份 / 网关 / 可见域 / 频道 / 会话 / 签名审计）═══════════
+  if (method === 'GET' && (pathname === '/v2' || pathname === '/api/v2')) {
+    const html = await readFile(path.join(PUBLIC_DIR, 'v2.html'), 'utf8');
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(html);
+    return;
+  }
+
+  if (pathname.startsWith('/api/v2') && holder.demo.v2 === null) {
+    sendJson(res, 503, { error: 'V2_UNAVAILABLE', message: holder.demo.v2Error ?? 'v2 模块未加载' });
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/agents') {
+    const v2 = holder.demo.v2;
+    const audit = v2.signedAudit.verify();
+    sendJson(res, 200, {
+      agents: v2.agentNetwork(),
+      gatewayEvents: v2.gateway.events({ limit: 20 }),
+      audit: { ok: audit.ok, length: audit.length, chainOk: audit.chain?.ok ?? null, signaturesOk: audit.signatures?.ok ?? null },
+      profiles: AGENT_PROFILES
+    });
+    return;
+  }
+
+  const agentActionMatch = pathname.match(/^\/api\/v2\/agents\/([^/]+)\/(connect|disconnect|stream)$/);
+  if (agentActionMatch) {
+    const agentId = decodeURIComponent(agentActionMatch[1]);
+    const action = agentActionMatch[2];
+
+    if (action === 'stream' && method === 'GET') {
+      // SSE：Agent 的长连接适配器（生产为 WebSocket/QUIC）。这里证明 transport 抽象可插拔。
+      res.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-store',
+        connection: 'keep-alive'
+      });
+      const send = (payload) => {
+        if (res.writableEnded === true) throw new Error('SSE 连接已关闭');
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      };
+      send({ event: 'connected', agentId, at: new Date().toISOString() });
+      holder.demo.v2.connectAgent({
+        agentId,
+        subscriptions: [],
+        transport: { send, close: () => res.end() }
+      });
+      const timer = setInterval(() => {
+        // 心跳必须主动驱：否则 90s 后 sweepStale 会把在线 Agent 全部置为 OFFLINE
+        holder.demo.v2.sessions.heartbeat({ agentId });
+        try {
+          send({ event: 'heartbeat', at: new Date().toISOString() });
+        } catch {
+          clearInterval(timer);
+        }
+      }, 15_000);
+      if (typeof timer.unref === 'function') timer.unref();
+      req.on('close', () => {
+        clearInterval(timer);
+        holder.demo.v2.disconnectAgent(agentId);
+      });
+      return;
+    }
+
+    if (action === 'connect' && method === 'POST') {
+      const body = await readJson(req);
+      const session = holder.demo.v2.connectAgent({
+        agentId,
+        subscriptions: Array.isArray(body?.subscriptions) ? body.subscriptions.map(String) : []
+      });
+      sendJson(res, 200, { ok: true, session: { agentId: session.agentId, state: session.state, protocol: session.protocol, subscriptions: session.subscriptions } });
+      return;
+    }
+
+    if (action === 'disconnect' && method === 'POST') {
+      sendJson(res, 200, holder.demo.v2.disconnectAgent(agentId));
+      return;
+    }
+  }
+
+  if (method === 'POST' && pathname === '/api/v2/negotiation/turn') {
+    const body = await readJson(req);
+    try {
+      const result = holder.demo.v2.postAgentTurn({
+        channelId: body?.channelId,
+        fromAgentId: String(body?.fromAgentId ?? ''),
+        intent: String(body?.intent ?? 'PROPOSE'),
+        payload: body?.payload ?? {}
+      });
+      sendJson(res, 200, { ok: true, ...result });
+    } catch (error) {
+      const code = error?.code ?? 'TURN_FAILED';
+      sendJson(res, code === 'GATE_DENIED' || code === 'EGRESS_BLOCKED' ? 403 : 400, { error: code, message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/channels') {
+    sendJson(res, 200, holder.demo.v2.channelView());
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/visibility') {
+    sendJson(res, 200, { matrix: holder.demo.v2.visibilityMatrix() });
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/v2/visibility/probe') {
+    const body = await readJson(req);
+    try {
+      sendJson(res, 200, holder.demo.v2.probeVisibility({ agentId: String(body?.agentId ?? ''), domain: String(body?.domain ?? ''), trustLevel: Number(body?.trustLevel ?? 4), expired: body?.expired === true }));
+    } catch (error) {
+      sendJson(res, 400, { error: error?.code ?? 'PROBE_FAILED', message: String(error?.message ?? error) });
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/v2/audit') {
+    const v2 = holder.demo.v2;
+    const verify = v2.signedAudit.verify();
+    sendJson(res, 200, {
+      verify,
+      chain: { legacyHead: null },
+      entries: v2.signedAudit.entries().slice(-15).map((entry) => ({
+        seq: entry.seq,
+        at: entry.at,
+        source: entry.source,
+        action: entry.action,
+        actor: entry.actor,
+        decision: entry.decision,
+        hash: entry.hash,
+        prevHash: entry.prevHash,
+        signer: entry.signer ?? null,
+        hasSignature: typeof entry.signature === 'string' && entry.signature.length > 0,
+        signatureHead: typeof entry.signature === 'string' ? entry.signature.slice(0, 24) : null
+      }))
+    });
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/v2/audit/tamper') {
+    const body = await readJson(req);
+    const kind = body?.kind === 'resign' ? 'resign' : 'content';
+    sendJson(res, 200, { ok: true, demo: holder.demo.v2.tamperDemo(kind) });
+    return;
+  }
+
   if (method === 'POST' && pathname === '/api/reset') {
     holder.demo.persistence?.reset();
     holder.demo = buildDemo(holder.demo.llm, holder.demo.skills, holder.demo.persistence);
@@ -498,6 +667,15 @@ function stateFor(demo, user, requestedThread) {
     store: demo.persistence ? demo.persistence.stats() : null,
     auth: { enabled: demo.authEnabled, user: demo.authUser ?? null },
     runtime: { version: 'im-live-agent-runtime/1', stats: demo.runtime.stats(), catalog: demo.runtime.catalog() },
+    v2: demo.v2 === null
+      ? { available: false, error: demo.v2Error ?? null }
+      : {
+          available: true,
+          agentsOnline: demo.v2.agentNetwork().filter((agent) => agent.state === 'ONLINE').length,
+          channels: demo.v2.channelView().channels.length,
+          agentPushes: demo.v2.pushLog.length,
+          auditOk: demo.v2.signedAudit.verify().ok
+        },
     fleet: null, // 由 /api/fleet 单独提供，避免 poll 拖慢状态接口
     serverNow: new Date().toISOString()
   };

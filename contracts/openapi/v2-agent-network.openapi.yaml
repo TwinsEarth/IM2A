@@ -1,0 +1,477 @@
+# ============================================================================
+# AgentIM v2 · Agent 网络的 REST 面（演示服务 apps/im-live 的实际路由）
+#
+# 定位：这是 v2 六个新模块（身份 / 网关 / 可见域 / 频道 / 会话 / 签名审计）
+#       在演示服务上的**协议面契约**。生产为 gRPC（protos 见 contracts/proto/
+#       agent_identity.proto、gateway.proto、channel.proto、signed_audit.proto），
+#       REST 只是演示与运维面。
+#
+# 验证状态：⚠ 未编译验证（本机无 OpenAPI validator）。CI 必须用 redocly/spectral
+#           校验，并与 apps/im-live/server.mjs 的路由逐条对照（scripts/verify.mjs
+#           已做路径级对照）。
+# 权威顺序：contracts/INTERFACES.md §11–§16 > 本文件 > apps/im-live/server.mjs
+# ============================================================================
+openapi: 3.1.0
+
+info:
+  title: AgentIM v2 — Agent Network API
+  version: 1.0.0-r5
+  description: |
+    v2 的核心断言：Agent 是消息内核的一等公民。
+      · 每个 Agent 有自持 Ed25519 身份与自签 AgentCard；平台通过 token 表达"准入"
+      · 所有 Agent 流量经 AgentGateway 单一入口（认证→限流→前置门控→出口护栏→签名审计）
+      · Agent 代用户读数据必须过 VisibilityGate（按信任档裁剪字段，MEMORY 只回摘要）
+      · Agent 协商走 AGENT_NEGOTIATION 频道：对人类未读恒为 0
+      · 审计是"哈希链 + Ed25519 签名"：链抓改内容，签名抓换签名者
+
+servers:
+  - url: http://127.0.0.1:8797
+    description: 本机演示服务（node apps/im-live/server.mjs）
+
+tags:
+  - name: agents
+  - name: channels
+  - name: gateway
+  - name: visibility
+  - name: audit
+
+paths:
+  /api/v2/agents:
+    get:
+      tags: [agents]
+      operationId: listAgents
+      summary: Agent 网络视图（在线状态 + 身份指纹 + 可见域 + 订阅）
+      description: |
+        在线状态来自会话层（AgentSessionRegistry），不是配置表；
+        身份指纹 = sha256(公钥) 前 16 位，用于肉眼比对"这不是嘴说的身份"。
+      responses:
+        "200":
+          description: Agent 列表 + 网关事件 + 审计摘要
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents, gatewayEvents, audit]
+                properties:
+                  agents:
+                    type: array
+                    items: {$ref: "#/components/schemas/AgentView"}
+                  gatewayEvents:
+                    type: array
+                    items: {$ref: "#/components/schemas/GatewayEvent"}
+                  audit:
+                    type: object
+                    properties:
+                      ok: {type: boolean}
+                      length: {type: integer}
+                      chainOk: {type: [boolean, "null"]}
+                      signaturesOk: {type: [boolean, "null"]}
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/agents/{agentId}/connect:
+    post:
+      tags: [agents]
+      operationId: connectAgent
+      summary: Agent 建立长连接会话（演示为内存 transport，生产为 WS/QUIC）
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subscriptions:
+                  type: array
+                  items: {type: string}
+      responses:
+        "200":
+          description: 会话已建立
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  session: {$ref: "#/components/schemas/SessionView"}
+        "400":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/agents/{agentId}/disconnect:
+    post:
+      tags: [agents]
+      operationId: disconnectAgent
+      summary: Agent 断开长连接（状态改为 OFFLINE，且不再收到推送）
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: 已断开
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/agents/{agentId}/stream:
+    get:
+      tags: [agents]
+      operationId: streamAgent
+      summary: Agent 的长连接推送（SSE 适配器；生产为 WebSocket/QUIC）
+      description: |
+        transport 抽象为 `{ send(obj), close() }`；SSE 只是其中一种适配器。
+        服务端每 15s 发心跳并驱动会话心跳，避免被 sweepStale 置为 OFFLINE。
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: text/event-stream；每帧 `data: <json>`
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/negotiation/turn:
+    post:
+      tags: [gateway, channels]
+      operationId: postNegotiationTurn
+      summary: 一轮 Agent 协商（必须经网关；落 AGENT_NEGOTIATION 频道；不产生人类未读）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fromAgentId, intent]
+              properties:
+                channelId: {type: string}
+                fromAgentId: {type: string}
+                intent:
+                  type: string
+                  enum: [PROPOSE, COUNTER, ACCEPT, REJECT, REQUEST_INFO, REQUEST_AUTH]
+                payload:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: 已放行并投递
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  gateway:
+                    type: object
+                    properties:
+                      decision: {type: string, enum: [ALLOW, REQUIRE_APPROVAL]}
+                      auditSeq: {type: integer}
+                  message: {type: object}
+                  stored: {type: boolean}
+                  deliveredTo:
+                    type: array
+                    items: {type: string}
+                  pushed:
+                    type: object
+                    properties:
+                      delivered: {type: array, items: {type: string}}
+                      failed: {type: array, items: {type: string}}
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          description: GATE_DENIED / EGRESS_BLOCKED
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorBody"}
+
+  /api/v2/channels:
+    get:
+      tags: [channels]
+      operationId: listChannels
+      summary: 频道视图（人类视角未读；AGENT_NEGOTIATION 恒为 0）
+      responses:
+        "200":
+          description: 频道 + 成员 + 未读 + Agent 推送记录
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  channels:
+                    type: array
+                    items: {$ref: "#/components/schemas/ChannelView"}
+                  unread:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        total: {type: integer}
+                        byChannel: {type: object, additionalProperties: {type: integer}}
+                  agentPushes:
+                    type: array
+                    items: {type: object}
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/visibility:
+    get:
+      tags: [visibility]
+      operationId: visibilityMatrix
+      summary: 读侧可见域矩阵（8 组预置探测，覆盖 ALLOW/REDACT/各拒绝码）
+      responses:
+        "200":
+          description: 探测矩阵
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matrix:
+                    type: array
+                    items: {$ref: "#/components/schemas/VisibilityProbe"}
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/visibility/probe:
+    post:
+      tags: [visibility]
+      operationId: visibilityProbe
+      summary: 单次可见域探测（指定 Agent / 域 / 资源信任档）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agentId, domain, trustLevel]
+              properties:
+                agentId: {type: string}
+                domain:
+                  type: string
+                  enum: [contact, group, task, schedule, memory]
+                trustLevel:
+                  type: integer
+                  minimum: 0
+                  maximum: 4
+                expired: {type: boolean}
+      responses:
+        "200":
+          description: 判定与投影结果
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/VisibilityProbe"}
+        "400":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/audit:
+    get:
+      tags: [audit]
+      operationId: readSignedAudit
+      summary: 签名审计链（哈希链 + 每条 Ed25519 签名）
+      responses:
+        "200":
+          description: 验签结果 + 最近条目
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verify: {$ref: "#/components/schemas/AuditVerify"}
+                  entries:
+                    type: array
+                    items: {$ref: "#/components/schemas/AuditEntryView"}
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+  /api/v2/audit/tamper:
+    post:
+      tags: [audit]
+      operationId: tamperDemo
+      summary: 篡改演示（在独立临时链上运行，不影响真实审计链）
+      description: |
+        两种攻击的差异是 v2 加签名的唯一理由：
+          · content：改内容不重算哈希 → 哈希链当场断
+          · resign：换签名者 → 哈希链看不出问题（哈希不含签名），但签名层失败
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kind: {type: string, enum: [content, resign]}
+      responses:
+        "200":
+          description: 篡改前后对比
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  demo:
+                    type: object
+                    properties:
+                      kind: {type: string}
+                      baseline: {type: object}
+                      after: {type: object}
+                      conclusion: {type: string}
+        "503":
+          $ref: "#/components/responses/V2Unavailable"
+
+components:
+  parameters:
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema: {type: string}
+
+  responses:
+    Error:
+      description: 统一扁平错误体
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorBody"}
+    V2Unavailable:
+      description: v2 模块未加载（服务显式降级，不假装可用）
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/ErrorBody"}
+
+  schemas:
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: 契约错误码；取值来自 §11–§16 的 IDENTITY_CODE / GATEWAY_CODE / VISIBILITY_CODE / SESSION_CODE
+        message: {type: string}
+
+    AgentView:
+      type: object
+      properties:
+        agentId: {type: string}
+        displayName: {type: string}
+        principalUserId: {type: string}
+        state: {type: string, enum: [CONNECTING, ONLINE, OFFLINE, REVOKED]}
+        protocol: {type: [string, "null"]}
+        subscriptions: {type: array, items: {type: string}}
+        identity:
+          type: object
+          properties:
+            keyAlg: {type: string, enum: [ed25519]}
+            fingerprint: {type: string, description: sha256(公钥) 前 16 位}
+            cardHash: {type: string}
+            signatureValid: {type: boolean}
+            expiresAt: {type: string}
+            domains: {type: array, items: {type: string}}
+            trustCeiling: {type: integer}
+        token:
+          type: object
+          properties:
+            domains: {type: array, items: {type: string}}
+            trustCeiling: {type: integer}
+            expiresAt: {type: string}
+
+    SessionView:
+      type: object
+      properties:
+        agentId: {type: string}
+        state: {type: string}
+        protocol: {type: string}
+        subscriptions: {type: array, items: {type: string}}
+
+    GatewayEvent:
+      type: object
+      properties:
+        at: {type: string}
+        agentId: {type: string}
+        action: {type: string}
+        decision: {type: string}
+        code: {type: [string, "null"]}
+
+    ChannelView:
+      type: object
+      properties:
+        channelId: {type: string}
+        type:
+          type: string
+          enum: [DIRECT, GROUP, TASK, AGENT_NEGOTIATION, STRANGER_QUEUE]
+        title: {type: [string, "null"]}
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              memberId: {type: string}
+              kind: {type: string, enum: [human, agent]}
+              trustLevel: {type: integer}
+
+    VisibilityProbe:
+      type: object
+      properties:
+        label: {type: string}
+        agentId: {type: string}
+        domain: {type: string}
+        requestedTrustLevel: {type: integer}
+        result:
+          type: object
+          properties:
+            decision:
+              type: object
+              properties:
+                decision: {type: string, enum: [ALLOW, REDACT, DENY]}
+                code: {type: [string, "null"]}
+                allowedFields: {type: array, items: {type: string}}
+                redactedFields: {type: array, items: {type: string}}
+            projection:
+              type: object
+              properties:
+                projected: {type: object, additionalProperties: true}
+                allowedFields: {type: array, items: {type: string}}
+                redactedFields: {type: array, items: {type: string}}
+
+    AuditVerify:
+      type: object
+      properties:
+        ok: {type: boolean}
+        length: {type: integer}
+        head: {type: string, description: 链尾 hash（hex）}
+        chain:
+          type: object
+          properties:
+            ok: {type: boolean}
+            brokenAt: {type: [integer, "null"]}
+        signatures:
+          type: object
+          properties:
+            ok: {type: boolean}
+            invalidAt: {type: [integer, "null"]}
+
+    AuditEntryView:
+      type: object
+      properties:
+        seq: {type: integer}
+        at: {type: string}
+        source: {type: string}
+        action: {type: string}
+        actor: {type: [string, "null"]}
+        decision: {type: [string, "null"]}
+        hash: {type: string}
+        prevHash: {type: string}
+        signer: {type: [string, "null"]}
+        hasSignature: {type: boolean}
+        signatureHead: {type: [string, "null"]}

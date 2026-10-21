@@ -1,0 +1,147 @@
+// ============================================================================
+// 模块职责：签名审计（v2 新增，对应 V2-6）。不可变审计 = **哈希链**（防单条
+//           篡改、防截断）+ **Ed25519 签名**（防"有权改库者整链重算"、可证明
+//           "是谁写的"）。所有治理影响的写入点（网关判定、审批、付费、身份、
+//           可见域拒绝）都必须落这里。
+// 契约来源：contracts/INTERFACES.md §16 `services/audit/src/{audit-log,signed-audit}.mjs`
+//           （R4 追认 + v2 签名扩展；R5 写入 A4 裁定：head/headSeq 与签名编码）。
+// 验证状态：⚠ **未编译验证**（本机无 protoc / buf）。CI 必须补 `buf lint` +
+//           `protoc` 编译 + `buf breaking --against`。本文件为人工自检源码。
+// 关键不变量：
+//   1. 只追加：没有 Update/Delete RPC，消息定义中不含可变更状态字段。
+//   2. 每条 entry 的 hash 覆盖前一条的 prev_hash（创世前驱 `GENESIS`，与
+//      audit-log.mjs 的 GENESIS_HASH 一致），因此**删中间一条**即断链。
+//   3. `signature = ed25519(signer 私钥, entry.hash)`；verify 必须**同时**校验
+//      链与每条签名，链断时不得因"签名都通过"而返回 ok（§16 冻结规则）。
+//   4. identity 缺失 → SIGNER_REQUIRED：**签名审计不允许无签名模式**（§16）。
+//   5. **A4 裁定**：`verify()` 的 `head` 是**链尾 hash 字符串（hex）**，另给
+//      `headSeq`（对应序号）；本文件用 `head_hash` + `head_seq` 表达。
+//   6. **A4 裁定**：签名字段统一 **base64（标准、非 url-safe）**，解码后必须是
+//      64 字节 Ed25519 签名；`hash` 类字段（entry.hash / checkpoint.hash /
+//      head_hash）仍用 **hex**。跨语言验签按 base64 解码后校验。
+//   7. ⚠ 实现对齐提示：当前 `signed-audit.mjs` 的 `verify()` 只返回 `head`
+//      （无 `headSeq`），签名编码已是 base64；需实现方补 `headSeq` 以对齐本契约。
+// 编译前提：protoc -I contracts/proto -I <well-known-types 目录>。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.audit.v1;
+
+import "google/protobuf/struct.proto";
+import "common.proto";
+import "agent_identity.proto";
+
+// 签名审计错误码。与 §16 SIGNED_AUDIT_CODE 逐字一致。
+enum SignedAuditCode {
+  SIGNED_AUDIT_CODE_UNSPECIFIED = 0;  // 占位，禁止作为业务返回值
+
+  SIGNER_REQUIRED = 1;     // 构造时未注入 identity（禁止无签名模式）
+  CHAIN_BROKEN = 2;        // prev_hash / hash 链断裂，broken_at 指向断点 seq
+  SIGNATURE_INVALID = 3;   // 某条 entry 的 Ed25519 签名验签失败，invalid_at 指向该 seq
+  UNKNOWN_SEQ = 4;         // 查询/校验了不存在的 seq（超出 [1, head.seq]）
+}
+
+// 一条不可变审计记录。对应 §16 `append({ source, action, actor, target,
+// decision, detail, traceId })` 的返回值（含链路与签名字段）。
+// 全局约定同 INTERFACES.md §0：时间为 ISO-8601 字符串；detail 为结构化对象。
+message AuditEntry {
+  uint64 seq = 1;                          // 从 1 开始单调递增，链内唯一
+  string at = 2;                           // ISO-8601（注入 clock，禁止直接读系统时间）
+  string source = 3;                       // 写入方模块名，如 "agent-gateway" / "approval-engine"
+  string action = 4;                       // 动作名，如 "route" / "decide" / "issue-token"
+  string actor = 5;                        // user-*/agent-*/system
+  string target = 6;                       // 作用对象（可为空）
+  string decision = 7;                     // ALLOW / DENY / REQUIRE_APPROVAL / PASS ...
+  google.protobuf.Struct detail = 8;       // 结构化明细（禁止写入明文密钥/令牌，§10.2）
+  string trace_id = 9;                     // 与 TraceContext.trace_id 一致，便于反查
+  string prev_hash = 10;                   // 前一条的 hash；seq=1 时为 "GENESIS"
+  string hash = 11;                        // hex(sha256(canonical(entry 去掉 hash/signature 后))) ⚠ 需复核哈希输入
+  string signer = 12;                      // 签名者 agent_id（哪个 key 写的）
+  string signature = 13;                   // base64(ed25519(signer 私钥, hash))，标准非 url-safe，解码后 64 字节
+}
+
+// 链状态。verify() 返回的 chain 子对象。
+message ChainStatus {
+  bool ok = 1;
+  optional uint64 broken_at = 2;           // 断链处 seq；ok=true 时缺省（proto3 optional 有存在性）
+}
+
+// 签名状态。verify() 返回的 signatures 子对象。
+message SignatureStatus {
+  bool ok = 1;
+  optional uint64 invalid_at = 2;          // 首个验签失败 seq；ok=true 时缺省
+}
+
+// 校验结果。对应 §16 `verify()` 返回
+// `{ ok, length, headSeq, chain:{ok,brokenAt}, signatures:{ok,invalidAt}, head }`。
+// 注意：ok = chain.ok && signatures.ok（不得只看一半）。
+// A4 裁定：head 是**链尾 hash（hex）**、headSeq 是其序号（空链时 head_hash="GENESIS"，
+// head_seq=0）；两者必须成对返回，否则客户端无法判断"空链"与"被清空"。
+message VerifyResult {
+  bool ok = 1;
+  uint32 length = 2;                       // 链内条目数
+  ChainStatus chain = 3;
+  SignatureStatus signatures = 4;
+  string head_hash = 5;                    // 链尾 hash（hex）；空链为 GENESIS
+  uint64 head_seq = 6;                     // 链尾 seq；空链为 0
+}
+
+// 检查点：对 (seq, hash) 的独立签名，用于离线/外部存证与跨库对账。
+// 对应 §16 `checkpoint()` -> { seq, hash, alg:'ed25519', signature, at }。
+message Checkpoint {
+  uint64 seq = 1;
+  string hash = 2;                                        // seq 对应 entry 的 hash（hex）
+  agentim.contracts.identity.v1.KeyAlg alg = 3;           // 固定 ED25519
+  string signature = 4;                                   // base64(ed25519(signer 私钥, hash))，解码后 64 字节
+  string at = 5;                                          // ISO-8601
+  string signer = 6;                                      // 签名者 agent_id（便于公钥定位）
+}
+
+// ---------------------------------------------------------------------------
+// RPC 请求 / 响应
+// ---------------------------------------------------------------------------
+
+// 追加一条审计。**不提供修改/删除接口**。
+message AppendRequest {
+  string source = 1;
+  string action = 2;
+  string actor = 3;
+  string target = 4;
+  string decision = 5;
+  google.protobuf.Struct detail = 6;
+  string trace_id = 7;
+  // 注意：没有 at / seq / hash / signature 字段——这些一律由服务端（注入 clock
+  // 与 signer）产生，客户端不得自报时间或序号，否则审计链可被伪造时序。
+}
+
+// 追加结果：返回完整 entry（含 seq/hash/prev_hash/signer/signature）。
+message AppendResponse {
+  AuditEntry entry = 1;
+}
+
+// 全链校验请求。
+message VerifyRequest {
+  // 空表示全链校验；指定 from_seq 时只校验 [from_seq, head]（增量校验，⚠ 需复核是否允许）。
+  optional uint64 from_seq = 1;
+}
+
+// 全链校验响应。
+message VerifyResponse {
+  VerifyResult result = 1;
+  string checked_at = 2;                   // ISO-8601
+}
+
+// ---------------------------------------------------------------------------
+// 服务定义。§16 冻结了两个 RPC：Append / Verify。
+// checkpoint() 在 §16 是同步方法（无 RPC）：由定时任务/离线存证进程在进程内调用，
+// 本版本不暴露 Checkpoint RPC（是否暴露需 Lead 裁定，影响"外部可独立验签"的形态）。
+// 业务错误码（SignedAuditCode）随 gRPC status + `x-contract-error-bin` 返回：
+//   SIGNER_REQUIRED / CHAIN_BROKEN / SIGNATURE_INVALID / UNKNOWN_SEQ
+// ---------------------------------------------------------------------------
+service AuditService {
+  // 追加一条记录；服务端唯一写入口。
+  rpc Append(AppendRequest) returns (AppendResponse);
+  // 校验链与签名（两者都过才 ok=true），返回 head_hash + head_seq。
+  rpc Verify(VerifyRequest) returns (VerifyResponse);
+}

@@ -1,0 +1,263 @@
+// ============================================================================
+// 模块职责：频道模型（v2 新增，对应 V2-2）。人类与 Agent **共享同一条消息内核**，
+//           靠**频道类型**隔离未读与投递语义——Agent 协商不再另开物理通道，而是
+//           独立频道类型 AGENT_NEGOTIATION。本文件同时承载 §15 Agent 会话
+//           （Agent 作为内核一等客户端的连接/在线/订阅语义）。
+// 契约来源：contracts/INTERFACES.md §14 `channel.mjs`、§15 `session.mjs`
+//           （R4 新增；R5 写入 A2 结构裁定与 A3 客户端自助 RPC）。本文件是
+//           §14/§15 的线格式投影。
+// 验证状态：⚠ **未编译验证**（本机无 protoc / buf）。CI 必须补 `buf lint` +
+//           `protoc` 编译 + `buf breaking --against`。本文件为人工自检源码。
+// 关键不变量（§14 冻结语义，逐条对应）：
+//   1. CMD 消息：`stored=false`、**不计未读**、只投递给已订阅的 Agent 成员。
+//   2. AGENT_NEGOTIATION 频道：对人类成员的未读**恒为 0**；人类成员 POST 该类型
+//      → `POST_DENIED`（协商只能由 Agent 发起）。
+//   3. STRANGER_QUEUE 频道：陌生人入站先入队，不产生对方未读，转审批卡片才进 DIRECT。
+//   4. 非成员 POST → `NOT_MEMBER`；未订阅的 Agent 成员不出现在 delivered_to。
+//   5. 枚举命名与 §14/§15 的 JS 常量值逐字一致；本包内枚举（ChannelType /
+//      MemberKind / MessageKind / ChannelCode / SessionState / SessionCode）取值名
+//      互不重复（proto 枚举值是包级兄弟作用域）。
+// A2（结构裁定，R5）：
+//   ①`unreadDelta` 是**单一 int32**（本次 post 使多少人类成员各 +1，通常 0/1，
+//     群聊可能 >1），**不是 map**；
+//   ②`message` 最小集冻结为 `{ id, channelId, seq, kind, fromMemberId, at,
+//     payload, stored }`（本文件 ChannelMessage 字段号按该最小集重排；v2 proto 尚未
+//     发布，不涉及 breaking，发布后只增不复用）；
+//   ③`CMD_NOT_PERSISTED` **保留**：语义是"调用方对 CMD 显式要求持久化"的**契约
+//     冲突**（设计性拒绝）。静默忽略会让调用方误以为已落库，比报错更危险。
+//   ⚠ 实现对齐提示：当前 `services/messaging/src/channel.mjs` 产出的 message 含
+//     `senderId/senderKind/channelType` 而**没有** `fromMemberId`。§14 是唯一权威，
+//     实现方须按 §14 最小集对齐（或由 Lead 更新 §14），二者只能有一个事实源。
+// A3（客户端自助能力，R5）：新增 `Leave` / `MarkRead` / `Unread` 三个 RPC，库方法
+//   `leave/markRead/unreadFor` 已实现，本次只补协议面（人类客户端必须有退群、
+//   标记已读、未读查询，否则频道模型对人类不可用）。
+// 编译前提：protoc -I contracts/proto -I <well-known-types 目录>。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.channel.v1;
+
+import "google/protobuf/struct.proto";
+import "common.proto";
+import "gateway.proto";
+
+// 频道类型。与 §14 `CHANNEL_TYPE` 逐字一致：
+// DIRECT / GROUP / TASK / AGENT_NEGOTIATION / STRANGER_QUEUE。
+// 首值 DIRECT 是该领域的自然默认态（与人聊天的常识默认），故不设 UNSPECIFIED：
+// 但服务端**必须**要求调用方显式声明类型，禁止靠默认值推断（异常输入 → TYPE_INVALID）。
+enum ChannelType {
+  DIRECT = 0;            // 人与人/人与 Agent 的单聊
+  GROUP = 1;             // 群聊
+  TASK = 2;              // 任务协作频道（8 态任务的协作面）
+  AGENT_NEGOTIATION = 3; // Agent 间协商频道：人类未读恒 0，人类不可 POST
+  STRANGER_QUEUE = 4;    // 陌生人入站队列：不产生对方未读
+}
+
+// 成员类型。与 §14 `MEMBER_KIND` 逐字一致：human / agent。
+enum MemberKind {
+  HUMAN = 0;  // 人类成员（未读、已读回执、多端同步的主体）
+  AGENT = 1;  // Agent 成员（必须已订阅才能被投递）
+}
+
+// 消息类型。与 §14 `MESSAGE_KIND` 逐字一致：
+// TEXT / CMD / AGENT_TURN / APPROVAL_CARD / INTENT。
+enum MessageKind {
+  TEXT = 0;          // 人类可读正文
+  CMD = 1;           // 控制指令：stored=false、不计未读、只投给已订阅 Agent
+  AGENT_TURN = 2;    // 协商轮次（结构化 payload，不含人类可见正文）
+  APPROVAL_CARD = 3; // 审批卡片（唯一允许打断人类的中间态出口）
+  INTENT = 4;        // 陌生人来意（入 STRANGER_QUEUE，经筛查后转卡片）
+}
+
+// 频道错误码。与 §14 CHANNEL_CODE 逐字一致。
+enum ChannelCode {
+  CHANNEL_CODE_UNSPECIFIED = 0;  // 占位，禁止作为业务返回值
+
+  CHANNEL_EXISTS = 1;      // 重复 create 同一 channel_id
+  CHANNEL_UNKNOWN = 2;     // 频道不存在
+  TYPE_INVALID = 3;        // 频道类型非法 / 缺省未声明
+  MEMBER_EXISTS = 4;       // 重复 join
+  NOT_MEMBER = 5;          // 非成员 POST / markRead
+  POST_DENIED = 6;         // 类型/角色禁止该 POST（如人类向 AGENT_NEGOTIATION 发）
+  AGENT_NOT_SUBSCRIBED = 7; // Agent 成员未订阅该频道，投递被跳过（投递侧语义，见 §14）
+  CMD_NOT_PERSISTED = 8;   // 调用方对 CMD 显式要求持久化（契约冲突，保留，不静默忽略）
+}
+
+// Agent 会话状态。与 §15 `SESSION_STATE` 逐字一致：
+// CONNECTING / ONLINE / OFFLINE / REVOKED。
+enum SessionState {
+  SESSION_STATE_UNSPECIFIED = 0;  // 占位；会话对象必有明确状态
+  CONNECTING = 1;
+  ONLINE = 2;
+  OFFLINE = 3;   // 心跳超时或 transport.send 失败后被置为离线
+  REVOKED = 4;   // 令牌吊销/身份作废，不可自动重连
+}
+
+// 会话错误码。与 §15 SESSION_CODE 逐字一致。
+enum SessionCode {
+  SESSION_CODE_UNSPECIFIED = 0;  // 占位
+
+  UNKNOWN_AGENT = 1;       // agentId 未注册 / 无有效卡片
+  ALREADY_ONLINE = 2;      // 同一 agentId 重复 connect（旧连接须先 disconnect）
+  NOT_ONLINE = 3;          // 对离线会话 heartbeat / unsubscribe
+  TRANSPORT_REQUIRED = 4;  // transport 缺失或未实现 { send(obj), close() }
+  SEND_FAILED = 5;         // transport.send 抛错（该 agent 置 OFFLINE）
+}
+
+// 频道。对应 §14 `create({channelId, type, ownerUserId, title})` 的返回值。
+message Channel {
+  string channel_id = 1;                                 // 频道 ID（字符串，全局唯一）
+  ChannelType type = 2;                                  // 类型决定未读与投递语义
+  string owner_user_id = 3;                              // user-*（创建者）
+  string title = 4;                                      // 可读标题；JS 侧可为 null ⇒ 空串
+  string created_at = 5;                                 // ISO-8601
+  uint64 last_seq = 6;                                   // 频道内最后一条持久消息的 seq（客户端补拉依据）
+}
+
+// 频道成员。对应 §14 `join({channelId, memberId, kind, agentId, principalUserId, trustLevel})`。
+message ChannelMember {
+  string channel_id = 1;
+  string member_id = 2;                                  // 人类为 user-*，Agent 为 agent-*
+  MemberKind kind = 3;
+  string agent_id = 4;                                   // kind=AGENT 时必填
+  string principal_user_id = 5;                          // Agent 代理的授权人（可见域与未读归属）
+  agentim.contracts.common.v1.TrustLevel trust_level = 6; // 成员信任档（决定内容裁剪与未读策略）
+  string joined_at = 7;
+  bool subscribed = 8;                                   // Agent 是否已订阅（订阅=频道集合，见 §15）
+}
+
+// 频道消息。A2 裁定：**最小集冻结**为 { id, channelId, seq, kind, fromMemberId,
+// at, payload, stored }（§14 注释）。约定：`stored=false` 仅用于 CMD；未持久化消息
+// 的 `seq` 为 0；`id` 形如 msg-*。
+// ⚠ 实现当前字段名为 senderId/senderKind（并多出 channelType），需按 §14 对齐。
+message ChannelMessage {
+  string id = 1;                          // msg-*（全局唯一）
+  string channel_id = 2;                  // 所属频道
+  uint64 seq = 3;                         // 频道内单调递增序号（服务端分配；CMD 为 0）
+  MessageKind kind = 4;                   // 消息类型
+  string from_member_id = 5;              // 发送者（user-*/agent-*）＝ §14 的 fromMemberId
+  string at = 6;                          // ISO-8601
+  google.protobuf.Struct payload = 7;     // 结构化内容（AGENT_TURN 无人类可见正文）
+  bool stored = 8;                        // false = CMD（不落盘、不计未读、不补拉）
+}
+
+// 未读汇总（§14 `unreadFor` 返回值）：by_channel 只包含未读 > 0 的频道。
+message UnreadSummary {
+  uint32 total = 1;
+  map<string, uint32> by_channel = 2;     // channelId → 未读数
+}
+
+// ---------------------------------------------------------------------------
+// RPC 请求 / 响应
+// ---------------------------------------------------------------------------
+
+// 建频道请求。
+message CreateChannelRequest {
+  string channel_id = 1;      // 客户端可指定（幂等建群）；空表示服务端生成
+  ChannelType type = 2;       // 必填（禁止靠 0 默认值猜类型）
+  string owner_user_id = 3;
+  string title = 4;
+}
+
+// 建频道响应。
+message CreateChannelResponse {
+  Channel channel = 1;
+}
+
+// 入频道请求。
+message JoinChannelRequest {
+  string channel_id = 1;
+  string member_id = 2;
+  MemberKind kind = 3;
+  string agent_id = 4;              // kind=AGENT 时必填，且必须与已验签卡片一致
+  string principal_user_id = 5;     // kind=AGENT 时必填（服务端校验与 token 一致）
+  agentim.contracts.common.v1.TrustLevel trust_level = 6;  // 由服务端按 trust-zone 覆盖，客户端声明仅作期望
+}
+
+// 入频道响应。
+message JoinChannelResponse {
+  ChannelMember member = 1;
+}
+
+// 发言请求。对应 §14 `post({channelId, memberId, kind, payload, seq})`。
+message PostRequest {
+  string channel_id = 1;
+  string member_id = 2;
+  MessageKind kind = 3;
+  google.protobuf.Struct payload = 4;
+  optional uint64 seq = 5;          // 客户端可预留序号；空则由服务端分配（幂等重发时请复用同一 seq）
+}
+
+// 发言响应。对应 §14 返回值 `{ stored, message, deliveredTo, unreadDelta }`。
+message PostResponse {
+  bool stored = 1;                          // CMD 恒 false
+  ChannelMessage message = 2;               // A2 最小集（见 ChannelMessage）
+  repeated string delivered_to = 3;         // 实际投递到的成员（未订阅 Agent 不出现）
+  int32 unread_delta = 4;                   // **整数**（A2 裁定，非 map）：本次 post 使多少人类成员各 +1
+}
+
+// 退频道请求（A3 新增 RPC；库方法 leave 已实现）。
+message LeaveChannelRequest {
+  string channel_id = 1;
+  string member_id = 2;
+}
+
+// 退频道响应。契约 §14 `leave()` 对"非成员"不视为错误，返回 false。
+message LeaveChannelResponse {
+  bool removed = 1;
+}
+
+// 标记已读请求（A3 新增 RPC；库方法 markRead 已实现）。
+message MarkReadRequest {
+  string member_id = 1;
+  string channel_id = 2;
+}
+
+// 标记已读响应。cleared = 被清零的未读数（0 表示本来无未读）；非成员 → `NOT_MEMBER`。
+message MarkReadResponse {
+  uint32 cleared = 1;
+}
+
+// 未读查询请求（A3 新增 RPC；库方法 unreadFor 已实现）。
+message UnreadRequest {
+  string member_id = 1;
+}
+
+// 未读查询响应。
+message UnreadResponse {
+  UnreadSummary unread = 1;
+}
+
+// ---------------------------------------------------------------------------
+// §15 Agent 会话（通道层，不是 RPC 业务面）
+// ---------------------------------------------------------------------------
+
+// Agent 会话。对应 §15 `connect({agentId, principalUserId, transport, subscriptions, protocol})`
+// 的会话快照；`transport` 是**进程内对象**（只需 { send(obj), close() }），
+// 不上线传输，故不出现在 proto 中。
+message AgentSession {
+  string agent_id = 1;
+  string principal_user_id = 2;
+  SessionState state = 3;
+  agentim.contracts.gateway.v1.Protocol protocol = 4;   // AGENT_WS（生产）/ IM_CUSTOM（演示）
+  repeated string subscriptions = 5;                    // **订阅=频道集合**，不是全局广播
+  string connected_at = 6;
+  string last_seen_at = 7;                              // 心跳时间；超时由 sweepStale 置 OFFLINE
+}
+
+// ---------------------------------------------------------------------------
+// 服务定义（R5：Create / Join / Post + A3 新增 Leave / MarkRead / Unread）。
+// `members / channelsOf / assertCanPost` 仍是库能力，暂不作 RPC（客户端不需要）。
+// **不得**在客户端自行实现未读计算（未读是服务端事实）。
+// 业务错误码（ChannelCode）随 trailing metadata `x-contract-error-bin` 返回。
+// ---------------------------------------------------------------------------
+service ChannelService {
+  rpc Create(CreateChannelRequest) returns (CreateChannelResponse);
+  rpc Join(JoinChannelRequest) returns (JoinChannelResponse);
+  rpc Post(PostRequest) returns (PostResponse);
+  // A3：人类客户端自助能力（退群 / 标记已读 / 未读查询）。
+  rpc Leave(LeaveChannelRequest) returns (LeaveChannelResponse);
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+  rpc Unread(UnreadRequest) returns (UnreadResponse);
+}

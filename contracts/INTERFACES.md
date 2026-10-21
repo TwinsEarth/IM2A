@@ -13,6 +13,8 @@
 | R1 | 2026-10-21 | 初版冻结：§1–§10 模块签名、错误码、三张状态机 | 冻结 |
 | R2 | 2026-10-21 | §9 新增 `refuse()` 与错误码 `PAYER_MISMATCH`（付款人必须等于发送方） | 加法 |
 | R3 | 2026-10-21 | ①§3 澄清信任比较方向（`levelOf <= trustZoneMin` 允许）并订正"DENY 优先"概述与 7 步顺序的冲突；②§4 明确"同刻先升级、后过期"的优先级；③§5 补记已实现的加法方法 `fail()/cancel()`；④§9 明确 `MODIFY` 的 patch 语义与非可退状态 | 澄清 + 加法 |
+| R4 | 2026-10-21 | **v2.0 面向 Agent 的 IM 修订**：新增 §11 身份（Ed25519 + AgentCard）、§12 Agent Gateway（统一数据平面）、§13 可见域（读侧权限）、§14 频道模型（频道类型隔离未读）、§15 Agent 会话（Agent 作为一等客户端）、§16 签名审计（哈希链 + Ed25519）；§17 禁止事项追加 3 条 v2 铁律 | 加法（v1 语义全部保留） |
+| R5 | 2026-10-21 | §11 澄清「平台可读名 vs 自证 id」：`agentId` 允许平台名，自证性由 `derivedId` 表达并在卡片中强制校验；`createAgentIdentity` 返回 `derivedId` | 澄清（不破坏 R4 调用方） |
 
 > 版本号保持 v1.0 的前缀含义是"契约面冻结、语义未破坏"；所有 R2/R3 变更**均为加法或澄清**，无一处改变已有调用者可观察行为。R4 起若出现破坏性变更，须升 v2.0 并保留 v1 并行期。
 
@@ -364,7 +366,226 @@ export class DedupeStore {
 
 ---
 
-## 11. 禁止事项（对所有实现者）
+## 11. `services/identity/src/agent-id.mjs`（v2 新增）
+
+**职责**：Agent 自持身份（Ed25519）与 AgentCard 签发/验签——Agent 不再是一个内部字符串 id。
+**不变量**：私钥不出 `createAgentIdentity` 的返回值以外；验签**只返回判定、不抛异常**（verification is a verdict）；规范化 JSON 与审计链共用同一规则。
+
+```js
+export const KEY_ALG = Object.freeze({ ED25519: 'ed25519' });
+export const IDENTITY_CODE = Object.freeze({
+  INVALID_KEY: 'INVALID_KEY', BAD_CARD: 'BAD_CARD', CARD_EXPIRED: 'CARD_EXPIRED',
+  SIGNATURE_INVALID: 'SIGNATURE_INVALID', HASH_MISMATCH: 'HASH_MISMATCH'
+});
+export class IdentityError extends Error {}   // code 取 IDENTITY_CODE 之一
+
+export function canonicalize(value);          // 稳定序列化（键排序、无空格），与 audit 一致
+export function sha256Hex(text);
+export function createAgentIdentity({ agentId = null, privateKeyPem = null } = {});
+//  -> { agentId, keyAlg:'ed25519', publicKeyPem, privateKeyPem, createdAt }
+export function agentIdFromPublicKey(publicKeyPem);   // -> `agent-<22 位 base64url(sha256(pubkey))>`
+export function createAgentCard({
+  identity, ownerUserId, displayName = null,
+  capabilities = [], domains = [], trustCeiling = 4,
+  endpoint = null, ttlMs = 7 * 864e5
+});   // -> card（未签名）
+export function cardHash(card);                        // -> hex（对 canonical(card) 求 sha256）
+export function signAgentCard({ card, identity });     // -> { card, cardHash, alg:'ed25519', signature, signerPublicKeyPem }
+export function verifyAgentCard({ signedCard, now = null });   // -> { ok, code, card }
+export function signPayload({ identity, payload });    // -> { alg, signature, payloadHash }
+export function verifyPayload({ publicKeyPem, payload, signature }); // -> { ok, code }
+```
+**签发主体（易混淆，必须区分）**：`signAgentCard({card, identity})` 中的 `identity` 是**卡片主体自己**——AgentCard 是**自签**的，只证明"该 Agent 持有对应私钥"。**平台背书不在卡片签名里**，而体现在 ①注册表中该 agentId→principal 的绑定、②`AgentGateway.issueToken` 签发的短期 token（含 domains/trustCeiling）。这正是 A2A 的核心教训：**身份可验证 ≠ 已授权**。
+
+**规则**：`agentId` 允许两种形态——
+1. **平台名**（如 `agent-lin-butler`）：由平台注册表分配的权威可读名；此时自证性由 `derivedId`（`agentIdFromPublicKey` 重算值）单独表达，`createAgentIdentity` 必须把两者都返回。
+2. **自证 id**（不传 `agentId` 或 `agentId === derivedId`）：id 本身即公钥指纹，可直接跨平台验真。
+
+`verifyAgentCard` 依次检查 ①结构 ②`cardHash === cardHash(card)` ③签名验签 ④`expiresAt > now` ⑤**若 `card.derivedId` 存在，必须等于 `agentIdFromPublicKey(card.publicKeyPem)`**；失败返回对应 `code`（`BAD_CARD` / `HASH_MISMATCH` / `SIGNATURE_INVALID` / `CARD_EXPIRED`）。
+> 这条规则的目的是让「平台内可读名」与「跨平台自证」共存：内部用可读名便于运维与审计可读性，对外交换时用 `derivedId` 做可验证身份，两者不得混淆。
+
+---
+
+## 12. `services/gateway/src/agent-gateway.mjs`（v2 新增）
+
+**职责**：**所有 Agent 流量的唯一入口**（内部 Agent / 第三方 Agent / 外部 A2A / MCP）。认证、限流、前置门控、出口护栏、签名审计都在这一个数据平面上，不在编排层各处散落。
+
+```js
+export const PROTOCOL = Object.freeze({ AGENT_WS: 'AGENT_WS', IM_CUSTOM: 'IM_CUSTOM', A2A_JSONRPC: 'A2A_JSONRPC', MCP_TOOLS: 'MCP_TOOLS' });
+export const GATEWAY_CODE = Object.freeze({
+  UNAUTHENTICATED: 'UNAUTHENTICATED', CARD_EXPIRED: 'CARD_EXPIRED', SIGNATURE_INVALID: 'SIGNATURE_INVALID',
+  TOKEN_MISMATCH: 'TOKEN_MISMATCH', TOKEN_REVOKED: 'TOKEN_REVOKED', PRINCIPAL_MISMATCH: 'PRINCIPAL_MISMATCH',
+  RATE_LIMITED: 'RATE_LIMITED', GATE_DENIED: 'GATE_DENIED', EGRESS_BLOCKED: 'EGRESS_BLOCKED',
+  UNKNOWN_ROUTE: 'UNKNOWN_ROUTE', NOT_CONFIGURED: 'NOT_CONFIGURED'
+});
+export class GatewayError extends Error {}     // code 取 GATEWAY_CODE 之一
+
+export class AgentGateway {
+  constructor({ capabilityGate, egressGuard, signedAudit = null, clock = () => new Date(),
+                rateLimit = { windowMs: 60_000, max: 120 } });
+  issueToken({ agentId, principalUserId, domains = [], trustCeiling = 4, ttlMs = 15 * 60e3 });
+  //  -> { token, agentId, principalUserId, domains, trustCeiling, issuedAt, expiresAt }
+  revokeToken(token);                              // -> boolean
+  authenticate({ signedCard, token, protocol });   // -> { agentId, principalUserId, domains, trustCeiling, protocol }
+  route({ signedCard, token, protocol, action, payload = {} });
+  //  -> { ok:true, agentId, protocol, action, decision:'ALLOW'|'REQUIRE_APPROVAL', auditSeq, normalized }
+  events({ limit = null } = {});                   // -> 网关自身事件（认证/限流/拒绝/放行）
+}
+```
+**处理管线（顺序冻结，短路）**：
+1. `authenticate`：卡片验签（`verifyAgentCard`）→ 未过期；token 存在且未撤销；`token.agentId === card.agentId`；token 未过期。任一失败抛 `GatewayError`。2. 限流：同一 `agentId` 在 `windowMs` 内超过 `max` 次 → `RATE_LIMITED`。
+3. 前置门控：`payload.skillId` 存在时调 `capabilityGate.evaluate({ agentId, userId: principalUserId, targetId: payload.targetId ?? null, skillId, amountCents: payload.amountCents ?? 0 })`；`DENY` → `GATE_DENIED`（携带底层 code）；`REQUIRE_APPROVAL` → **不拒绝**，`decision='REQUIRE_APPROVAL'` 且 `normalized.execute=false`。
+4. 出口护栏：`payload.content` 存在时调 `egressGuard.inspect(...)`；`BLOCK` → `EGRESS_BLOCKED`。
+5. 协议归一化：`normalized = { action, protocol, execute, skillId, targetId, content, meta }`（A2A/MCP 的适配在此收口，网关只做归一化，不执行具体业务）。
+6. 签名审计：向 `signedAudit.append({ source:'agent-gateway', action:'route', actor: agentId, target: action, decision, detail })` 写一条；`auditSeq` 回传。
+
+**token 下发（R5 裁定，防伪造的关键）**：
+
+| Agent 形态 | 谁签发 token | 约束 |
+|---|---|---|
+| 内置 Agent | 注册中心以服务身份（mTLS/内部调用）调 `issueToken` | Agent 进程内不得自行签发；token 只含 agentId + principal + domains + trustCeiling + exp |
+| 第三方托管 Agent | 用户授权（OAuth2 授权码式 consent）→ 平台签发 | 用户必须显式同意 scope；默认 15 分钟有效期；可随时 `revokeToken` |
+| 外部 A2A Agent | **不签发本平台 token** | 走边界网关的受限委托令牌：默认仅 `contact` 域只读 + 提交来意，不得读记忆/日程 |
+
+**私钥边界**：平台**不托管**第三方 Agent 私钥；内置 Agent 可使用 KMS 托管，但那只是运维便利，不构成安全边界——生产要求私钥不离开 Agent 运行域（KMS 或 TEE 二选一）。AgentCard 始终自签，平台只签 token。
+
+**错误码到 HTTP 的映射（v2 收敛）**：认证类 → 401；`RATE_LIMITED` → 429；`GATE_DENIED` / `EGRESS_BLOCKED` / `SCOPE_VIOLATION` → 403；`UNKNOWN_ROUTE` → **400 `INVALID_ARGUMENT`**（客户端错误、不可重试；不得用 `UNIMPLEMENTED`，否则会诱导 SDK 重试或降级到别的协议）。
+
+---
+
+## 13. `services/gateway/src/visibility.mjs`（v2 新增）
+
+**职责**：**读侧可见域**。权限不只是"能不能做"，还包括"以谁的视角、能看见哪些字段"。
+
+```js
+export const DOMAIN = Object.freeze({ CONTACT: 'contact', GROUP: 'group', TASK: 'task', SCHEDULE: 'schedule', MEMORY: 'memory' });
+export const VISIBILITY_CODE = Object.freeze({
+  VISIBILITY_DENIED: 'VISIBILITY_DENIED', DOMAIN_NOT_GRANTED: 'DOMAIN_NOT_GRANTED',
+  TRUST_CEILING_EXCEEDED: 'TRUST_CEILING_EXCEEDED', SCOPE_EXPIRED: 'SCOPE_EXPIRED',
+  RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND'
+});
+export class VisibilityError extends Error {}
+
+export class VisibilityGate {
+  constructor({ trustMatrix, clock = () => new Date() });
+  buildScope({ principalUserId, agentId, domains, trustCeiling = 4, ttlMs = 15 * 60e3 });
+  //  -> { principalUserId, agentId, domains, trustCeiling, issuedAt, expiresAt }
+  evaluate({ scope, resource });
+  //  resource = { domain, trustLevel = 4, id = null }
+  //  -> { decision:'ALLOW'|'REDACT'|'DENY', code, domain, allowedFields, redactedFields }
+  project({ scope, resource, fields = {} });
+  //  -> { decision, allowedFields, redactedFields, projected }
+}
+```
+**字段裁剪表（冻结）**：
+
+| 资源信任档 | 允许返回的字段 |
+|---|---|
+| `SELF(0)` / `FAMILY(1)` | 全字段 |
+| `TRUSTED(2)` | 除敏感凭据外的业务字段（默认 `id, displayName, tags, detail, endpoint`） |
+| `KNOWN(3)` | `id, displayName, tags` |
+| `STRANGER(4)` | 仅 `id, exists`（存在性，不含内容） |
+| `MEMORY` 域（任何档） | 仅 `agentId, lastAt, count, summary`（**永不返回原始内容**） |
+
+**判定顺序（短路）**：scope 过期 → `DENY/SCOPE_EXPIRED`；`resource.domain ∉ scope.domains` → `DENY/DOMAIN_NOT_GRANTED`；`resource.trustLevel > scope.trustCeiling` → `DENY/TRUST_CEILING_EXCEEDED`；否则按表裁剪，有字段被裁掉则 `REDACT`，否则 `ALLOW`。
+
+---
+
+## 14. `services/messaging/src/channel.mjs`（v2 新增）
+
+**职责**：频道模型（WuKongIM/WKongAI 的频道类型思想）：人类与 Agent 共享消息内核，但靠**频道类型**隔离未读与投递——Agent 协商不再另开物理通道，而是独立频道类型。
+
+```js
+export const CHANNEL_TYPE = Object.freeze({ DIRECT: 'DIRECT', GROUP: 'GROUP', TASK: 'TASK', AGENT_NEGOTIATION: 'AGENT_NEGOTIATION', STRANGER_QUEUE: 'STRANGER_QUEUE' });
+export const MEMBER_KIND = Object.freeze({ HUMAN: 'human', AGENT: 'agent' });
+export const MESSAGE_KIND = Object.freeze({ TEXT: 'TEXT', CMD: 'CMD', AGENT_TURN: 'AGENT_TURN', APPROVAL_CARD: 'APPROVAL_CARD', INTENT: 'INTENT' });
+export const CHANNEL_CODE = Object.freeze({
+  CHANNEL_EXISTS: 'CHANNEL_EXISTS', CHANNEL_UNKNOWN: 'CHANNEL_UNKNOWN', TYPE_INVALID: 'TYPE_INVALID',
+  MEMBER_EXISTS: 'MEMBER_EXISTS', NOT_MEMBER: 'NOT_MEMBER', POST_DENIED: 'POST_DENIED',
+  AGENT_NOT_SUBSCRIBED: 'AGENT_NOT_SUBSCRIBED', CMD_NOT_PERSISTED: 'CMD_NOT_PERSISTED'
+});
+export class ChannelError extends Error {}
+
+export class ChannelRegistry {
+  constructor({ clock = () => new Date() });
+  create({ channelId, type, ownerUserId, title = null });
+  join({ channelId, memberId, kind, agentId = null, principalUserId = null, trustLevel = 4 });
+  leave({ channelId, memberId });
+  get(channelId);                       // -> channel | undefined
+  members(channelId);                   // -> member[]
+  channelsOf(memberId);                 // -> channelId[]
+  post({ channelId, memberId, kind, payload = {}, seq = null });
+  //  -> { stored, message, deliveredTo, unreadDelta }
+  //     unreadDelta 是**整数**：本次 post 使多少人类成员各 +1（通常 0 或 1；群聊可能 >1）。
+  //     message 最小集：{ id, channelId, seq, kind, fromMemberId, at, payload, stored }
+  unreadFor({ memberId });              // -> { total, byChannel }
+  markRead({ memberId, channelId });
+  assertCanPost({ channelId, memberId, kind });   // 不合规抛 ChannelError
+}
+```
+**语义（冻结）**：
+- `CMD` 类消息：`stored=false`、**不计未读**、只投递给已订阅的 Agent 成员（用于唤醒/心跳/指令）。
+- `AGENT_NEGOTIATION` 频道：**对人类成员的未读恒为 0**（协商中间态不打扰人，只在巡视态可看）；人类成员 POST 该类型频道 → `POST_DENIED`（协商只能由 Agent 发起）。
+- `STRANGER_QUEUE` 频道：陌生人入站先入队，不产生对方未读，直到转为审批卡片。
+- 非成员 POST → `NOT_MEMBER`；Agent 成员未订阅频道时投递被跳过并在 `deliveredTo` 中不出现。
+
+---
+
+## 15. `services/messaging/src/session.mjs`（v2 新增）
+
+**职责**：**Agent 作为消息内核的一等客户端**——独立长连接、独立在线状态、独立订阅，可独立部署/第三方托管（MagicChat/WKongAI/Buzz 的共同形态）。传输层抽象，内存与 SSE 两种适配器都实现同一接口。
+
+```js
+export const SESSION_STATE = Object.freeze({ CONNECTING: 'CONNECTING', ONLINE: 'ONLINE', OFFLINE: 'OFFLINE', REVOKED: 'REVOKED' });
+export const SESSION_CODE = Object.freeze({
+  UNKNOWN_AGENT: 'UNKNOWN_AGENT', ALREADY_ONLINE: 'ALREADY_ONLINE', NOT_ONLINE: 'NOT_ONLINE',
+  TRANSPORT_REQUIRED: 'TRANSPORT_REQUIRED', SEND_FAILED: 'SEND_FAILED'
+});
+export class SessionError extends Error {}
+
+export class AgentSessionRegistry {
+  constructor({ clock = () => new Date(), heartbeatTimeoutMs = 90_000, channelRegistry = null });
+  connect({ agentId, principalUserId, transport, subscriptions = [], protocol = 'AGENT_WS' });
+  //  transport 只需实现 { send(obj), close() }；返回 session
+  heartbeat({ agentId });
+  disconnect({ agentId, reason = 'client_closed' });
+  subscribe({ agentId, channelId }); unsubscribe({ agentId, channelId });
+  presence();                            // -> [{ agentId, state, protocol, principalUserId, subscriptions, lastSeenAt }]
+  sweepStale(nowMs = null);              // 心跳超时 -> OFFLINE，返回被置离线的 agentId[]
+  push({ channelId, message });           // -> { delivered:[agentId], failed:[agentId] }
+}
+```
+**规则**：重复 `connect` 同一在线 agent → `ALREADY_ONLINE`；`transport` 缺失/不合法 → `TRANSPORT_REQUIRED`；`push` 只发给「在线 + 已订阅该频道」的 agent，`transport.send` 抛错则该 agent 置 `OFFLINE` 并计入 `failed`。
+
+---
+
+## 16. 审计：`services/audit/src/{audit-log,signed-audit}.mjs`（契约追认 + v2 签名扩展）
+
+**职责**：不可变审计 = **哈希链**（防单条篡改、防截断）+ **Ed25519 签名**（防"有权改库者整链重算"、可证明"是谁写的"）。
+
+`audit-log.mjs`（已实现，本契约追认其 API）：`AuditLog({ clock, limit, records })`、`append(entry)`、`verify()`、`records(filter)`、`replay(traceId)`、`snapshot()`、`head()`、`size()`、`trimmed()`；创世前驱 `GENESIS_HASH='GENESIS'`。
+
+```js
+// services/audit/src/signed-audit.mjs
+export const SIGNED_AUDIT_CODE = Object.freeze({ SIGNER_REQUIRED: 'SIGNER_REQUIRED', CHAIN_BROKEN: 'CHAIN_BROKEN', SIGNATURE_INVALID: 'SIGNATURE_INVALID', UNKNOWN_SEQ: 'UNKNOWN_SEQ' });
+export class SignedAuditError extends Error {}
+
+export class SignedAuditLog {
+  constructor({ clock = () => new Date(), identity, log = null });
+  append({ source, action, actor = null, target = null, decision = null, detail = null, traceId = null });
+  //  -> 冻结 entry：{ ...审计字段, signer, signature }
+  verify();          // -> { ok, length, headSeq, chain:{ ok, brokenAt }, signatures:{ ok, invalidAt }, head }
+  //  head = 链尾的 **hash 字符串**（hex）；headSeq 为对应序号。签名编码统一 **base64**（标准、非 url-safe）。
+  checkpoint();      // -> { seq, hash, alg:'ed25519', signature, at }
+  entries({ limit = null } = {});   // -> entry[]
+  head();
+}
+```
+**规则**：`signature = ed25519(identity.privateKey, entry.hash)`；`verify()` 必须同时校验链与每条签名；`chain.ok === false` 时不可只报签名通过就返回 ok。`identity` 缺失 → `SIGNER_REQUIRED`（签名审计不允许无签名模式）。
+
+---
+
+## 17. 禁止事项（对所有实现者）
 
 1. **零依赖**：不得 `import` 任何非 `node:` 模块；不得 `npm install`（本机 npm 不可用）。
 2. **不得使用 `node --test`**：沙箱禁止子进程管道，会导致 `EPERM`。用 `node services/orchestrator/test/xxx.test.mjs` 直跑。
@@ -372,10 +593,13 @@ export class DedupeStore {
 4. **不得 git commit / git push**：由 Lead 统一执行。
 5. **不得静默降级**：实现不了契约时，抛明确错误并回报 Lead，不要悄悄改变语义。
 6. **不得在契约外增加必需参数**：可选参数可加，签名前 1–N 个位置参数必须一致。
+7. **v2 起：Agent 的外部动作必须经 `AgentGateway`**：不得在网关之外直接调用 Skill、直接投递跨 principal 消息，否则限流/门控/审计三处都会漏。
+8. **v2 起：Agent 代用户读数据必须带 `VisibilityScope`**：不得把「没有 scope 检查」的列表/搜索接口交给 Agent；`MEMORY` 域永不返回原始内容。
+9. **v2 起：审计必须签名**：新增审计写入点一律走 `SignedAuditLog`；`AuditLog` 只作为底层链实现，不得在新代码里绕过签名。
 
 ---
 
-## 12. 验证命令
+## 18. 验证命令
 
 ```powershell
 # 单模块（最常用，快速反馈）
@@ -385,6 +609,11 @@ node E:\GPT\agent-im\services\orchestrator\test\trust-zone.test.mjs
 node E:\GPT\agent-im\scripts\test.mjs --filter=orchestrator
 node E:\GPT\agent-im\scripts\test.mjs --filter=payment
 node E:\GPT\agent-im\scripts\test.mjs --filter=messaging
+
+# v2 新增模块
+node E:\GPT\agent-im\scripts\test.mjs --filter=identity
+node E:\GPT\agent-im\scripts\test.mjs --filter=gateway
+node E:\GPT\agent-im\scripts\test.mjs --filter=audit
 
 # 全量（Lead 集成阶段）
 node E:\GPT\agent-im\scripts\test.mjs

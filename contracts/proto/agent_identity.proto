@@ -1,0 +1,174 @@
+// ============================================================================
+// 模块职责：Agent 自持身份（Ed25519）与 AgentCard 的签发/验签契约（v2 新增，
+//           对应 V2-3）。Agent 不再是一个内部字符串 id，而是一个可独立验证的
+//           密钥主体：私钥由 Agent/其部署方持有，平台只保管公钥与卡片。
+// 契约来源：contracts/INTERFACES.md §11（R4 新增，R5 澄清「平台可读名 vs 自证
+//           id」，并按 A1 裁定写入 token 下发与私钥边界）。本文件是 §11 的线
+//           格式投影，**不得**反向定义语义。
+// 验证状态：⚠ **未编译验证**。本机无 protoc / buf / Go 工具链；本文件为人工
+//           逐项自检的契约源码（缩进 2 空格、枚举显式赋值、字段号只增不复用）。
+//           CI 必须补：`buf lint` + `protoc` 编译 + `buf breaking --against`。
+// 关键不变量：
+//   1. 私钥绝不出现在任何 proto 消息中（没有 private_key 字段，也不得新增）。
+//      **平台不托管第三方 Agent 私钥**；内置 Agent 可用 KMS 托管，但那只是运维
+//      便利、不构成安全边界（生产要求私钥不离开 Agent 运行域，KMS 或 TEE 二选一）。
+//      AgentCard 始终由卡片主体**自签**，平台只签 token（R5/A1）。
+//   2. **身份 ≠ 准入**：卡片签名只证明「该 Agent 持有对应私钥」；平台背书体现在
+//      ①注册表中 agentId→principal 的绑定、②`AgentToken`（domains/trustCeiling）。
+//      验签通过 ≠ 已被授权，任何外部动作仍须过 AgentGateway（§12）。
+//   3. R5：`agent_id` 允许两种形态——平台可读名（如 agent-lin-butler，自证性由
+//      `derived_id` 单独表达）或自证 id（agentId === derivedId）。`card.derived_id`
+//      存在时必须等于 `agentIdFromPublicKey(card.public_key_pem)`，否则 `BAD_CARD`。
+//   4. 验签只返回判定、不抛异常（verification is a verdict）：一律用
+//      VerifyCardResponse.ok + IdentityCode 表达，不用 gRPC 错误表达"卡片无效"。
+//   5. `card_hash` 对 canonical(card) 求 sha256，**hex** 编码；canonical 与签名
+//      审计链共用同一规则（键排序、无空格）。
+//   6. A4 裁定：**所有签名字段统一 base64（标准、非 url-safe）**，解码后必须是
+//      64 字节 Ed25519 签名；`hash` 类字段（card_hash/payload_hash）仍用 hex。
+//   7. ⚠ 需复核（canonical 的 null 语义）：§11 的 JS 对象允许 `displayName: null`，
+//      而 proto3 空字符串无法区分"缺省"与"null"。**服务端不得用 proto 字段重建
+//      JS 对象后重算 cardHash**：cardHash 必须在同一表示层（签发方 SDK）产生，
+//      服务端只做"原样校验"。这是跨语言互操作的最大坑，需在 §11 补一句。
+//   8. ⚠ 需复核：`metadata` 是否参与 canonical(card) 未在 §11 写明；当前按"参与"
+//      处理（字段进入卡片对象即参与），实现方不得在签名后追加 metadata。
+// 编译前提：protoc -I contracts/proto -I <well-known-types 目录>。
+// ============================================================================
+
+syntax = "proto3";
+
+package agentim.contracts.identity.v1;
+
+import "google/protobuf/struct.proto";
+import "common.proto";
+
+// 密钥算法。与 INTERFACES.md §11 `KEY_ALG = { ED25519: 'ed25519' }` 对应。
+// 命名差异（已知且唯一）：proto 枚举值按规范大写（ED25519），JS 侧字符串为
+// 小写 'ed25519'；由 SDK 映射层负责大小写转换，与 approval.proto 的
+// TicketPriority 处理方式一致。v2 只允许 Ed25519（不做 RSA/ECDSA 兼容分支）。
+enum KeyAlg {
+  KEY_ALG_UNSPECIFIED = 0;  // 占位：proto3 强制首值为 0，出现即视为非法输入
+  ED25519 = 1;
+}
+
+// 平台内部错误码。与 §11 IDENTITY_CODE 逐字一致（大小写敏感）。
+// 语义是"判定结果"，不是传输故障：随 VerifyCardResponse.ok=false 返回，
+// 不占用 gRPC status（映射见 docs/03 §12.6）。
+enum IdentityCode {
+  IDENTITY_CODE_UNSPECIFIED = 0;  // 占位，禁止作为业务返回值
+
+  INVALID_KEY = 1;        // 公钥不可解析 / 非 ed25519 / PEM 损坏
+  BAD_CARD = 2;           // 卡片结构非法；或 card.derived_id ≠ 公钥重算值（R5）
+  CARD_EXPIRED = 3;       // expires_at <= now（卡片过期）
+  SIGNATURE_INVALID = 4;  // 签名验签失败（含用 A 的签名冒充 B 的卡片）
+  HASH_MISMATCH = 5;      // card_hash != sha256(canonical(card))，卡片被篡改
+}
+
+// Agent 自持身份。**只在 Agent 侧/注册流程中存在，绝不下发私钥**。
+// §11 `createAgentIdentity()` 的返回值投影（不含 private_key_pem；R5 起含 derived_id）。
+message AgentIdentity {
+  string agent_id = 1;                  // 平台可读名（agent-lin-butler）或自证 id
+  string derived_id = 2;                // R5：agentIdFromPublicKey(public_key_pem)，自证性锚点
+  KeyAlg key_alg = 3;                   // 固定 ED25519
+  string public_key_pem = 4;            // 公钥（PEM）；derived_id 的派生根
+  string created_at = 5;                // ISO-8601
+}
+
+// AgentCard：Agent 的自声明名片（未签名）。对应 §11 `createAgentCard({...})`。
+// 注意：capabilities / domains 是**自声明**，不可信；以 agent-registry 审核记录
+// 与 trust-zone 产出为准（§10.3 "自声明能力不可信"）。
+message AgentCard {
+  string agent_id = 1;                  // 平台可读名或自证 id（R5 两种形态）
+  string owner_user_id = 2;             // user-*（授权主体：人机混合的落点）
+  string display_name = 3;              // 可读名；JS 侧可为 null ⇒ proto 空串
+  repeated string capabilities = 4;     // 自声明能力清单（仅供展示/发现）
+  repeated string domains = 5;          // 可见域授权申请，取值见 §13 DOMAIN
+  agentim.contracts.common.v1.TrustLevel trust_ceiling = 6;  // 信任上限，默认 STRANGER(4)
+  string endpoint = 7;                  // 第三方托管 Agent 的接入端点；内置 Agent 为空
+  KeyAlg key_alg = 8;                   // 固定 ED25519
+  string public_key_pem = 9;            // 公钥；derived_id 的来源
+  string created_at = 10;               // 签发时刻 ISO-8601
+  string expires_at = 11;               // 过期时刻（§11 默认 ttlMs = 7*864e5 即 7 天）
+  google.protobuf.Struct metadata = 12; // 扩展位：⚠ 是否参与 canonical(card) 需复核
+  string derived_id = 13;               // R5：存在时必须 == agentIdFromPublicKey(public_key_pem)
+}
+
+// 已签名卡片。对应 §11 `signAgentCard({card, identity})` 的返回值。
+// card_hash 是防篡改锚点：验签顺序 ①结构 ②cardHash ③签名 ④过期
+// ⑤derived_id 校验（若存在）（§11 R5 规则）。
+message SignedAgentCard {
+  AgentCard card = 1;                   // 原始卡片，必须原样传递（不得重排/重编码）
+  string card_hash = 2;                 // hex(sha256(canonical(card)))
+  KeyAlg alg = 3;                       // 签名算法（固定 ED25519）
+  string signature = 4;                 // base64(Ed25519(cardHash))，标准非 url-safe，解码后 64 字节
+  string signer_public_key_pem = 5;     // 签名者公钥，必须 === card.public_key_pem
+}
+
+// 平台签发的短期访问令牌。对应 §12 `AgentGateway.issueToken(...)`。
+// **A1 裁定（强约束）**：token 只能由平台签发——内置 Agent 由注册中心以服务身份
+// （mTLS/内部调用）签发；第三方托管 Agent 经用户 OAuth2 授权码式 consent 后由平台
+// 签发并安全回跳；外部 A2A Agent **不签发本平台 token**（走边界网关受限委托令牌）。
+// Agent 进程**不得自签 token**，否则 principal 可伪造。token 可随时 `revokeToken`。
+// 内容仅含 agentId + principalUserId + domains + trustCeiling + exp，**不含任何
+// 权力扩张字段**；这是与 §10.2 任务级授权令牌（内层、动作级）不同的外层凭证。
+message AgentToken {
+  string token = 1;                     // 不透明令牌串（服务端可校验/可撤销）
+  string agent_id = 2;                  // 必须与 card.agent_id 一致，否则 TOKEN_MISMATCH
+  string principal_user_id = 3;         // 代理的授权人；可见域与门控都以它为准
+  repeated string domains = 4;          // 令牌允许的可见域（服务端绑定，客户端不可扩展）
+  agentim.contracts.common.v1.TrustLevel trust_ceiling = 5;  // 令牌信任上限（§12 默认 4）
+  string issued_at = 6;                 // 默认 TTL 15 min（§12 ttlMs = 15*60e3）
+  string expires_at = 7;
+}
+
+// ---------------------------------------------------------------------------
+// RPC 请求 / 响应
+// ---------------------------------------------------------------------------
+
+// 签发卡片。仅用于**内置 Agent**（平台可托管 KMS 密钥，但 KMS 只是运维便利、
+// 不构成安全边界）与平台批准后的第三方注册（平台**不托管**第三方私钥）。
+// 自持私钥的 Agent 必须自己签名后走 VerifyCard（A1）。返回体不含私钥。
+message IssueCardRequest {
+  string owner_user_id = 1;             // user-*
+  string display_name = 2;
+  repeated string capabilities = 3;
+  repeated string domains = 4;          // 申请可见域（服务端按 §13 裁剪后才写入卡片）
+  agentim.contracts.common.v1.TrustLevel trust_ceiling = 5;
+  string endpoint = 6;                  // 可为空（内置 Agent）
+  uint64 ttl_ms = 7;                    // 默认 7*864e5；0 表示取服务端默认
+}
+
+// 签发结果。只回签名后的卡片 + 身份事实，**不回私钥**。
+message IssueCardResponse {
+  SignedAgentCard signed_card = 1;
+  AgentIdentity identity = 2;           // 含 derived_id：agent_id 的自证性锚点（R5）
+}
+
+// 验签请求。平台在注册、每次接入握手、每次网关认证时都会调用。
+message VerifyCardRequest {
+  SignedAgentCard signed_card = 1;
+  string at = 2;                        // 校验用时间点；空表示用服务端时钟（⚠ 需复核是否允许客户端指定）
+}
+
+// 验签结果（verdict）。ok=false 时 code 必为 IdentityCode 之一；ok=true 时 code
+// 为 IDENTITY_CODE_UNSPECIFIED。**服务端永不因"卡片无效"返回 gRPC 错误**。
+message VerifyCardResponse {
+  bool ok = 1;
+  IdentityCode code = 2;
+  AgentCard card = 3;                   // 验签通过时回填（已过 hash/签名/过期/derived_id 校验）
+  string checked_at = 4;                // ISO-8601
+}
+
+// ---------------------------------------------------------------------------
+// 服务定义。§11 只冻结了两个 RPC：IssueCard / VerifyCard。
+// signAgentCard / verifyPayload 是**本地库能力**（私钥不出进程，无需 RPC）；
+// token 的签发/撤销**不在本服务**：issueToken/revokeToken 由平台内部以服务身份
+// 调用（A1），不构成 Agent 可调用的 RPC 面。
+// 业务错误码（IdentityCode）随响应体返回，gRPC status 只表达传输层故障
+// （UNAUTHENTICATED / INVALID_ARGUMENT / UNAVAILABLE，见 docs/03 §12.6）。
+// ---------------------------------------------------------------------------
+service IdentityService {
+  // 为服务端托管身份的内置 Agent 签发卡片（平台不托管第三方私钥）。
+  rpc IssueCard(IssueCardRequest) returns (IssueCardResponse);
+  // 验证任意来源的已签名卡片（三方托管 Agent / 外部 A2A Agent 路径）。
+  rpc VerifyCard(VerifyCardRequest) returns (VerifyCardResponse);
+}

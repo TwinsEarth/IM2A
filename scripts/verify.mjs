@@ -110,7 +110,12 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
     TICKET_STATE: ['PENDING', 'REVIEWING', 'APPROVED', 'REJECTED', 'MODIFIED', 'EXECUTING', 'COMPLETED', 'FAILED', 'EXPIRED'],
     TASK_STATE: ['SUBMITTED', 'WORKING', 'INPUT_REQUIRED', 'AUTH_REQUIRED', 'COMPLETED', 'FAILED', 'CANCELED', 'REJECTED'],
     MSG_STATE: ['INTENT', 'AWAITING_PAYMENT', 'REFUSED', 'PAID', 'VIEWED', 'REPLIED', 'SETTLED', 'REFUNDED', 'EXPIRED'],
-    TRUST_LEVELS: ['SELF', 'FAMILY', 'TRUSTED', 'KNOWN', 'STRANGER']
+    TRUST_LEVELS: ['SELF', 'FAMILY', 'TRUSTED', 'KNOWN', 'STRANGER'],
+    // v2 新增：频道 / 会话 / 协议 / 可见域（proto 侧首值与大小写不同，用 i 标志兼容 Domain 的 CONTACT vs 'contact'）
+    CHANNEL_TYPE: ['DIRECT', 'GROUP', 'TASK', 'AGENT_NEGOTIATION', 'STRANGER_QUEUE'],
+    SESSION_STATE: ['CONNECTING', 'ONLINE', 'OFFLINE', 'REVOKED'],
+    PROTOCOL: ['AGENT_WS', 'IM_CUSTOM', 'A2A_JSONRPC', 'MCP_TOOLS'],
+    DOMAIN: ['contact', 'group', 'task', 'schedule', 'memory']
   };
 
   const srcText = (
@@ -122,7 +127,7 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   for (const [machine, values] of Object.entries(machines)) {
     const inContract = values.every((v) => contract.includes(v));
     const inSrc = values.every((v) => srcText.includes(`'${v}'`) || srcText.includes(`"${v}"`));
-    const inProto = values.every((v) => new RegExp(`\\b${v}\\s*=\\s*\\d+`).test(protoText));
+    const inProto = values.every((v) => new RegExp(`\\b${v}\\s*=\\s*\\d+`, 'i').test(protoText));
     record(
       `状态机 ${machine} 三方差值一致（${values.length} 态）`,
       inContract && inSrc && inProto,
@@ -152,14 +157,18 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
 
 // ───────────────────────── 7. openapi 路径 ↔ 演示服务实现 ─────────────────────────
 {
-  const spec = await read(path.join(ROOT, 'contracts/openapi/orchestrator.openapi.yaml'));
+  const specs = await walk(path.join(ROOT, 'contracts/openapi'), [], (f) => f.endsWith('.yaml'));
   const server = (
     await Promise.all([
       read(path.join(ROOT, 'apps/demo-server/server.mjs')),
       read(path.join(ROOT, 'apps/im-live/server.mjs'))
     ])
   ).join('\n');
-  const declared = [...spec.matchAll(/^\s{2}(\/api\/[\w{}/-]+):/gm)].map((m) => m[1]);
+  const declared = [];
+  for (const specFile of specs) {
+    const text = await read(specFile);
+    for (const match of text.matchAll(/^\s{2}(\/api\/[\w{}/-]+):/gm)) declared.push(match[1]);
+  }
   const missing = declared.filter((p) => {
     // /api/intent/{id}/screen → 在 server 中应以正则或字面量出现
     const base = p.split('/{')[0];
@@ -167,7 +176,11 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
     const tail = p.includes('/{') ? p.slice(p.lastIndexOf('}/') + 2) : null;
     return tail ? !server.includes(tail) : false;
   });
-  record(`openapi 声明的 ${declared.length} 条路径在演示服务中有实现`, missing.length === 0, missing.join('; '));
+  record(
+    `openapi 声明的 ${declared.length} 条路径在演示服务中有实现（${specs.length} 个 spec）`,
+    missing.length === 0,
+    missing.join('; ')
+  );
 }
 
 // ───────────────────────── 8. 术语防漂移 ─────────────────────────
@@ -184,6 +197,56 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
     }
   }
   record('文档未出现契约外状态名', hits.length === 0, hits.join('; '));
+}
+
+// ───────────────────────── 9. v2 交付完整性 ─────────────────────────
+{
+  const v2Modules = [
+    'services/identity/src/agent-id.mjs',
+    'services/identity/src/index.mjs',
+    'services/gateway/src/agent-gateway.mjs',
+    'services/gateway/src/visibility.mjs',
+    'services/gateway/src/index.mjs',
+    'services/messaging/src/channel.mjs',
+    'services/messaging/src/session.mjs',
+    'services/audit/src/signed-audit.mjs',
+    'services/audit/src/index.mjs'
+  ];
+  const missingModules = [];
+  for (const modulePath of v2Modules) if (!(await exists(path.join(ROOT, modulePath)))) missingModules.push(modulePath);
+  record(`v2 模块文件齐备（${v2Modules.length} 个）`, missingModules.length === 0, missingModules.join('; '));
+
+  const v2Protos = ['agent_identity.proto', 'gateway.proto', 'channel.proto', 'signed_audit.proto'];
+  const missingProtos = [];
+  for (const proto of v2Protos) if (!(await exists(path.join(ROOT, 'contracts/proto', proto)))) missingProtos.push(proto);
+  record(`v2 proto 契约齐备（${v2Protos.length} 个）`, missingProtos.length === 0, missingProtos.join('; '));
+
+  record(
+    'v2 REST 契约存在（contracts/openapi/v2-agent-network.openapi.yaml）',
+    await exists(path.join(ROOT, 'contracts/openapi/v2-agent-network.openapi.yaml')),
+    '缺失'
+  );
+}
+
+// ───────────────────────── 10. v2 文档口径完整 ─────────────────────────
+{
+  const doc11 = path.join(ROOT, 'docs/11-AI原生IM架构-v2.md');
+  const doc12 = path.join(ROOT, 'docs/12-开源IM项目对标与取舍.md');
+  if (!(await exists(doc11)) || !(await exists(doc12))) {
+    record('v2 文档存在（docs/11 架构修订 + docs/12 开源对标）', false, '缺文件');
+  } else {
+    const t11 = await read(doc11);
+    const t12 = await read(doc12);
+    const hasAllSix = ['V2-1', 'V2-2', 'V2-3', 'V2-4', 'V2-5', 'V2-6'].every((tag) => t11.includes(tag));
+    record('docs/11 覆盖 V2-1…V2-6 六项变更', hasAllSix, '缺某一项');
+    const projects = ['WuKongIM', 'WKongAI', 'MagicChat', 'Sigil', 'SKChat', 'Buzz', 'AICQ', 'A2A', 'Agentgateway'];
+    const missingProjects = projects.filter((name) => !t12.includes(name));
+    record(`docs/12 覆盖 ${projects.length} 个对标项目`, missingProjects.length === 0, missingProjects.join(', '));
+    const contract = await read(path.join(ROOT, 'contracts/INTERFACES.md'));
+    const sections = ['11', '12', '13', '14', '15', '16'];
+    const missingSections = sections.filter((section) => !contract.includes(`## ${section}. `));
+    record('契约含 v2 §11–§16 六节', missingSections.length === 0, missingSections.join(', '));
+  }
 }
 
 // ───────────────────────── 汇总 ─────────────────────────
