@@ -9,3 +9,9 @@ tmp/
 Thumbs.db
 *.pid
 .demo-state.json
+
+# 本地密钥（不要提交）
+.env
+.env.*
+!.env.example
+
