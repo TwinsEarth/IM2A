@@ -1,8 +1,8 @@
 // 模块职责：发布候选版本契约 —— 版本三元组 / 能力声明 / 构建信息
 // 契约来源：contracts/INTERFACES.md §51（v0.1.0）
 // 关键不变量：CAPABILITIES 是"声明"，不是"证明"；每项能力在文档里必须能对应到 Gate/测试。
-export const VERSION = '0.1.2';
-export const CONTRACT_REVISION = 'R23';
+export const VERSION = '0.1.3';
+export const CONTRACT_REVISION = 'R24';
 export const SCHEMA_VERSION = 2;
 
 /** 对外可验证能力清单（与契约章节对应；document 里必须写清各自由哪个 Gate 验证） */

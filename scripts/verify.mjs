@@ -911,6 +911,19 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   record('账户服务支持状态导出/导入', (await read(path.join(ROOT, 'services/account/src/account.mjs'))).includes('exportState()') && (await read(path.join(ROOT, 'services/account/src/account.mjs'))).includes('importState('), '缺 exportState/importState');
   record('支付服务支持状态导出/导入', (await read(path.join(ROOT, 'services/payment/src/channel-adapter.mjs'))).includes('exportState()') && (await read(path.join(ROOT, 'services/payment/src/channel-adapter.mjs'))).includes('importState('), '缺 exportState/importState');
   record('下单路径落盘（intent → persist）', (await read(path.join(ROOT, 'apps/im2agent/server.mjs'))).includes('persist(); // v0.1.2：下单必须落盘'), '下单未落盘');
+  // v0.1.3 缺陷修复：恢复备份的 schema 闸门 + 版本探针限流豁免
+  const serverV013 = await read(path.join(ROOT, 'apps/im2agent/server.mjs'));
+  record('恢复备份校验 schema（不兼容 → 409）', serverV013.includes('backupSchema !== VERSION_SCHEMA') && serverV013.includes("error: 'SCHEMA_MISMATCH'"), '缺备份 schema 闸门');
+  record('/api/version 已列为限流豁免', serverV013.includes("pathname !== '/api/version'"), '版本探针仍消耗限流');
+  const doc33 = path.join(ROOT, 'docs/33-v0.1.3-缺陷修复说明.md');
+  if (await exists(doc33)) {
+    const t33 = await read(doc33);
+    const required = ['备份', 'schema', '限流'];
+    const missingKeywords = required.filter((word) => !t33.includes(word));
+    record('docs/33 覆盖备份 schema 与限流修复', missingKeywords.length === 0, missingKeywords.join(', '));
+  } else {
+    record('docs/33 v0.1.3 缺陷说明存在', false, '缺文件');
+  }
   const doc32 = path.join(ROOT, 'docs/32-v0.1.2-缺陷修复与0.1.x停止条件.md');
   if (await exists(doc32)) {
     const t32 = await read(doc32);

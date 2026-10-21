@@ -763,6 +763,63 @@ test('⑳ v0.1.2 重启持久化：账户/会话/余额/订单不丢（账本回
   }
 });
 
+test('㉑ v0.1.3 缺陷修复：备份 schema 不兼容必须拒绝 + 版本探针不消耗限流', async () => {
+  const { mkdtempSync, rmSync, readFileSync, writeFileSync } = await import('node:fs');
+  const { createHash } = await import('node:crypto');
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), 'im2a-v013-'));
+  const env = {
+    PROFILE: 'lan',
+    PORT: '0',
+    STORE: 'jsonfile',
+    STORE_FILE: path.join(dataDir, 'state.json'),
+    RATE_LIMIT_PER_MIN: '0',
+    ADMIN_TOKEN: 'v013-token-123',
+    VIEWER_TOKEN: 'v013-view-123'
+  };
+  try {
+    const app = await startServer({ env });
+    try {
+      const admin = { 'x-admin-token': 'v013-token-123', 'content-type': 'application/json' };
+      // ① 造一份 schema 不兼容的备份：schemaVersion 改成 1，并按其哈希口径重算
+      const created = await json(`${app.urls[0]}/api/ops/backup`, { method: 'POST', headers: admin, body: JSON.stringify({ label: 'legacy' }) });
+      assert.equal(created.status, 200);
+      const file = created.body.backup.file;
+      const parsed = JSON.parse(readFileSync(file, 'utf8'));
+      const legacyData = { ...parsed.data, schemaVersion: 1 };
+      const hash = createHash('sha256').update(JSON.stringify({ data: legacyData, createdAt: parsed.meta.createdAt, label: parsed.meta.label }), 'utf8').digest('hex');
+      writeFileSync(file, JSON.stringify({ meta: { ...parsed.meta, sha256: hash }, data: legacyData }), 'utf8');
+
+      const badRestore = await json(`${app.urls[0]}/api/ops/backup/restore`, { method: 'POST', headers: admin, body: JSON.stringify({ file }) });
+      assert.equal(badRestore.status, 409, 'schema 不兼容的备份不得当成可恢复');
+      assert.equal(badRestore.body.error, 'SCHEMA_MISMATCH');
+      assert.equal(badRestore.body.needsMigration, true);
+      assert.equal(badRestore.body.restored, false);
+      assert.equal(badRestore.body.backupSchema, 1);
+    } finally {
+      await app.close();
+    }
+
+    // ② 版本探针不消耗限流：RATE_LIMIT_PER_MIN=1 时 /api/version 连打 3 次仍 200
+    const limited = await startServer({
+      env: { PROFILE: 'lan', PORT: '0', STORE: 'memory', RATE_LIMIT_PER_MIN: '1', ADMIN_TOKEN: 'v013-token-123', VIEWER_TOKEN: 'v013-view-123' }
+    });
+    try {
+      for (let index = 0; index < 3; index += 1) {
+        const version = await json(`${limited.urls[0]}/api/version`);
+        assert.equal(version.status, 200, '版本探针不应被限流');
+      }
+      // 限流本身仍然生效（用非豁免路径验证）
+      await json(`${limited.urls[0]}/api/state`);
+      const throttled = await json(`${limited.urls[0]}/api/state`);
+      assert.equal(throttled.status, 429, '普通接口仍应受限流保护');
+    } finally {
+      await limited.close();
+    }
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });

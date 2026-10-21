@@ -312,7 +312,8 @@ async function route(req, res, holder, persist) {
   securityHeaders(res, holder.rt.profile);
 
   // 应用层限流：健康检查放行，其余 /api/* 按客户端 key 计数（反代后需 TRUST_PROXY=1 才采信 XFF）
-  if (pathname.startsWith('/api/') && pathname !== '/api/health' && holder.limiter.enabled) {
+  // v0.1.3：健康检查与版本探针不消耗限流额度（监控/预检会高频调用，不应把正常运维打成 429）
+  if (pathname.startsWith('/api/') && pathname !== '/api/health' && pathname !== '/api/version' && holder.limiter.enabled) {
     const key = clientKey(req, { trustProxy: holder.rt.trustProxy });
     const verdict = holder.limiter.check(key);
     res.setHeader('x-ratelimit-limit', String(holder.limiter.max));
@@ -915,6 +916,20 @@ async function route(req, res, holder, persist) {
     const body = await readJson(req);
     try {
       const restored = holder.backup.restore({ file: String(body.file ?? '') });
+      // v0.1.3：验签通过 ≠ 能用。备份 schema 与当前不一致时必须显式拒绝，
+      // 否则用户会拿到一份"校验通过但加载即失败"的备份（修 bug：verified-but-unusable）。
+      const backupSchema = restored.data?.schemaVersion;
+      if (backupSchema !== VERSION_SCHEMA) {
+        sendJson(res, 409, {
+          error: 'SCHEMA_MISMATCH',
+          restored: false,
+          backupSchema: backupSchema ?? null,
+          currentSchema: VERSION_SCHEMA,
+          needsMigration: true,
+          hint: `该备份是 schema=${String(backupSchema ?? '缺失')}，当前需要 ${VERSION_SCHEMA}；先对备份文件执行 node scripts/migrate-state.mjs --file <backup.json> 再恢复`
+        }, holder.rt);
+        return;
+      }
       // restore 只返回可验签的数据；**不自动应用**（切换线上状态必须由人决定）
       sendJson(res, 200, {
         ok: true,
