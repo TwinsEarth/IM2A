@@ -43,15 +43,21 @@ IM2AGENT_LLM_KEY=sk-xxx IM2AGENT_LLM_BASE_URL=https://api.deepseek.com/v1 node a
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
+| GET | `/healthz` | — | **Go 规范**：纯文本 `OK`（带 `Accept: application/json` 时回 JSON） |
 | GET | `/api/health` | — | 健康检查 + 待审批数 + 审计链状态 |
+| GET | `/api/events` | — | **SSE 多端同步**：`hello` / `preview` / `decide` 事件（客户端亦可 1s 轮询兜底） |
 | GET | `/api/state` | — | 对外状态（不含敏感细节） |
 | GET | `/api/llm` | — | LLM 引擎状态（档位/模型/调用/失败/lastError） |
-| GET | `/api/admin/state` | `x-admin-token` | 运维全量：Agent 注册表 + 审批单 + 付费消息 + 审计链 |
-| POST | `/api/approval/decide` | `x-admin-token` | `{ticketId, action: APPROVE\|MODIFY\|REJECT, comment}` |
+| GET | `/api/admin/state` | `x-admin-token` | 运维全量 + **Go 视图**（`ticketsView` snake_case / `audits` / `ledgers`） |
+| POST | `/api/approval/preview` | `x-admin-token` | `{ticket_id}` 用 LLM 生成 `Ticket.Context`（离线走模板，不报错） |
+| POST | `/api/approval/decide` | `x-admin-token` | 兼容两种写法：`{ticketId, action}` 与规范 `{ticket_id, action\|decision}` |
 | GET | `/api/ledger` | `x-admin-token` | 账本条目 + 统计（幂等键可见） |
 | GET | `/api/audit` | `x-admin-token` | 审计链 + 验链结果 |
 | POST | `/api/llm/draft` | `x-admin-token` | `{text}` 试三档降级 |
 | GET | `/api/config` | `x-admin-token` | 形态/存储/LLM/LAN 地址（token 打码） |
+
+> 验收矩阵见 [QA.md](./QA.md)；Go 目录/结构体/函数映射见 [PORTING-TO-GO.md](./PORTING-TO-GO.md)；
+> v0.6.1 之后的商业化缺口（登录实名 / WS 横向扩展 / 支付网关与防白嫖）见 [ROADMAP-v0.6.1+.md](./ROADMAP-v0.6.1+.md)。
 
 ## 四、治理语义（与主仓库契约对齐）
 

@@ -30,7 +30,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createStore, STORE_KIND } from './store.mjs';
 import { createLlm, resolveLlmConfig, LLM_MODE } from './llm.mjs';
-import { createWorld, decide, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
+import { createWorld, decide, previewContext, serialize, snapshot, DomainError, USERS, USER_NAMES } from './domain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(HERE, 'public');
@@ -69,6 +69,19 @@ export function createApp({ env = process.env, runtime = null, llm = null, store
   const persist = () => {
     if (holder.store.kind === STORE_KIND.MEMORY) return;
     holder.store.write(serialize(holder.world));
+  };
+
+  // 多端同步：SSE 推送（客户端也可用 1s 轮询兜底，见 client/README）
+  holder.sseClients = new Set();
+  holder.broadcast = (payload) => {
+    const line = `data: ${JSON.stringify(payload)}\n\n`;
+    for (const client of holder.sseClients) {
+      try {
+        client.write(line);
+      } catch {
+        holder.sseClients.delete(client);
+      }
+    }
   };
 
   const server = createServer(async (req, res) => {
@@ -130,6 +143,40 @@ async function route(req, res, holder, persist) {
     return;
   }
 
+  // 规范要求：GET /healthz 返回 OK（curl 可直接判读；带 Accept: application/json 时回 JSON）
+  if (method === 'GET' && pathname === '/healthz') {
+    const chain = holder.world.audit.verify();
+    const wantsJson = String(req.headers.accept ?? '').includes('application/json');
+    if (wantsJson) {
+      sendJson(res, 200, { status: 'OK', service: 'im2agent', auditOk: chain.ok, pending: holder.world.state.tickets.filter((t) => t.state === 'PENDING').length }, holder.rt);
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+    res.end('OK');
+    return;
+  }
+
+  // 多端同步（SSE）：审批/预览/决策都会广播；客户端也可退化为 1s 轮询
+  if (method === 'GET' && pathname === '/api/events') {
+    res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive' });
+    res.write(`data: ${JSON.stringify({ type: 'hello', at: new Date().toISOString() })}\n\n`);
+    holder.sseClients.add(res);
+    const timer = setInterval(() => {
+      try {
+        res.write(': ping\n\n');
+      } catch {
+        clearInterval(timer);
+        holder.sseClients.delete(res);
+      }
+    }, 15_000);
+    if (typeof timer.unref === 'function') timer.unref();
+    req.on('close', () => {
+      clearInterval(timer);
+      holder.sseClients.delete(res);
+    });
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/state') {
     const snap = snapshot(holder.world);
     sendJson(res, 200, {
@@ -164,16 +211,70 @@ async function route(req, res, holder, persist) {
   if (method === 'GET' && pathname === '/api/admin/state') {
     if (!requireAdmin(req, res, holder)) return;
     const snap = snapshot(holder.world);
-    sendJson(res, 200, { ...snap, profile: holder.rt.profile, store: holder.store.info(), llm: holder.llm.stats(), usernames: USER_NAMES }, holder.rt);
+    // 同时给出 Go 规范视图（Ticket/AuditLog/Ledger 的 snake_case 形态），便于 Flutter/Go 客户端直接消费
+    const ticketsView = snap.tickets.map((ticket) => ({
+      id: ticket.id,
+      agent_id: ticket.agentId ?? ticket.sourceAgentId ?? null,
+      title: ticket.title ?? ticket.ticketType,
+      context: ticket.context ?? null,
+      price: ticket.price ?? ticket.payload?.amountCents ?? 0,
+      status: ticket.state,
+      created_at: ticket.createdAt
+    }));
+    const auditsView = snap.audit.map((record) => ({
+      time: record.at,
+      actor: record.actor ?? null,
+      action: record.action,
+      target_id: record.target ?? null,
+      details: record.detail === null || record.detail === undefined ? null : JSON.stringify(record.detail)
+    }));
+    const ledgersView = snap.ledger.map((entry) => ({
+      time: entry.at,
+      user_id: entry.userId,
+      type: entry.type,
+      price: entry.amountCents,
+      ref: entry.ref ?? null,
+      idempotency_key: entry.idempotencyKey
+    }));
+    sendJson(res, 200, {
+      ...snap,
+      ticketsView,
+      audits: auditsView,
+      ledgers: ledgersView,
+      profile: holder.rt.profile,
+      store: holder.store.info(),
+      llm: holder.llm.stats(),
+      usernames: USER_NAMES
+    }, holder.rt);
+    return;
+  }
+
+  // 让 LLM 生成审批单的上下文摘要（Go 规范里的 Ticket.Context）
+  if (method === 'POST' && pathname === '/api/approval/preview') {
+    if (!requireAdmin(req, res, holder)) return;
+    const body = await readJson(req);
+    try {
+      const result = await previewContext(holder.world, { ticketId: String(body.ticket_id ?? body.ticketId ?? ''), llm: holder.llm });
+      persist();
+      holder.broadcast({ type: 'preview', at: new Date().toISOString(), ticketId: result.ticket.id, tier: result.draft.tier });
+      sendJson(res, 200, { ok: true, ticket_id: result.ticket.id, context: result.ticket.context, tier: result.draft.tier, degraded: result.draft.degraded === true }, holder.rt);
+    } catch (error) {
+      const code = error instanceof DomainError ? error.code : (error?.code ?? 'PREVIEW_FAILED');
+      sendJson(res, code === 'NOT_FOUND' ? 404 : 400, { error: code, message: String(error?.message ?? error) }, holder.rt);
+    }
     return;
   }
 
   if (method === 'POST' && pathname === '/api/approval/decide') {
     if (!requireAdmin(req, res, holder)) return;
     const body = await readJson(req);
+    // 兼容两种写法：{ticketId, action:"APPROVE"} 与规范写法 {ticket_id, action|decision:"approve"}
+    const ticketId = String(body.ticket_id ?? body.ticketId ?? '');
+    const action = String(body.action ?? body.decision ?? '').toUpperCase();
     try {
-      const outcome = await decide(holder.world, { ticketId: String(body.ticketId ?? ''), action: String(body.action ?? '').toUpperCase(), comment: body.comment ?? null, llm: holder.llm });
+      const outcome = await decide(holder.world, { ticketId, action, comment: body.comment ?? null, llm: holder.llm });
       persist();
+      holder.broadcast({ type: 'decide', at: new Date().toISOString(), ticketId, state: outcome.ticket.state });
       sendJson(res, 200, {
         ok: true,
         ticket: outcome.ticket,

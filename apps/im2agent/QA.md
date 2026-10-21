@@ -1,0 +1,40 @@
+# im2agent · QA 验收矩阵（对齐 v0.0.1 → v0.6.1 十个 tag）
+
+> 口径：**✅ 本机实测通过**（命令可复现） · **⚠ 需目标机执行**（本机缺 Go/Flutter/Docker/Caddy） · **⛔ 未实现**
+
+| # | QA 项 | 判定标准 | 本机结果 | 命令 / 说明 |
+|---|---|---|---|---|
+| 1 | Demo 连通性 | `GET /healthz` 返回 `OK`；`/api/health` 返回 `ok:true` | ✅ | `node apps/im2agent/server.mjs`；`curl -s localhost:8787/healthz` → `OK` |
+| 2 | 审批闭环 | 通过陌生人来意 → `COMPLETED`，付费消息 `SETTLED`，账本恰好一条 CHARGE | ✅ | `tests/im2agent.test.mjs` ④ |
+| 3 | 账本幂等 | 重复/重试不二次扣费（幂等键 `pay:<msgId>`） | ✅ | 同上，`charges.length === 1` |
+| 4 | 终态保护 | 已完成审批再决策 → 409 `ILLEGAL_TRANSITION` | ✅ | 同上 |
+| 5 | 运维鉴权 | 无 `x-admin-token` → 401；带令牌 → 200 | ✅ | 测试 ② |
+| 6 | 安全响应头 | `X-Frame-Options: DENY`、CSP、`nosniff`；prod 额外 HSTS | ✅ | 测试 ②③ |
+| 7 | 生产不裸奔 | `PROFILE=prod` 且无 `ADMIN_TOKEN` → **拒绝启动** | ✅ | 测试 ③ |
+| 8 | LLM 降级 | 无 key → `template`；上游失败 → `fallback` 且 `degraded:true`；成功 → `real` | ✅ | 测试 ⑤（注入 fetch，不依赖真网） |
+| 9 | LLM 生成审批理由 | `POST /api/approval/preview` 返回非空 `context` 与档位 | ✅ | 测试 ⑨ |
+| 10 | 多端同步 | SSE `/api/events`：一端决策，另一端收到 `decide` 事件 | ✅ | 测试 ⑩ |
+| 11 | 持久化恢复 | jsonfile 重启后审批状态与审计链延续 | ✅ | 测试 ⑦ |
+| 12 | 存储拒绝静默降级 | `STORE=postgres` → `STORE_NOT_AVAILABLE` | ✅ | 测试 ⑪ |
+| 13 | **客户端三端同步** | Windows/Android/iOS 同时点同一审批单，状态一致 | ⚠ | 需 Flutter SDK + 三端设备；`client/README.md` |
+| 14 | **docker 镜像体积** | `docker images` < 15MB | ⚠ 预计不达标 | 本机无 Docker；Node 基镜像约 130MB。**要 <15MB 必须 Go 静态编译**，见 `PORTING-TO-GO.md` |
+| 15 | **端口暴露面** | 局域网 Nmap 仅 80/443（或 8080） | ⚠ | 需目标机；当前应用只监听单端口，反代后应只暴露 80/443 |
+| 16 | **HTTPS 自动签发** | 测试域名解析到机器，Caddy 自动申请 Let's Encrypt | ⚠ | 需公网域名 + 80/443；`deploy/prod/` |
+| 17 | 纯净 Ubuntu 免 Go 运行 | 无 Go 环境可直接跑 | ✅（Node 形态） | `deploy/linux/install.sh` 只需 Node ≥22 |
+| 18 | PostgreSQL 读写 | migration + CRUD | ⛔ | 未实现驱动；`STORE=postgres` 显式报错 |
+
+## 本地一键回归
+
+```powershell
+node tests/im2agent.test.mjs          # 10 项（上述 ✅ 的大部分）
+node scripts/test.mjs --filter=im2agent
+node scripts/test.mjs                 # 全量 498+ 项
+node scripts/verify.mjs               # 文档/契约/代码一致性 55 项
+node scripts/quickstart.mjs --check   # 主仓库 13 项自检
+```
+
+## QA 里最容易"看起来通过"的三处
+
+1. **LLM 降级**：把 `IM2AGENT_LLM_KEY` 填错后，页面必须显示"已降级"、`stats.failures` 递增；若仍显示正常输出，说明把降级当成了成功。
+2. **多端同步**：SSE 连上不代表同步——要**两个客户端同时打开**，在 A 端审批，B 端在 1s 内刷新。只测单端等于没测。
+3. **生产形态**：`PROFILE=prod` 起得来不等于安全——必须验证"无 token 的 `/api/admin/state` 返回 401"和"HSTS 头存在"。

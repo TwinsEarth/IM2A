@@ -181,7 +181,89 @@ test('⑦ jsonfile 持久化：重启后审批状态与审计链恢复', async (
   }
 });
 
-test('⑧ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
+test('⑨ Go 规范对齐：/healthz、snake_case 决策、Go 视图、SSE 同步、LLM 生成 Context', async () => {
+  await withApp({}, async (app) => {
+    const base = app.urls[0];
+
+    // 1) /healthz 纯文本 OK（curl 直接可判读）
+    const healthz = await fetch(`${base}/healthz`);
+    assert.equal(healthz.status, 200);
+    assert.equal((await healthz.text()).trim(), 'OK');
+    const healthzJson = await fetch(`${base}/healthz`, { headers: { accept: 'application/json' } });
+    assert.equal((await healthzJson.json()).status, 'OK');
+
+    // 2) 规范写法：{ ticket_id, action: "approve" }
+    const decided = await json(`${base}/api/approval/decide`, {
+      method: 'POST',
+      body: JSON.stringify({ ticket_id: 'tkt-procurement-1', action: 'approve' })
+    });
+    assert.equal(decided.status, 200);
+    assert.equal(decided.body.ticket.state, 'COMPLETED');
+
+    // 3) 运维状态同时给出 Go 视图（Ticket/AuditLog/Ledger 的 snake_case 形态）
+    const admin = await json(`${base}/api/admin/state`);
+    assert.equal(admin.status, 200);
+    const view = admin.body.ticketsView.find((ticket) => ticket.id === 'tkt-procurement-1');
+    assert.equal(view.status, 'COMPLETED');
+    assert.equal(view.agent_id, 'agent-lin-procurement');
+    assert.equal(view.price, 239900);
+    assert.equal(typeof view.created_at, 'string');
+    assert.ok(Array.isArray(admin.body.audits) && admin.body.audits.every((a) => 'target_id' in a && 'time' in a));
+    assert.ok(Array.isArray(admin.body.ledgers));
+    assert.ok(admin.body.ledgers.every((entry) => 'idempotency_key' in entry));
+
+    // 4) LLM 生成审批上下文（Ticket.Context）：离线时走模板档，页面不报错
+    const preview = await json(`${base}/api/approval/preview`, {
+      method: 'POST',
+      body: JSON.stringify({ ticket_id: 'tkt-stranger-1' })
+    });
+    assert.equal(preview.status, 200);
+    assert.equal(preview.body.tier, 'template');
+    assert.ok(String(preview.body.context).length > 10, 'Context 应有可读摘要');
+  });
+});
+
+test('⑩ 多端同步：SSE 在决策后推送事件（客户端也可退化为 1s 轮询）', async () => {
+  await withApp({}, async (app) => {
+    const base = app.urls[0];
+    const controller = new AbortController();
+    const response = await fetch(`${base}/api/events`, { headers: { accept: 'text/event-stream' }, signal: controller.signal });
+    assert.equal(response.status, 200);
+    assert.match(String(response.headers.get('content-type')), /text\/event-stream/);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const readUntil = async (needle, timeoutMs = 3000) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        if (buffer.includes(needle)) return buffer;
+      }
+      throw new Error(`SSE 未在 ${timeoutMs}ms 内收到 ${needle}：${buffer.slice(0, 200)}`);
+    };
+
+    try {
+      await readUntil('hello');
+      // 另一个"端"做决策 → 本端应收到 decide 事件
+      const decided = await json(`${base}/api/approval/decide`, {
+        method: 'POST',
+        body: JSON.stringify({ ticket_id: 'tkt-procurement-1', action: 'approve' })
+      });
+      assert.equal(decided.status, 200);
+      const text = await readUntil('decide');
+      assert.match(text, /"ticketId":"tkt-procurement-1"/);
+      assert.match(text, /"state":"COMPLETED"/);
+    } finally {
+      controller.abort();
+    }
+  });
+});
+
+test('⑪ 存储契约：postgres 不可用时显式报错（不静默降级为文件）', () => {
   const store = createStore({ kind: STORE_KIND.POSTGRES, dsn: 'postgres://x' });
   assert.throws(() => store.read(), { code: 'STORE_NOT_AVAILABLE' });
   assert.throws(() => store.write({}), { code: 'STORE_NOT_AVAILABLE' });

@@ -71,8 +71,12 @@ export function createWorld({ restored = null } = {}) {
   world.state.tickets.push({
     id: 'tkt-stranger-1',
     userId: USERS.LIN,
+    agentId: 'agent-lin-filter',
     sourceAgentId: 'agent-lin-filter',
     ticketType: 'NEGOTIATION',
+    title: '陌生人来意审批',
+    context: null,
+    price: 5000,
     state: 'PENDING',
     priority: 'high',
     payload: { kind: 'STRANGER_INTENT', messageId: 'msg-stranger-1', senderUserId: USERS.ZHOU, topic: 'A 轮融资沟通（20 分钟）', amountCents: 5000 },
@@ -84,8 +88,12 @@ export function createWorld({ restored = null } = {}) {
   world.state.tickets.push({
     id: 'tkt-procurement-1',
     userId: USERS.LIN,
+    agentId: 'agent-lin-procurement',
     sourceAgentId: 'agent-lin-procurement',
     ticketType: 'SKILL_CALL',
+    title: '采购需求审批',
+    context: null,
+    price: 239900,
     state: 'PENDING',
     priority: 'normal',
     payload: { kind: 'PROCUREMENT_PURCHASE', item: '人体工学椅 ×1', amountCents: 239900 },
@@ -205,6 +213,28 @@ export async function decide(world, { ticketId, action, comment = null, llm = nu
   ticket.result = message === null ? { kind: 'SKILL_CALL', amountCents: ticket.payload.amountCents } : { kind: 'PAID_MESSAGE', messageId: message.id };
   recordAudit(world, { source: 'approval-engine', action: 'TICKET_COMPLETED', actor: ticket.userId, target: ticket.id, decision: 'COMPLETED' });
   return { ticket, message };
+}
+
+/**
+ * 让 LLM 生成审批单的「上下文摘要」（Go 规范里的 Ticket.Context）。
+ * 模型只生成**理由/摘要**，不改变任何状态；失败/离线时用确定性模板，不会让页面报错。
+ */
+export async function previewContext(world, { ticketId, llm }) {
+  const ticket = ticketOf(world, ticketId);
+  const prompt =
+    ticket.payload.kind === 'STRANGER_INTENT'
+      ? `陌生人想就「${ticket.payload.topic}」联系我，对方付费 ${ticket.price / 100} 元。用一句话说明我该不该通过、以及通过后会发生什么。`
+      : `子 Agent 申请「${ticket.payload.item}」，金额 ${ticket.price / 100} 元。用一句话说明风险与建议。`;
+  const draft = llm === null ? { tier: 'template', reply: templateFallback(ticket), degraded: false } : await llm.draft({ text: prompt, topic: ticket.title });
+  ticket.context = draft.reply;
+  recordAudit(world, { source: 'llm', action: 'CONTEXT_GENERATED', actor: 'system', target: ticket.id, decision: draft.tier, detail: { degraded: draft.degraded === true } });
+  return { ticket, draft };
+}
+
+function templateFallback(ticket) {
+  return ticket.payload.kind === 'STRANGER_INTENT'
+    ? `来自陌生人的付费来意（¥${(ticket.price / 100).toFixed(2)}）：通过后会先扣费再进入会话，你回复后对方才完成结算。`
+    : `子 Agent 申请 ¥${(ticket.price / 100).toFixed(2)} 的支出，超过自动审批阈值，需要你确认。`;
 }
 
 /** 供页面使用的一次性快照（不含内部类实例） */
