@@ -995,6 +995,37 @@ const exists = async (p) => !!(await stat(p).catch(() => null));
   }
 }
 
+// ───────────────────────── 27. 演进规划文档（docs/36–39）─────────────────────────
+{
+  const planDocs = [
+    'docs/36-演进路线与版本总规划.md',
+    'docs/37-技术架构演进设计.md',
+    'docs/38-模块与接口契约规划.md',
+    'docs/39-版本计划与资源门槛.md'
+  ];
+  const missingPlan = [];
+  for (const rel of planDocs) {
+    if (!(await exists(path.join(ROOT, rel)))) missingPlan.push(rel);
+  }
+  record(`演进规划四份文档齐备（${planDocs.length} 份）`, missingPlan.length === 0, missingPlan.join('; '));
+
+  if (missingPlan.length === 0) {
+    const master = await read(path.join(ROOT, 'docs/36-演进路线与版本总规划.md'));
+    record('总规划含 M1–M5 → v0.2.0–v1.0.0 映射', ['M1', 'M2', 'M3', 'M4', 'M5', 'v0.2.0', 'v0.3.0', 'v0.4.0', 'v0.5.0', 'v1.0.0'].every((token) => master.includes(token)), '缺里程碑或版本映射');
+    record('总规划登记编号对齐决策（图编号仅作别名）', master.includes('编号对齐') && master.includes('别名'), '缺编号对齐说明');
+
+    const contractsPlan = await read(path.join(ROOT, 'docs/38-模块与接口契约规划.md'));
+    const proposals = ['§53', '§54', '§55', '§56', '§57', '§58', '§59', '§60', '§61', '§62'];
+    const missingProposals = proposals.filter((section) => !contractsPlan.includes(section));
+    record(`契约规划含 §53–§62 提案（${proposals.length} 节）`, missingProposals.length === 0, missingProposals.join(', '));
+
+    const plan = await read(path.join(ROOT, 'docs/39-版本计划与资源门槛.md'));
+    record('版本计划含逐版硬门槛与资源门槛', plan.includes('硬门槛') && plan.includes('资源门槛') && plan.includes('v1.0.0'), '缺门槛/版本');
+    const arch = await read(path.join(ROOT, 'docs/37-技术架构演进设计.md'));
+    record('架构演进含现状→目标→迁移路径', arch.includes('现状') && arch.includes('目标') && (arch.includes('迁移') || arch.includes('复用')), '缺现状/目标/迁移');
+  }
+}
+
 // ───────────────────────── 汇总 ─────────────────────────
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n交付物一致性验收：${passed}/${results.length} 通过\n`);
