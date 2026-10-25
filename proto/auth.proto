@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package human_agent_im.auth;
+
+option go_package = "human-agent-im/proto/gen/auth";
+
+// 登录鉴权服务。IM PaaS 只负责消息送达，登录与 Token 签发在自有后端。
+service AuthService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+message LoginRequest {
+  string phone = 1;              // 手机号（实名认证基础）
+  string sms_code = 2;           // 短信验证码
+  string oauth_token = 3;        // 可选：外部身份（微信等）OAuth token
+  string device_id = 4;          // 当前设备 ID
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  uint64 user_id = 3;
+  int64 expires_at_unix = 4;     // access token 过期时间
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  string device_id = 2;
+}
+
+message LogoutRequest {
+  string access_token = 1;
+  string device_id = 2;
+}
+
+message LogoutResponse {
+  bool ok = 1;
+}

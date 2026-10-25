@@ -1,0 +1,79 @@
+# IM2A GA 全栈编排（v1.9.5）：一键起「网关 + PostgreSQL + Redis + Kafka」。
+# 用法：
+#   cp deploy/.env.example deploy/.env   # 必改 IM2A_JWT_SECRET / DB 密码
+#   docker compose --env-file deploy/.env -f deploy/docker-compose.prod.yml up -d
+# OpenSearch 按内存默认关闭（私有化小机器）。镜像 tag 全部固定，支持离线拉取。
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: im2a-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hai
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-hai_dev}
+      POSTGRES_DB: hai_platform
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: im2a-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: im2a-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        VERSION: ${VERSION:-v1.9.5}
+    image: im2a-gateway:${VERSION:-v1.9.5}
+    container_name: im2a-gateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      PG_DRIVER: pgx
+      PG_DSN: postgres://hai:${PG_PASSWORD:-hai_dev}@postgres:5432/hai_platform?sslmode=disable
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:-im2a_demo_token}
+      IM2A_JWT_SECRET: ${IM2A_JWT_SECRET:?必须在 .env 设置强随机密钥}
+      IM2A_ADMIN_TOKEN: ${IM2A_ADMIN_TOKEN:?必须在 .env 设置管理 token}
+      CORS_ALLOWED: ${CORS_ALLOWED:-}
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+
+volumes:
+  pg_data:
+  redis_data:
+  kafka_data:

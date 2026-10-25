@@ -1,0 +1,2667 @@
+{
+  "version": 1,
+  "spec": "relation-gating/v1",
+  "vectors": [
+    {
+      "id": "m-L0-schedule",
+      "description": "矩阵：信任档位 L0(self) × scope=schedule 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L0-family",
+      "description": "矩阵：信任档位 L0(self) × scope=family 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L0-purchase",
+      "description": "矩阵：信任档位 L0(self) × scope=purchase 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L0-workmail",
+      "description": "矩阵：信任档位 L0(self) × scope=workmail 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L0-stranger",
+      "description": "矩阵：信任档位 L0(self) × scope=stranger 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L0-finance",
+      "description": "矩阵：信任档位 L0(self) × scope=finance 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L0-external",
+      "description": "矩阵：信任档位 L0(self) × scope=external 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L1-schedule",
+      "description": "矩阵：信任档位 L1(family) × scope=schedule 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L1-family",
+      "description": "矩阵：信任档位 L1(family) × scope=family 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L1-purchase",
+      "description": "矩阵：信任档位 L1(family) × scope=purchase 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L1-workmail",
+      "description": "矩阵：信任档位 L1(family) × scope=workmail 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L1-stranger",
+      "description": "矩阵：信任档位 L1(family) × scope=stranger 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L1-finance",
+      "description": "矩阵：信任档位 L1(family) × scope=finance 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L1-external",
+      "description": "矩阵：信任档位 L1(family) × scope=external 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L2-schedule",
+      "description": "矩阵：信任档位 L2(trusted) × scope=schedule 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "m-L2-family",
+      "description": "矩阵：信任档位 L2(trusted) × scope=family 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L2-purchase",
+      "description": "矩阵：信任档位 L2(trusted) × scope=purchase 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L2-workmail",
+      "description": "矩阵：信任档位 L2(trusted) × scope=workmail 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L2-stranger",
+      "description": "矩阵：信任档位 L2(trusted) × scope=stranger 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L2-finance",
+      "description": "矩阵：信任档位 L2(trusted) × scope=finance 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L2-external",
+      "description": "矩阵：信任档位 L2(trusted) × scope=external 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L3-schedule",
+      "description": "矩阵：信任档位 L3(known) × scope=schedule 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L3-family",
+      "description": "矩阵：信任档位 L3(known) × scope=family 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L3-purchase",
+      "description": "矩阵：信任档位 L3(known) × scope=purchase 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L3-workmail",
+      "description": "矩阵：信任档位 L3(known) × scope=workmail 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L3-stranger",
+      "description": "矩阵：信任档位 L3(known) × scope=stranger 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L3-finance",
+      "description": "矩阵：信任档位 L3(known) × scope=finance 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L3-external",
+      "description": "矩阵：信任档位 L3(known) × scope=external 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L4-schedule",
+      "description": "矩阵：信任档位 L4(stranger) × scope=schedule 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L4-family",
+      "description": "矩阵：信任档位 L4(stranger) × scope=family 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L4-purchase",
+      "description": "矩阵：信任档位 L4(stranger) × scope=purchase 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L4-workmail",
+      "description": "矩阵：信任档位 L4(stranger) × scope=workmail 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L4-stranger",
+      "description": "矩阵：信任档位 L4(stranger) × scope=stranger 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "m-L4-finance",
+      "description": "矩阵：信任档位 L4(stranger) × scope=finance 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "m-L4-external",
+      "description": "矩阵：信任档位 L4(stranger) × scope=external 的权限格",
+      "category": "matrix",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "order-skill-before-trust",
+      "description": "步骤1先于2：白名单拒绝优先于档位不足",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 1,
+          "allowedSkills": [
+            "allowed.skill"
+          ],
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "other.skill",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SKILL_NOT_ALLOWED"
+      }
+    },
+    {
+      "id": "order-skill-before-scope",
+      "description": "步骤1先于3：白名单拒绝优先于矩阵禁止",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "allowedSkills": [
+            "allowed.skill"
+          ],
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "other.skill",
+          "scope": "finance",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SKILL_NOT_ALLOWED"
+      }
+    },
+    {
+      "id": "order-trust-before-scope",
+      "description": "步骤2先于3：档位不足优先于（本会放行的）矩阵格",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 1,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "TRUST_BELOW_MIN"
+      }
+    },
+    {
+      "id": "order-scope-before-amount",
+      "description": "步骤3先于4：矩阵禁止优先于金额超阈值",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 2,
+          "amountCents": 500
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "order-approval-before-amount",
+      "description": "步骤3先于4：矩阵要求审批优先于金额超阈值",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 2,
+          "amountCents": 500
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "order-threshold-before-budget",
+      "description": "步骤4先于5：金额同时超阈值与预算时给审批（非拒绝）",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 200,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 500
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "AMOUNT_ABOVE_THRESHOLD"
+      }
+    },
+    {
+      "id": "order-budget-deny",
+      "description": "步骤5：金额超单次预算且未触发阈值 → 拒绝",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 100,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 101
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "AMOUNT_ABOVE_BUDGET"
+      }
+    },
+    {
+      "id": "order-all-pass",
+      "description": "五步全通过 → 放行",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "allowedSkills": [
+            "calendar.read"
+          ],
+          "budgetCentsPerDay": 200,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 50
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "order-empty-whitelist-allows",
+      "description": "空白名单 = 不限制 skill",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "any.random.skill",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "order-trust-equal-min-ok",
+      "description": "trust == trustLevelMin 不触发步骤2",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 2,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "order-trust-below-min-1",
+      "description": "trust 比 min 低 1 就拒绝",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 3,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "TRUST_BELOW_MIN"
+      }
+    },
+    {
+      "id": "order-approval-before-budget",
+      "description": "步骤3先于5：矩阵审批优先于超预算",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 10,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 4,
+          "amountCents": 1000
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "order-forbidden-before-budget",
+      "description": "步骤3先于5：矩阵禁止优先于超预算",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 10,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 3,
+          "amountCents": 1000
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "order-trust-before-amount",
+      "description": "步骤2先于4：档位不足优先于金额阈值",
+      "category": "order",
+      "input": {
+        "capability": {
+          "trustLevelMin": 1,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 10
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 0,
+          "amountCents": 100
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "TRUST_BELOW_MIN"
+      }
+    },
+    {
+      "id": "unk-scope-at-L0",
+      "description": "未知 scope 在 L0 也是 forbidden（L0 只对 7 个已知 scope 全 auto）",
+      "category": "unknown",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "travel",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "unk-scope-at-L4",
+      "description": "未知 scope 在 L4 → forbidden",
+      "category": "unknown",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "travel",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "unk-scope-with-amount",
+      "description": "未知 scope 优先于金额阈值（步骤3先于4）",
+      "category": "unknown",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "travel",
+          "trustLevel": 0,
+          "amountCents": 500
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "unk-level-99",
+      "description": "未知 level(99) → 矩阵缺省 forbidden",
+      "category": "unknown",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 99,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "unk-level-5",
+      "description": "未知 level(5，紧邻上界外) → forbidden",
+      "category": "unknown",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 5,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "unk-level-neg1-with-min0",
+      "description": "未知 level(-1) 且 min=0：步骤2先命中 → TRUST_BELOW_MIN（仍非 auto）",
+      "category": "unknown",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": -1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "TRUST_BELOW_MIN"
+      }
+    },
+    {
+      "id": "unk-level-99-another-scope",
+      "description": "未知 level 与其它 scope 组合仍 forbidden",
+      "category": "unknown",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 99,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "bnd-amount-zero",
+      "description": "amount=0、阈值=0、预算=0 → 放行",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "s",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "bnd-threshold-equal",
+      "description": "amount == threshold（严格大于才审批）→ 放行",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 100,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "s",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 100
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "bnd-budget-equal",
+      "description": "amount == budget（严格大于才拒绝）→ 放行",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 100,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "s",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 100
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "bnd-negative-amount",
+      "description": "负数金额（输入域外，参考实现按不超阈值处理）→ 放行",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 100,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "s",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": -1
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "bnd-threshold-plus-one",
+      "description": "amount = threshold+1 → 审批",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 100
+        },
+        "call": {
+          "skillId": "s",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 101
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "AMOUNT_ABOVE_THRESHOLD"
+      }
+    },
+    {
+      "id": "bnd-budget-plus-one",
+      "description": "amount = budget+1 → 拒绝",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 100,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "s",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 101
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "AMOUNT_ABOVE_BUDGET"
+      }
+    },
+    {
+      "id": "bnd-empty-skill-in-whitelist",
+      "description": "空字符串 skill 显式列入白名单 → 通过",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "allowedSkills": [
+            ""
+          ],
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "bnd-empty-skill-not-listed",
+      "description": "空字符串 skill 不在白名单 → SKILL_NOT_ALLOWED",
+      "category": "boundary",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "allowedSkills": [
+            "a"
+          ],
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SKILL_NOT_ALLOWED"
+      }
+    },
+    {
+      "id": "mono-schedule-L4",
+      "description": "单调性：scope=schedule 在 L4 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-schedule-L3",
+      "description": "单调性：scope=schedule 在 L3 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-schedule-L2",
+      "description": "单调性：scope=schedule 在 L2 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-schedule-L1",
+      "description": "单调性：scope=schedule 在 L1 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-schedule-L0",
+      "description": "单调性：scope=schedule 在 L0 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-family-L4",
+      "description": "单调性：scope=family 在 L4 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-family-L3",
+      "description": "单调性：scope=family 在 L3 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-family-L2",
+      "description": "单调性：scope=family 在 L2 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-family-L1",
+      "description": "单调性：scope=family 在 L1 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-family-L0",
+      "description": "单调性：scope=family 在 L0 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-purchase-L4",
+      "description": "单调性：scope=purchase 在 L4 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-purchase-L3",
+      "description": "单调性：scope=purchase 在 L3 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-purchase-L2",
+      "description": "单调性：scope=purchase 在 L2 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-purchase-L1",
+      "description": "单调性：scope=purchase 在 L1 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-purchase-L0",
+      "description": "单调性：scope=purchase 在 L0 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-workmail-L4",
+      "description": "单调性：scope=workmail 在 L4 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-workmail-L3",
+      "description": "单调性：scope=workmail 在 L3 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-workmail-L2",
+      "description": "单调性：scope=workmail 在 L2 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-workmail-L1",
+      "description": "单调性：scope=workmail 在 L1 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-workmail-L0",
+      "description": "单调性：scope=workmail 在 L0 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-stranger-L4",
+      "description": "单调性：scope=stranger 在 L4 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-stranger-L3",
+      "description": "单调性：scope=stranger 在 L3 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-stranger-L2",
+      "description": "单调性：scope=stranger 在 L2 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-stranger-L1",
+      "description": "单调性：scope=stranger 在 L1 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-stranger-L0",
+      "description": "单调性：scope=stranger 在 L0 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-finance-L4",
+      "description": "单调性：scope=finance 在 L4 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-finance-L3",
+      "description": "单调性：scope=finance 在 L3 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-finance-L2",
+      "description": "单调性：scope=finance 在 L2 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-finance-L1",
+      "description": "单调性：scope=finance 在 L1 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-finance-L0",
+      "description": "单调性：scope=finance 在 L0 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "mono-external-L4",
+      "description": "单调性：scope=external 在 L4 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "mono-external-L3",
+      "description": "单调性：scope=external 在 L3 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 3,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-external-L2",
+      "description": "单调性：scope=external 在 L2 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 2,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-external-L1",
+      "description": "单调性：scope=external 在 L1 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 1,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "mono-external-L0",
+      "description": "单调性：scope=external 在 L0 的权限（配合同 scope 其它档位）",
+      "category": "monotonic",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "inv-L4-no-auto-schedule",
+      "description": "I3：L4(stranger) 在 scope=schedule 永不 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "inv-L4-no-auto-family",
+      "description": "I3：L4(stranger) 在 scope=family 永不 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "inv-L4-no-auto-purchase",
+      "description": "I3：L4(stranger) 在 scope=purchase 永不 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "inv-L4-no-auto-workmail",
+      "description": "I3：L4(stranger) 在 scope=workmail 永不 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "inv-L4-no-auto-stranger",
+      "description": "I3：L4(stranger) 在 scope=stranger 永不 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    },
+    {
+      "id": "inv-L4-no-auto-finance",
+      "description": "I3：L4(stranger) 在 scope=finance 永不 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "inv-L4-no-auto-external",
+      "description": "I3：L4(stranger) 在 scope=external 永不 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 4,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": false,
+        "reasonCode": "SCOPE_FORBIDDEN"
+      }
+    },
+    {
+      "id": "inv-L0-all-auto-schedule",
+      "description": "I4：L0(self) 在 scope=schedule 为 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "inv-L0-all-auto-family",
+      "description": "I4：L0(self) 在 scope=family 为 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "family",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "inv-L0-all-auto-purchase",
+      "description": "I4：L0(self) 在 scope=purchase 为 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "purchase",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "inv-L0-all-auto-workmail",
+      "description": "I4：L0(self) 在 scope=workmail 为 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "workmail",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "inv-L0-all-auto-stranger",
+      "description": "I4：L0(self) 在 scope=stranger 为 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "stranger",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "inv-L0-all-auto-finance",
+      "description": "I4：L0(self) 在 scope=finance 为 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "inv-L0-all-auto-external",
+      "description": "I4：L0(self) 在 scope=external 为 auto_execute",
+      "category": "invariant",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "external",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "pure-targetuid-ignored",
+      "description": "I6：targetUid 不参与判定（与 targetUid=0 同结果）",
+      "category": "purity",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "schedule",
+          "trustLevel": 0,
+          "amountCents": 0
+        }
+      },
+      "expect": {
+        "allowed": true,
+        "requiresApproval": false,
+        "reasonCode": "OK"
+      }
+    },
+    {
+      "id": "pure-repeatable",
+      "description": "I6：相同输入（含目标用户）重复判定结果一致",
+      "category": "purity",
+      "input": {
+        "capability": {
+          "trustLevelMin": 0,
+          "budgetCentsPerDay": 0,
+          "requiresApprovalAboveCents": 0
+        },
+        "call": {
+          "skillId": "calendar.read",
+          "scope": "finance",
+          "trustLevel": 2,
+          "amountCents": 0,
+          "targetUid": 987654321
+        }
+      },
+      "expect": {
+        "allowed": false,
+        "requiresApproval": true,
+        "reasonCode": "SCOPE_REQUIRES_APPROVAL"
+      }
+    }
+  ]
+}

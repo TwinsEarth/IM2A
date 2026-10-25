@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package human_agent_im.common;
+
+option go_package = "human-agent-im/proto/gen/common";
+
+// 熟人五档信任矩阵（§1.4）。工程实现为代码层 capability 门控，不依赖模型自觉。
+enum TrustLevel {
+  TRUST_UNSPECIFIED = 0;
+  TRUST_SELF = 1;     // L0 本人：全部自主
+  TRUST_FAMILY = 2;   // L1 家庭：日程/家庭采购/物业自主；大额支出与对外承诺需审批
+  TRUST_TRUSTED = 3;  // L2 信任：预约日程/留言转达；第三方信息查看需审批
+  TRUST_KNOWN = 4;    // L3 已知：接收留言并摘要；所有对外回复需审批
+  TRUST_STRANGER = 5; // L4 陌生：仅接收结构化来意；付费后查看；禁止自主执行
+}
+
+// 陌生人付费消息两档计费（§1.3）。付费永远发生在 Agent 预审之后。
+enum BillingMode {
+  BILLING_UNSPECIFIED = 0;
+  BILLING_SEND_CHARGE = 1;  // 发送即扣费：点击发送即扣，无论是否阅读（过滤批量垃圾）
+  BILLING_REPLY_CHARGE = 2; // 回复才扣费：进入对方 Agent 筛选队列，本人查看并回复才扣费
+}
+
+// 付费消息账本状态机（§6）。不可变账本，仅 INSERT。
+enum LedgerStatus {
+  LEDGER_UNSPECIFIED = 0;
+  LEDGER_PENDING = 1;   // 已预审、待扣费
+  LEDGER_CHARGED = 2;   // 已扣费
+  LEDGER_REFUNDED = 3;  // 已退款（争议/违规）
+}
+
+// 通用错误码
+enum ErrorCode {
+  ERR_UNSPECIFIED = 0;
+  ERR_UNAUTHENTICATED = 1;
+  ERR_PERMISSION_DENIED = 2;      // 信任档位不允许
+  ERR_REQUIRES_APPROVAL = 3;      // 超阈值，需转人工审批
+  ERR_ALREADY_PROCESSED = 4;      // 幂等冲突：同一 bizId/messageId 已处理
+  ERR_BUDGET_EXCEEDED = 5;        // 金额/次数/时间预算超限
+  ERR_NEGOTIATION_LIMIT = 6;      // 协商轮次/token 超限
+  ERR_CONTENT_REJECTED = 7;       // 出口护栏拒绝
+  ERR_NOT_FOUND = 8;
+  ERR_INTERNAL = 9;
+}

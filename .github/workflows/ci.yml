@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  hygiene:
+    name: Version / repo hygiene gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 版本单一源校验（version.go + editions.json）
+        run: make version-check
+      - name: 二进制守卫（>1MB 非文本拒绝）
+        run: bash scripts/check-no-binaries.sh
+      - name: LICENSE 一致性
+        run: bash scripts/check-license.sh
+      - name: 静默 skip 守卫
+        run: bash scripts/check-skip-policy.sh
+
+  build-test:
+    name: Build / Vet / Test (real PG16)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: im2a
+          POSTGRES_PASSWORD: im2a
+          POSTGRES_DB: im2a_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U im2a -d im2a_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PG_DRIVER: pgx
+      PG_DSN: postgres://im2a:im2a@127.0.0.1:5432/im2a_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache: true
+      - name: 版本单一源校验（build 前）
+        run: make version-check
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Test (race)
+        run: go test -race ./...
+      - name: Test (real PG16, serial; PG-gated cases must really run)
+        run: go test -p 1 ./...
+      - name: 7-service selftest
+        run: make selftest-all
+      - name: Relation gating conformance
+        # 关系门控协议 v1：公开向量必须与 reference 实现 100% 一致（不一致 exit 1）
+        run: go run ./cmd/relation-conformance -vectors spec/vectors/relation-gating.v1.json -impl reference

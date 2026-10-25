@@ -1,0 +1,39 @@
+name: Release
+
+# 打 tag（如 v1.6.5）触发：全量门禁 → 多平台构建 → 校验和 → GitHub Release 资产。
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache: true
+      - name: Gate (build/vet/race tests/selftest)
+        run: make gate
+      - name: Compatibility matrix
+        run: make compat
+      - name: Cross-platform build (linux/darwin/windows x amd64/arm64)
+        run: make release-build VERSION=${GITHUB_REF_NAME}
+      - name: Smoke check linux binary
+        run: |
+          ./dist/im2a-gateway_linux_amd64 -port 18099 &
+          sleep 1
+          curl -fsS http://127.0.0.1:18099/healthz | tee /tmp/healthz.json
+          grep -q "${GITHUB_REF_NAME}" /tmp/healthz.json
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: IM2A ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/im2a-gateway_*
+            dist/checksums.txt

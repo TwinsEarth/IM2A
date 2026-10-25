@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package human_agent_im.approval;
+
+option go_package = "human-agent-im/proto/gen/approval";
+
+import "common.proto";
+
+// 审批工作流（§7.3）。显式状态机 + 事件溯源，不依赖模型临场规划审批顺序。
+service ApprovalService {
+  rpc CreateTicket(CreateTicketRequest) returns (Ticket);
+  rpc Approve(ApproveRequest) returns (Ticket);
+  rpc Reject(RejectRequest) returns (Ticket);
+  rpc Modify(ModifyRequest) returns (Ticket);
+  rpc GetTicket(GetTicketRequest) returns (Ticket);
+  rpc ListPending(ListPendingRequest) returns (ListPendingResponse);
+}
+
+enum TicketType {
+  TICKET_UNSPECIFIED = 0;
+  TICKET_NEGOTIATION = 1;   // Agent 协商结果
+  TICKET_PAYMENT = 2;       // 付费消息/资金操作
+  TICKET_SKILL_CALL = 3;    // Skill 调用
+  TICKET_EXTERNAL_ACTION = 4; // 对外动作（承诺/发送）
+}
+
+enum TicketState {
+  STATE_UNSPECIFIED = 0;
+  STATE_PENDING = 1;    // 待审
+  STATE_REVIEWING = 2;  // 审阅中
+  STATE_APPROVED = 3;
+  STATE_REJECTED = 4;
+  STATE_MODIFIED = 5;   // 用户修改后放行
+  STATE_EXECUTING = 6;
+  STATE_COMPLETED = 7;
+  STATE_FAILED = 8;
+}
+
+message Ticket {
+  string id = 1;
+  uint64 user_id = 2;
+  string source_agent_id = 3;
+  TicketType ticket_type = 4;
+  TicketState state = 5;
+  string payload_json = 6;        // 谁发起/做了什么/建议动作/涉及金额与风险
+  int64 deadline_unix = 7;
+  int64 created_at_unix = 8;
+  int64 resolved_at_unix = 9;
+  repeated TicketEvent events = 10; // 事件溯源
+}
+
+message TicketEvent {
+  int64 at_unix = 1;
+  string event_type = 2;          // CREATED/APPROVED/REJECTED/MODIFIED/EXECUTED/FAILED/ESCALATED/TIMEOUT
+  string by = 3;                  // user / agent / system
+  string note = 4;
+}
+
+message CreateTicketRequest {
+  uint64 user_id = 1;
+  string source_agent_id = 2;
+  TicketType ticket_type = 3;
+  string payload_json = 4;
+  int64 deadline_unix = 5;
+}
+
+message ApproveRequest {
+  string ticket_id = 1;
+  uint64 user_id = 2;
+  string note = 3;
+}
+
+message RejectRequest {
+  string ticket_id = 1;
+  uint64 user_id = 2;
+  string reason = 3;
+}
+
+message ModifyRequest {
+  string ticket_id = 1;
+  uint64 user_id = 2;
+  string patch_json = 3;          // 用户修改后的参数
+  string note = 4;
+}
+
+message GetTicketRequest {
+  string ticket_id = 1;
+}
+
+message ListPendingRequest {
+  uint64 user_id = 1;
+  uint32 limit = 2;
+}
+
+message ListPendingResponse {
+  repeated Ticket tickets = 1;
+}

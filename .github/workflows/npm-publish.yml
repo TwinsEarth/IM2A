@@ -1,0 +1,28 @@
+name: npm-publish
+
+# 打 tag 触发：把 im2agent CLI 分发包装包发布到 npm。
+# 需在仓库 Settings → Secrets and variables → Actions 配置 NPM_TOKEN（npm publish 授权闸门）。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Pack verify
+        run: npm pack --dry-run
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

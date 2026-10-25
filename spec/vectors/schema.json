@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://im2a.example/spec/vectors/relation-gating.v1.schema.json",
+  "title": "Relation Gating Protocol v1 — public test vectors",
+  "description": "向量文件 schema：每条向量 = 输入(capability+call) → 期望输出(allowed/requiresApproval/reasonCode)。协议见 spec/relation-gating.md。",
+  "type": "object",
+  "required": ["version", "spec", "vectors"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "spec": { "const": "relation-gating/v1" },
+    "vectors": {
+      "type": "array",
+      "minItems": 60,
+      "items": { "$ref": "#/definitions/vector" }
+    }
+  },
+  "definitions": {
+    "level": {
+      "type": "integer",
+      "description": "信任档位：0=self 1=family 2=trusted 3=known 4=stranger；范围外整数语义见规范 I2"
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["allowed", "requiresApproval", "reasonCode"],
+      "additionalProperties": false,
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "requiresApproval": { "type": "boolean" },
+        "reasonCode": {
+          "type": "string",
+          "enum": [
+            "OK",
+            "SKILL_NOT_ALLOWED",
+            "TRUST_BELOW_MIN",
+            "SCOPE_FORBIDDEN",
+            "SCOPE_REQUIRES_APPROVAL",
+            "AMOUNT_ABOVE_THRESHOLD",
+            "AMOUNT_ABOVE_BUDGET"
+          ]
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "required": ["trustLevelMin", "budgetCentsPerDay", "requiresApprovalAboveCents"],
+      "additionalProperties": false,
+      "properties": {
+        "agentId": { "type": "string", "description": "仅审计用，不参与判定" },
+        "trustLevelMin": { "$ref": "#/definitions/level" },
+        "allowedSkills": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Skill 白名单；空/缺省 = 不限制"
+        },
+        "budgetCentsPerDay": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "单次调用金额上限（分）；0 = 不启用"
+        },
+        "requiresApprovalAboveCents": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "金额审批阈值（分）；0 = 不启用"
+        }
+      }
+    },
+    "call": {
+      "type": "object",
+      "required": ["skillId", "scope", "trustLevel", "amountCents"],
+      "additionalProperties": false,
+      "properties": {
+        "skillId": { "type": "string" },
+        "scope": {
+          "type": "string",
+          "description": "能力领域（开放字符串）；未知 scope 按规范 I1 处理"
+        },
+        "trustLevel": { "$ref": "#/definitions/level" },
+        "amountCents": {
+          "type": "integer",
+          "description": "涉及金额（分）；负数属输入域外，见规范 §6.2"
+        },
+        "targetUid": { "type": "integer", "minimum": 0, "description": "不参与判定" }
+      }
+    },
+    "vector": {
+      "type": "object",
+      "required": ["id", "description", "category", "input", "expect"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{2,80}$",
+          "description": "稳定且全局唯一；不变量锚点用固定前缀（inv-/mono-/bnd-/unk-/order-）"
+        },
+        "description": { "type": "string", "minLength": 3 },
+        "category": {
+          "type": "string",
+          "enum": ["matrix", "order", "unknown", "boundary", "monotonic", "invariant", "purity"]
+        },
+        "input": {
+          "type": "object",
+          "required": ["capability", "call"],
+          "additionalProperties": false,
+          "properties": {
+            "capability": { "$ref": "#/definitions/capability" },
+            "call": { "$ref": "#/definitions/call" }
+          }
+        },
+        "expect": { "$ref": "#/definitions/outcome" }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package human_agent_im.relation;
+
+option go_package = "human-agent-im/proto/gen/relation";
+
+import "common.proto";
+
+// 关系链与五档信任矩阵。权限变更触发下游 Agent capability 刷新。
+service RelationService {
+  rpc GrantTrust(GrantTrustRequest) returns (TrustRelation);
+  rpc RevokeTrust(RevokeTrustRequest) returns (RevokeTrustResponse);
+  rpc GetTrustLevel(GetTrustLevelRequest) returns (GetTrustLevelResponse);
+  rpc ListRelations(ListRelationsRequest) returns (ListRelationsResponse);
+}
+
+message TrustRelation {
+  uint64 user_id = 1;
+  uint64 target_id = 2;
+  human_agent_im.common.TrustLevel level = 3;
+  int64 granted_at_unix = 4;
+  int64 expires_at_unix = 5;     // 0 表示永久
+}
+
+message GrantTrustRequest {
+  uint64 user_id = 1;
+  uint64 target_id = 2;
+  human_agent_im.common.TrustLevel level = 3;
+  int64 expires_at_unix = 4;
+}
+
+message RevokeTrustRequest {
+  uint64 user_id = 1;
+  uint64 target_id = 2;
+}
+
+message RevokeTrustResponse {
+  bool ok = 1;
+}
+
+message GetTrustLevelRequest {
+  uint64 user_id = 1;
+  uint64 target_id = 2;
+}
+
+message GetTrustLevelResponse {
+  human_agent_im.common.TrustLevel level = 1;
+}
+
+message ListRelationsRequest {
+  uint64 user_id = 1;
+  human_agent_im.common.TrustLevel min_level = 2; // 过滤
+}
+
+message ListRelationsResponse {
+  repeated TrustRelation relations = 1;
+}

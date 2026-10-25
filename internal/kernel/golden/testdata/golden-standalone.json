@@ -1,0 +1,65 @@
+{
+  "generator": "internal/kernel/golden",
+  "note": "B2-a CONN_MODE=standalone routes (separate baseline; embedded 104-case file untouched)",
+  "routes": {
+    "GET /healthz": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "commit:string",
+        "service:string",
+        "status:string",
+        "time:number",
+        "version:string"
+      ],
+      "stable": {
+        "commit": "dev",
+        "service": "gateway",
+        "status": "ok",
+        "version": "v2.3.25"
+      }
+    },
+    "GET /v1/plugins": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "plugins:array",
+        "plugins[0].attribution.copyright:string",
+        "plugins[0].attribution.derived:bool",
+        "plugins[0].attribution.license:string",
+        "plugins[0].attribution.noticePath:string",
+        "plugins[0].attribution.upstream:string",
+        "plugins[0].attribution.upstreamName:string",
+        "plugins[0].attribution.usage:array",
+        "plugins[0].attribution.usage[0]:string",
+        "plugins[0].attribution:object",
+        "plugins[0].capabilities:array(empty)",
+        "plugins[0].detail:string",
+        "plugins[0].id:string",
+        "plugins[0].state:string",
+        "plugins[0].version:string",
+        "plugins[0]:object"
+      ],
+      "stable": {
+        "plugins[0].attribution.copyright": "Copyright (c) 2026 OpenClaw Foundation",
+        "plugins[0].attribution.license": "MIT",
+        "plugins[0].attribution.noticePath": "THIRD_PARTY_LICENSES/OpenClaw-MIT.txt",
+        "plugins[0].attribution.upstream": "https://github.com/openclaw/openclaw",
+        "plugins[0].attribution.upstreamName": "OpenClaw",
+        "plugins[0].state": "disabled",
+        "plugins[0].version": "1.0.0"
+      }
+    },
+    "GET /v1/ws": {
+      "status": 421,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string",
+        "hint:string"
+      ]
+    }
+  }
+}

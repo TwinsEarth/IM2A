@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package human_agent_im.negotiation;
+
+option go_package = "human-agent-im/proto/gen/negotiation";
+
+// Agent 间协商通道（§2.4）。gRPC 双向流，独立于人类 IM 通道。
+// 协商过程不产生用户可见通知，只在终止时生成审批卡片注入 IM。
+service NegotiationService {
+  rpc Negotiate(stream NegotiationTurn) returns (stream NegotiationEvent);
+}
+
+// Task 状态机（参考 A2A 8 态，内部自定义实现）。
+// input-required / auth-required 是"卡住但未失败"的中断态，对应人机混合审批的协议级落点。
+enum TaskState {
+  TASK_UNSPECIFIED = 0;
+  TASK_SUBMITTED = 1;
+  TASK_WORKING = 2;
+  TASK_INPUT_REQUIRED = 3;   // 需要对方补充信息
+  TASK_AUTH_REQUIRED = 4;    // 需要用户审批下游动作
+  TASK_COMPLETED = 5;
+  TASK_FAILED = 6;
+  TASK_CANCELED = 7;
+  TASK_REJECTED = 8;
+}
+
+enum Intent {
+  INTENT_UNSPECIFIED = 0;
+  INTENT_PROPOSE = 1;       // 提案
+  INTENT_COUNTER = 2;       // 反提案
+  INTENT_ACCEPT = 3;
+  INTENT_REJECT = 4;
+  INTENT_REQUEST_INFO = 5;  // 请求补充信息 → INPUT_REQUIRED
+  INTENT_REQUEST_AUTH = 6;  // 请求用户授权 → AUTH_REQUIRED
+}
+
+message NegotiationTurn {
+  string session_id = 1;
+  string from_agent_id = 2;
+  string to_agent_id = 3;
+  Intent intent = 4;
+  string payload_json = 5;       // 结构化提案/反提案/来意说明
+  repeated string artifact_refs = 6;
+  int64 deadline_unix = 7;
+}
+
+message NegotiationEvent {
+  string session_id = 1;
+  TaskState state = 2;
+  uint32 round = 3;              // 当前轮次
+  uint32 max_rounds = 4;         // 硬性上限（默认 5）
+  uint64 token_used = 5;
+  uint64 token_budget = 6;       // 硬性预算
+  string summary_json = 7;       // 终止时的协商摘要 → 生成审批卡片
+  string approval_ticket_id = 8; // 触发 AUTH_REQUIRED 时生成的审批单 ID
+}

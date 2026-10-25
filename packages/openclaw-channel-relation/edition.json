@@ -1,0 +1,14 @@
+{
+  "edition": "openclaw-channel-relation",
+  "package": "@im2a/openclaw-channel-relation",
+  "pluginVersion": "0.1.0",
+  "compatibleCore": ">=2.0.2 <2.1.0",
+  "coreVersionSource": "internal/version/version.go",
+  "platform": "openclaw",
+  "capabilities": [
+    "relation-gating",
+    "paid-attention-state-machine",
+    "three-state-ui"
+  ],
+  "notes": "IM2A platform edition. IM2A remains the product mainline; this edition version evolves independently from the core version."
+}

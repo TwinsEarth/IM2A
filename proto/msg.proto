@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package human_agent_im.msg;
+
+option go_package = "human-agent-im/proto/gen/msg";
+
+import "common.proto";
+
+// 人类 IM 消息（§4.4 业务封装）。传输层由 IM PaaS 承担；业务层"至少一次投递 + 幂等去重"。
+service MsgService {
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc PullMessages(PullMessagesRequest) returns (PullMessagesResponse);
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+}
+
+enum BizType {
+  BIZ_UNSPECIFIED = 0;
+  BIZ_NORMAL_TEXT = 1;      // 普通消息
+  BIZ_APPROVAL_CARD = 2;    // 审批卡片（Agent 协商/工具调用的产物，注入 IM 会话）
+  BIZ_STRANGER_INTENT = 3;  // 陌生人来意卡片
+  BIZ_AGENT_DIGEST = 4;     // Agent 协商摘要
+}
+
+message Message {
+  string biz_id = 1;                     // 全局唯一业务 ID，幂等去重键
+  BizType biz_type = 2;
+  string conversation_id = 3;
+  uint64 from_uid = 4;
+  uint64 to_uid = 5;
+  string payload_json = 6;               // 业务 payload
+  string trust_zone = 7;                 // family|trusted|known|stranger
+  uint64 seq = 8;                        // 会话内单调递增序号（64 分片锁生成）
+  int64 timestamp_unix = 9;
+  string trace_id = 10;                  // 关联审计日志
+  string agent_context_json = 11;        // 如 {"initiatorAgentId":"procurement-agent","approvalState":"PENDING"}
+}
+
+message SendMessageRequest {
+  Message message = 1;
+  string idempotency_key = 2;            // 客户端重试幂等键
+}
+
+message SendMessageResponse {
+  uint64 seq = 1;
+  int64 timestamp_unix = 2;
+}
+
+message PullMessagesRequest {
+  uint64 user_id = 1;
+  string conversation_id = 2;
+  uint64 last_ack_seq = 3;
+  uint32 limit = 4;
+}
+
+message PullMessagesResponse {
+  repeated Message messages = 1;
+}
+
+message MarkReadRequest {
+  uint64 user_id = 1;
+  string conversation_id = 2;
+  uint64 up_to_seq = 3;
+}
+
+message MarkReadResponse {
+  bool ok = 1;
+}

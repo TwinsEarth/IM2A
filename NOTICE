@@ -1,0 +1,36 @@
+IM2A
+Copyright (c) 2026 IM2A contributors
+Licensed under the MIT License (see LICENSE).
+
+--------------------------------------------------------------------------
+This product bundles / integrates the following third-party software:
+
+OpenClaw 2026.10.7
+  https://github.com/openclaw/openclaw
+  Copyright (c) 2026 OpenClaw Foundation
+  Licensed under the MIT License (full text: THIRD_PARTY_LICENSES/OpenClaw-MIT.txt)
+  Integration form: isolated sub-plugin (internal/plugin/openclaw) invoking the
+  unmodified upstream CLI as a child process. No upstream source code is copied.
+  Runtime attribution: GET /v1/about/attribution, GET /v1/plugins, startup banner.
+  No affiliation with or endorsement by the OpenClaw Foundation is claimed.
+
+openclaw-weixin 3.3.1  (transitive dependency, loaded by OpenClaw as a channel plugin)
+  https://github.com/NewFuture/openclaw-weixin
+  Copyright (c) 2026 Tencent
+  Copyright (c) 2026 Contributors to NewFuture/openclaw-weixin
+  Licensed under the MIT License (full text: THIRD_PARTY_LICENSES/OpenClaw-Weixin-MIT.txt)
+  Installed by the deployment scripts; not vendored into this repository.
+
+DeepSeek-Bot (DS Bot) 0.2.1  (SOURCE-LEVEL PORT, not a runtime dependency)
+  https://github.com/Fei2411/DeepSeek-Bot
+  Copyright 2026 Fei2411 and the DS Bot contributors
+  Licensed under the Apache License, Version 2.0
+    (full text: THIRD_PARTY_LICENSES/DeepSeek-Bot-LICENSE.txt)
+  Upstream NOTICE preserved verbatim (Apache-2.0 section 4(d)):
+    THIRD_PARTY_LICENSES/DeepSeek-Bot-NOTICE.txt
+  Ported to Go, modifications declared in ATTRIBUTION.md section 3.2 and in each
+  ported file header: web-search provider, long-message splitting, bot-roster spec.
+  No upstream source files are vendored. No affiliation with or endorsement by the
+  upstream authors is claimed. The upstream NOTICE itself carries MIT attributions
+  to DeepSeek Harness; those are retained by preserving that file verbatim.
+--------------------------------------------------------------------------

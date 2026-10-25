@@ -1,0 +1,20 @@
+name: Compat
+
+# 兼容性门禁：proto 契约稳定、版本与 healthz 一致、核心路由在场、6 平台矩阵可编译。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache: true
+      - name: Compatibility gate
+        run: make compat

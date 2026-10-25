@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: MIT
+# IM2A gateway - systemd unit.
+# Source of truth: deploy/vultr/systemd/im2a-gateway.service
+# Installed to:    /etc/systemd/system/im2a-gateway.service  (by deploy/vultr/install.sh)
+#
+# Host: Vultr Debian 11, 1 vCPU / 959 MB RAM / 3 GB swap, SHARED with the w2m fleet
+# (xray, nginx, gsn-daemon, w2m-*, agent-universe-relay). Resource envelope and the
+# measured numbers behind MemoryHigh/MemoryMax are documented in deploy/vultr/README.md.
+#
+# Notes:
+#  * Deliberately NOT ordered against a resident openclaw-gateway.service: IM2A must come up
+#    even when OpenClaw is missing/degraded (plugin contract v1, principle 2 "不阻塞启动").
+#  * OpenClaw runs on-demand on this host (CLI subprocesses only); see README section
+#    "OpenClaw 内存可行性". No resident OpenClaw gateway is required by this unit.
+
+[Unit]
+Description=IM2A API gateway (unified API + OpenClaw sub-plugin, port 18080)
+Documentation=file:/opt/im2a/README.md
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=root
+Group=root
+# Runtime secrets/flags (0600 root:root, generated once by install.sh, never in git).
+EnvironmentFile=/etc/im2a/env
+# The OpenClaw CLI needs node24 on PATH and HOME for its state directory.
+Environment=HOME=/root
+Environment=PATH=/usr/local/node24/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Startup self-check window (selfcheck.sh). The sub-plugin probes OpenClaw synchronously while
+# starting (~15-19 s measured on this 1 vCPU box, longer under parallel build load), so give the
+# health probe ample room before declaring the start failed.
+Environment=IM2A_SELFCHECK_TIMEOUT=240
+WorkingDirectory=/opt/im2a
+
+# Startup self-check #1 (in-process, no port): route dispatch + handlers.
+ExecStartPre=/opt/im2a/bin/im2a-gateway -selftest
+ExecStart=/opt/im2a/bin/im2a-gateway -port 18080
+# Startup self-check #2: wait for the listener, then require authenticated /healthz == 200.
+# If it fails the unit fails and Restart= takes over, so a half-dead gateway is visible
+# instead of silently serving 502s behind nginx.
+ExecStartPost=/opt/im2a/scripts/selfcheck.sh
+
+Restart=always
+RestartSec=3
+# The sub-plugin start probe is SYNCHRONOUS: `openclaw --version` + `gateway status --json` +
+# `channels capabilities` cost ~15-19 s measured here (each CLI run pays a Node cold start).
+# The service therefore stays "activating" for ~20 s, and nginx answers 502 during that
+# window - expected behaviour, documented in deploy/vultr/README.md ("运维须知").
+TimeoutStartSec=300
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# Memory envelope.
+# Measured facts (2026-10-25, this host):
+#  * gateway steady state: RSS ~13 MB;
+#  * each `openclaw` CLI invocation is a Node process: anon RSS ~67 MB but it also
+#    pages in a 619 MB package tree, and that page cache is accounted to THIS cgroup.
+# With MemoryHigh=192M the kernel throttled (memory.high) the Node probes so hard that
+# they never completed inside their timeouts -> service stuck in "activating", probe
+# logged "upstream unknown"/timeout. Manual run outside a cgroup finished in ~19 s.
+# Therefore the envelope is set to fit page-cache + anon of one Node probe, not just RSS.
+# Real usage stays far below these caps; they are a safety valve, not a target.
+MemoryHigh=384M
+MemoryMax=512M
+# Allow a little swap for the transient Node probe; a *gateway* that swaps is still worse
+# than a restart, so the allowance is deliberately small.
+MemorySwapMax=64M
+
+# Hardening. The service stays root only because OpenClaw state lives under /root/.openclaw
+# and the gateway reads the account directory; everything else is locked down.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

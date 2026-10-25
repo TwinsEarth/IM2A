@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MIT
+# OpenClaw gateway - OPTIONAL resident unit. NOT installed or enabled by default.
+# Source of truth: deploy/vultr/systemd/openclaw-gateway.service
+#
+# >>> MEASURED ON THIS HOST: DO NOT ENABLE (2026-10-25) <<<
+# `openclaw gateway` was started in transient systemd units with a hard cgroup cap and
+# MemorySwapMax=0 on the same host (959 MB RAM, 1 vCPU, sharing the box with the w2m fleet):
+#   MemoryMax=320M -> OOM-killed during startup (`state.schema-preflight`, ~12 s)
+#   MemoryMax=384M -> OOM-killed during startup (`config.auth`, ~16 s)
+# It never reached "listening" in either case, and the transient startup footprint is
+# clearly > 384 MB while startup takes 15 s+ on this 1 vCPU box. With only ~300-600 MB
+# available on the host and a hard 80 MB available-memory red line, a resident OpenClaw
+# gateway is NOT viable here. IM2A therefore runs OpenClaw on-demand (CLI subprocesses:
+# `openclaw --version`, `openclaw gateway status --json`, `openclaw message send`, ...).
+#
+# Only copy this unit to /etc/systemd/system/ (install.sh --with-openclaw-unit) on a host
+# that has >= 640 MB of *dedicated* headroom, and re-measure RSS before enabling:
+#   systemd-run --unit=oc-memtest --collect -p MemoryMax=640M \
+#     -p MemorySwapMax=0 /usr/local/node24/bin/openclaw gateway --allow-unconfigured \
+#     --bind loopback --port 18789
+#   systemctl show oc-memtest -p MemoryCurrent -p Result
+#
+# Attribution: OpenClaw is MIT, Copyright (c) 2026 OpenClaw Foundation.
+# See /opt/im2a/ATTRIBUTION.md and /opt/im2a/THIRD_PARTY_LICENSES/OpenClaw-MIT.txt.
+# Upstream: https://github.com/openclaw/openclaw
+
+[Unit]
+Description=OpenClaw gateway (optional resident runtime; NOT recommended on this host)
+Documentation=https://github.com/openclaw/openclaw
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+# Optional overrides; keep this file optional so a missing file is fine.
+EnvironmentFile=-/etc/im2a/openclaw.env
+Environment=HOME=/root
+Environment=OPENCLAW_STATE_DIR=/root/.openclaw
+Environment=PATH=/usr/local/node24/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=/root
+# NOTE: literal path on purpose - this unit only exists on hosts where the npm global
+# install is at /usr/local/node24/bin/openclaw. IM2A code itself resolves the binary via
+# OPENCLAW_BIN / PATH (internal/openclaw/bin.go), never through this unit.
+ExecStart=/usr/local/node24/bin/openclaw gateway run --allow-unconfigured --bind loopback --port 18789
+Restart=always
+RestartSec=5
+TimeoutStartSec=180
+TimeoutStopSec=60
+KillSignal=SIGTERM
+
+# Unverified upper bound for a dedicated host: 320M/384M both OOM here. Raise only after
+# re-measuring; never lower below the measured steady-state RSS.
+MemoryHigh=512M
+MemoryMax=640M
+MemorySwapMax=0
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

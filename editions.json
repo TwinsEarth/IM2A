@@ -1,0 +1,44 @@
+{
+  "$comment": "IM2A edition matrix (machine-readable). core version lives ONLY in internal/version/version.go; each edition has its own independent version. Edit this file then run `make version-sync`; `make version-check`/CI fails on drift. See EDITIONS.md.",
+  "core": {
+    "artifactPath": "services/gateway",
+    "versionSource": "internal/version/version.go",
+    "publishCommand": "make release-build"
+  },
+  "editions": [
+    {
+      "id": "client-ios",
+      "kind": "flutter-client",
+      "version": "1.4.3",
+      "compatibleCore": ">=2.0.0 <3.0.0",
+      "artifactPath": "client/app",
+      "versionFile": "client/app/pubspec.yaml",
+      "publishCommand": "cd client/app && flutter build ios --release"
+    },
+    {
+      "id": "client-android",
+      "kind": "flutter-client",
+      "version": "1.4.3",
+      "compatibleCore": ">=2.0.0 <3.0.0",
+      "artifactPath": "client/app",
+      "publishCommand": "cd client/app && flutter build apk --release"
+    },
+    {
+      "id": "client-windows",
+      "kind": "flutter-client",
+      "version": "1.4.3",
+      "compatibleCore": ">=2.0.0 <3.0.0",
+      "artifactPath": "client/app",
+      "publishCommand": "cd client/app && flutter build windows --release"
+    },
+    {
+      "id": "openclaw-channel-relation",
+      "kind": "openclaw-channel-plugin",
+      "version": "0.1.0",
+      "compatibleCore": ">=2.0.2 <2.1.0",
+      "artifactPath": "packages/openclaw-channel-relation",
+      "versionFile": "packages/openclaw-channel-relation/package.json",
+      "publishCommand": "npm publish packages/openclaw-channel-relation --access public"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "apiVersion": "im2a.plugin/v1",
+  "id": "dsbot",
+  "name": "DeepSeek-Bot",
+  "version": "1.0.0",
+  "kind": "K0",
+  "api": "im2a.capability/v1",
+  "publisher": {
+    "id": "im2a",
+    "keyId": "im2a-builtin-2026"
+  },
+  "entrypoint": {
+    "type": "inprocess",
+    "module": "human-agent-im/internal/plugin/dsbot"
+  },
+  "provides": [
+    {"id": "dsbot.web-search", "version": "v1", "priority": 100},
+    {"id": "dsbot.long-message", "version": "v1", "priority": 100},
+    {"id": "dsbot.roster-spec", "version": "v1", "priority": 100},
+    {"id": "dsbot.bridge", "version": "v1", "priority": 50}
+  ],
+  "optional_requires": [
+    {"capability": "kernel.eventbus", "version": "v1"}
+  ],
+  "permissions": [
+    {"class": "net.outbound", "scope": ["*"]},
+    {"class": "capability.call", "scope": ["kernel.eventbus"]}
+  ],
+  "attribution": {
+    "license": "Apache-2.0",
+    "copyright": "Copyright 2026 Fei2411 and the DS Bot contributors",
+    "upstream": "https://github.com/Fei2411/DeepSeek-Bot",
+    "upstreamName": "DeepSeek-Bot",
+    "noticePath": "THIRD_PARTY_LICENSES/DeepSeek-Bot-NOTICE.txt",
+    "derived": true,
+    "usage": [
+      "移植 ds-bot/web-search.js 的 auto provider 抽象与结果解析 → internal/plugin/dsbot/search.go",
+      "移植长消息策略与阈值（MESSAGE_INLINE_MAX=20000 等）→ internal/plugin/dsbot/chunk.go",
+      "移植 Bot 名册/权限/分组语义为只读规格 → internal/plugin/dsbot/roster.go"
+    ]
+  },
+  "x-k0-note": "K0：net.outbound 为评审契约（Go 进程内无法强制），不是运行期安全边界"
+}

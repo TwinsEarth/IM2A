@@ -1,0 +1,60 @@
+# Go
+*.exe
+*.test
+*.out
+/bin/
+dist/
+# 防二进制回归：网关二进制/大产物不得入库（scripts/check-no-binaries.sh 会拒绝 >1MB 非文本）
+gateway
+im2a-gateway
+*.dll
+*.so
+*.dylib
+*.a
+
+# Protobuf 生成代码（make proto 生成）
+proto/gen/
+
+# 本地数据与日志
+data/
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
+
+# Flutter（client/app）
+client/app/.dart_tool/
+client/app/.flutter-plugins
+client/app/.flutter-plugins-dependencies
+client/app/build/
+client/app/.metadata
+client/app/ios/Pods/
+client/app/ios/.symlinks/
+
+# Node / npm 包产物
+node_modules/
+packages/*/node_modules/
+packages/*/dist/
+*.tgz
+
+# local backups
+*.bak
+npm/*.tgz
+
+# 密钥/凭据（禁止入库；一律经环境变量或密钥管理注入）
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+.env
+.env.*
+secrets/
+credentials/
+*.token

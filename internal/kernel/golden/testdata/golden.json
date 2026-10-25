@@ -1,0 +1,801 @@
+{
+  "generator": "internal/kernel/golden",
+  "note": "black-box gateway routes snapshot; normalized (no timestamps/IDs/random values)",
+  "routes": {
+    "GET /": {
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "auth:string",
+        "commit:string",
+        "docs:string",
+        "service:string",
+        "status:string",
+        "version:string"
+      ],
+      "stable": {
+        "commit": "dev",
+        "service": "IM2A Gateway",
+        "status": "ok",
+        "version": "v2.3.25"
+      }
+    },
+    "GET /admin/": {
+      "status": 401,
+      "contentType": "text/html; charset=utf-8",
+      "bodyHash": "sha256:04a9da1a8bb93cdf"
+    },
+    "GET /admin/?token=golden-token": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bodyHash": "sha256:06c7291a9f930bd4"
+    },
+    "GET /admin/api-playground": {
+      "status": 401,
+      "contentType": "text/html; charset=utf-8",
+      "bodyHash": "sha256:04a9da1a8bb93cdf"
+    },
+    "GET /admin/api-playground?token=golden-token": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bodyHash": "sha256:54cb831c228a4728"
+    },
+    "GET /admin/broadcast": {
+      "status": 401,
+      "contentType": "text/html; charset=utf-8",
+      "bodyHash": "sha256:04a9da1a8bb93cdf"
+    },
+    "GET /admin/broadcast?token=golden-token": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bodyHash": "sha256:f97190385cfede17"
+    },
+    "GET /admin/wechat-bind": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bodyHash": "sha256:f8619dc47eaf1b58"
+    },
+    "GET /healthz": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "commit:string",
+        "service:string",
+        "status:string",
+        "time:number",
+        "version:string"
+      ],
+      "stable": {
+        "commit": "dev",
+        "service": "gateway",
+        "status": "ok",
+        "version": "v2.3.25"
+      }
+    },
+    "GET /mcp": {
+      "status": 405,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "method not allowed"
+    },
+    "GET /mcp/skills": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "protocolVersion:string",
+        "skills:array",
+        "skills[0].description:string",
+        "skills[0].destructiveHint:bool",
+        "skills[0].inputSchema.properties.amountCents.type:string",
+        "skills[0].inputSchema.properties.amountCents:object",
+        "skills[0].inputSchema.properties.item.type:string",
+        "skills[0].inputSchema.properties.item:object",
+        "skills[0].inputSchema.properties:object",
+        "skills[0].inputSchema.type:string",
+        "skills[0].inputSchema:object",
+        "skills[0].name:string",
+        "skills[0].readOnlyHint:bool",
+        "skills[0].skillId:string",
+        "skills[0]:object"
+      ]
+    },
+    "GET /metrics": {
+      "status": 200,
+      "contentType": "text/plain; version=0.0.4; charset=utf-8",
+      "textHead": "# HELP http_requests_total 计数 # TYPE htt…"
+    },
+    "GET /v1/a2a/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/about/attribution": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "product:string",
+        "thirdParty:array",
+        "thirdParty[0].copyright:string",
+        "thirdParty[0].license:string",
+        "thirdParty[0].noticePath:string",
+        "thirdParty[0].pluginId:string",
+        "thirdParty[0].upstream:string",
+        "thirdParty[0].usage:array",
+        "thirdParty[0].usage[0]:string",
+        "thirdParty[0]:object",
+        "version:string"
+      ],
+      "stable": {
+        "product": "IM2A",
+        "thirdParty[0].copyright": "Copyright (c) 2026 OpenClaw Foundation",
+        "thirdParty[0].license": "MIT",
+        "thirdParty[0].noticePath": "THIRD_PARTY_LICENSES/OpenClaw-MIT.txt",
+        "thirdParty[0].pluginId": "openclaw",
+        "thirdParty[0].upstream": "https://github.com/openclaw/openclaw",
+        "version": "v2.3.25"
+      }
+    },
+    "GET /v1/about/attribution?format=text": {
+      "status": 200,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "IM2A v2.3.25 — Third-Party Attribution /…"
+    },
+    "GET /v1/admin/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/admin/audit": {
+      "status": 401,
+      "contentType": "text/plain; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/admin/dashboard": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/admin/health": {
+      "status": 401,
+      "contentType": "text/plain; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/admin/metrics": {
+      "status": 401,
+      "contentType": "text/plain; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/admin/security": {
+      "status": 503,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "db not configured"
+    },
+    "GET /v1/agent/logs": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/agents/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/agents/register": {
+      "status": 405,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "Method Not Allowed"
+    },
+    "GET /v1/approvals": {
+      "status": 405,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "Method Not Allowed"
+    },
+    "GET /v1/approvals/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/approvals/some-id": {
+      "status": 404,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/audit": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "events:array(empty)"
+      ]
+    },
+    "GET /v1/auth/me": {
+      "status": 401,
+      "contentType": "text/plain; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "error:string",
+        "reason:string"
+      ]
+    },
+    "GET /v1/botroute/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/capability/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/chat/stream": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/compliance/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/directory/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/distill/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/edge/egress/report": {
+      "status": 503,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/egress/tickets": {
+      "status": 503,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "db not configured"
+    },
+    "GET /v1/events": {
+      "status": 200,
+      "contentType": "text/plain; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "count:number",
+        "events:array(empty)"
+      ]
+    },
+    "GET /v1/exp/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/gate/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/gray/eval?feature=f\u0026entity=e": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "enabled:bool",
+        "entity:string",
+        "feature:string",
+        "percent:number"
+      ]
+    },
+    "GET /v1/guard/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/im/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/intent/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/ledger/": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "count:number",
+        "entries:array(empty)",
+        "userId:string"
+      ]
+    },
+    "GET /v1/memory/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/memory/encrypted": {
+      "status": 401,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/memory/encrypted/export": {
+      "status": 401,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/model/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/model/stats": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "cloudCalls:number",
+        "completionTokens:number",
+        "edgeCalls:number",
+        "fallbackCalls:number",
+        "promptTokens:number",
+        "totalCalls:number"
+      ]
+    },
+    "GET /v1/moderation/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/msg/stats": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "hotShards:null",
+        "summary:string"
+      ]
+    },
+    "GET /v1/negotiations": {
+      "status": 405,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "Method Not Allowed"
+    },
+    "GET /v1/negotiations/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/offline/pending": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/openclaw/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/openclaw/health": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "online:array(empty)",
+        "onlineCount:number",
+        "paused:array(empty)",
+        "pausedCount:number"
+      ]
+    },
+    "GET /v1/ops/orchestration": {
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "l4Enabled:bool",
+        "package:string",
+        "phase:string"
+      ]
+    },
+    "GET /v1/ops/outbox": {
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "activeSends:number",
+        "failedTotal:number",
+        "maxConcurrency:number",
+        "outboxCapacity:number",
+        "outboxDepth:number",
+        "pausedAccounts:array(empty)",
+        "sentTotal:number"
+      ]
+    },
+    "GET /v1/orchestrator/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/paid/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/paidflow/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/plugins": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "plugins:array",
+        "plugins[0].attribution.copyright:string",
+        "plugins[0].attribution.derived:bool",
+        "plugins[0].attribution.license:string",
+        "plugins[0].attribution.noticePath:string",
+        "plugins[0].attribution.upstream:string",
+        "plugins[0].attribution.upstreamName:string",
+        "plugins[0].attribution.usage:array",
+        "plugins[0].attribution.usage[0]:string",
+        "plugins[0].attribution:object",
+        "plugins[0].capabilities:array(empty)",
+        "plugins[0].detail:string",
+        "plugins[0].id:string",
+        "plugins[0].state:string",
+        "plugins[0].version:string",
+        "plugins[0]:object"
+      ],
+      "stable": {
+        "plugins[0].attribution.copyright": "Copyright (c) 2026 OpenClaw Foundation",
+        "plugins[0].attribution.license": "MIT",
+        "plugins[0].attribution.noticePath": "THIRD_PARTY_LICENSES/OpenClaw-MIT.txt",
+        "plugins[0].attribution.upstream": "https://github.com/openclaw/openclaw",
+        "plugins[0].attribution.upstreamName": "OpenClaw",
+        "plugins[0].state": "disabled",
+        "plugins[0].version": "1.0.0"
+      }
+    },
+    "GET /v1/plugins/not-registered": {
+      "status": 404,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/plugins/openclaw": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "attribution.copyright:string",
+        "attribution.derived:bool",
+        "attribution.license:string",
+        "attribution.noticePath:string",
+        "attribution.upstream:string",
+        "attribution.upstreamName:string",
+        "attribution.usage:array",
+        "attribution.usage[0]:string",
+        "attribution:object",
+        "capabilities:array(empty)",
+        "detail:string",
+        "id:string",
+        "state:string",
+        "version:string"
+      ],
+      "stable": {
+        "attribution.copyright": "Copyright (c) 2026 OpenClaw Foundation",
+        "attribution.license": "MIT",
+        "attribution.noticePath": "THIRD_PARTY_LICENSES/OpenClaw-MIT.txt",
+        "attribution.upstream": "https://github.com/openclaw/openclaw",
+        "attribution.upstreamName": "OpenClaw",
+        "state": "disabled",
+        "version": "1.0.0"
+      }
+    },
+    "GET /v1/privacy/requests": {
+      "status": 503,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "db not configured"
+    },
+    "GET /v1/push/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/quota/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/report/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/route/": {
+      "status": 405,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "Method Not Allowed"
+    },
+    "GET /v1/sse/": {
+      "status": 400,
+      "contentType": "application/json"
+    },
+    "GET /v1/stranger/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/support/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/sync/state/u1": {
+      "status": 404,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/tempgroup/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/trust/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/wechat/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/wechat/auto-nego": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/wechat/webhook": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/wechatbot/": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "GET /v1/ws": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "GET /v1/ws/stats": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "_total:number"
+      ]
+    },
+    "GET /v2/wechat/mcp": {
+      "status": 404,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "404 page not found"
+    },
+    "POST /mcp": {
+      "status": 404,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error.code:number",
+        "error.message:string",
+        "error:object",
+        "id:null",
+        "jsonrpc:string"
+      ]
+    },
+    "POST /v1/auth/login": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/device/register": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/distill/feedback": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/edge/pipeline": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/im/webhook": {
+      "status": 503,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/memory/encrypted": {
+      "status": 401,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/memory/encrypted/import": {
+      "status": 401,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/msg/seq": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "seq:number",
+        "userId:number"
+      ]
+    },
+    "POST /v1/msg/seq/batch": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "count:number",
+        "seqs:array",
+        "seqs[0]:number",
+        "userId:number"
+      ]
+    },
+    "POST /v1/offline/submit": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/offline/sync": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/privacy/delete": {
+      "status": 503,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "db not configured"
+    },
+    "POST /v1/privacy/export": {
+      "status": 503,
+      "contentType": "text/plain; charset=utf-8",
+      "textHead": "db not configured"
+    },
+    "POST /v1/sse/publish": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/sync/state": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/trust/grant": {
+      "status": 200,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "granted:bool"
+      ]
+    },
+    "POST /v1/watch/approve": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/watch/escalate": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/watch/reject": {
+      "status": 400,
+      "contentType": "application/json",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    },
+    "POST /v1/wechat/identify": {
+      "status": 400,
+      "contentType": "application/json; charset=utf-8",
+      "jsonShape": [
+        "$:object",
+        "error:string"
+      ]
+    }
+  }
+}

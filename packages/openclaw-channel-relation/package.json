@@ -1,0 +1,92 @@
+{
+  "name": "@im2a/openclaw-channel-relation",
+  "version": "0.1.0",
+  "description": "IM2A platform edition for OpenClaw: relation trust gating, paid-attention state machine, and three-state approval UI.",
+  "license": "MIT",
+  "edition": "openclaw-channel-relation",
+  "compatibleCore": ">=2.0.2 <2.1.0",
+  "im2a": {
+    "edition": "openclaw-channel-relation",
+    "pluginVersion": "0.1.0",
+    "compatibleCore": ">=2.0.2 <2.1.0",
+    "coreVersionSource": "internal/version/version.go",
+    "capabilities": [
+      "relation-gating",
+      "paid-attention-state-machine",
+      "three-state-ui"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TwinsEarth/im2agent.git",
+    "directory": "packages/openclaw-channel-relation"
+  },
+  "author": "IM2A contributors",
+  "keywords": [
+    "im2a",
+    "openclaw",
+    "openclaw-plugin",
+    "channel",
+    "relation",
+    "paid-attention",
+    "trust"
+  ],
+  "type": "module",
+  "files": [
+    "dist/",
+    "index.ts",
+    "openclaw.plugin.json",
+    "edition.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node --test test/edition.test.mjs test/relation.test.mjs test/paid-attention.test.mjs test/ui.test.mjs test/conformance.test.mjs",
+    "conformance": "node scripts/conformance.mjs",
+    "check": "node scripts/build.mjs && node --test test/edition.test.mjs test/relation.test.mjs test/paid-attention.test.mjs test/ui.test.mjs test/conformance.test.mjs && node scripts/pack-check.mjs",
+    "pack:check": "node scripts/pack-check.mjs",
+    "prepack": "node scripts/build.mjs"
+  },
+  "openclaw": {
+    "compat": {
+      "pluginApi": ">=2026.6.1"
+    },
+    "build": {
+      "openclawVersion": "2026.10.3"
+    },
+    "extensions": [
+      "./index.ts"
+    ],
+    "runtimeExtensions": [
+      "./dist/src/index.js"
+    ],
+    "channel": {
+      "id": "im2a-relation",
+      "aliases": [
+        "im2a-openclaw-channel-relation"
+      ],
+      "label": "IM2A Relation",
+      "selectionLabel": "IM2A Relation (trust & paid attention)",
+      "docsPath": "https://github.com/TwinsEarth/im2agent#readme",
+      "docsLabel": "IM2A Relation",
+      "blurb": "关系档位门控 + 付费注意力 + 三态审批（IM2A 平台版本）",
+      "order": 300
+    },
+    "install": {
+      "npmSpec": "@im2a/openclaw-channel-relation",
+      "defaultChoice": "npm",
+      "minHostVersion": ">=2026.6.1"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.6.1"
+  }
+}

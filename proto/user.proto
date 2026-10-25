@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package human_agent_im.user;
+
+option go_package = "human-agent-im/proto/gen/user";
+
+// 用户资料与设备管理。
+service UserService {
+  rpc GetProfile(GetProfileRequest) returns (User);
+  rpc UpdateProfile(UpdateProfileRequest) returns (User);
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+  rpc BindDevice(BindDeviceRequest) returns (Device);
+}
+
+message User {
+  uint64 id = 1;
+  string display_name = 2;
+  string avatar_url = 3;
+  string phone_masked = 4;       // 脱敏手机号
+  int64 created_at_unix = 5;
+}
+
+message GetProfileRequest {
+  uint64 user_id = 1;
+}
+
+message UpdateProfileRequest {
+  uint64 user_id = 1;
+  string display_name = 2;
+  string avatar_url = 3;
+}
+
+message Device {
+  string device_id = 1;
+  string kind = 2;               // earclip / glasses / phone / watch / pc
+  string model = 3;
+  int64 last_seen_unix = 4;
+  bool online = 5;
+}
+
+message ListDevicesRequest {
+  uint64 user_id = 1;
+}
+
+message ListDevicesResponse {
+  repeated Device devices = 1;
+}
+
+message BindDeviceRequest {
+  uint64 user_id = 1;
+  Device device = 2;
+}

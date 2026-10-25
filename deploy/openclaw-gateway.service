@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenClaw Gateway (IM2A weixin inbound relay; bypass local model)
+After=network-online.target im2a-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=HOME=/root
+Environment=PATH=/opt/node-v22.23.4-linux-x64/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# v2.2.4 入站确定性转发：所有微信消息 POST 到 IM2A，openclaw 不再走自身模型（双大脑修复）。
+Environment=IM2A_RELAY_URL=http://127.0.0.1:8080/v1/wechat/webhook
+Environment=IM2A_RELAY_KEY=
+WorkingDirectory=/root
+ExecStart=/opt/node-v22.23.4-linux-x64/bin/openclaw gateway run
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

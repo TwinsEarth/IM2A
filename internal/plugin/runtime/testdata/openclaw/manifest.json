@@ -1,0 +1,40 @@
+{
+    "id": "openclaw",
+    "name": "OpenClaw",
+    "version": "1.0.0",
+    "kind": "K0",
+    "apiVersion": "im2a.plugin/v1",
+    "api": "im2a.capability/v1",
+    "publisher": {"keyId": "im2a-builtin-2026", "id": "im2a"},
+    "entrypoint": {"module": "human-agent-im/internal/plugin/openclaw", "type": "inprocess"},
+    "targets": ["linux/amd64"],
+    "provides": [
+        {"priority": 100, "version": "v1", "id": "openclaw.wechat-personal-channel", "modes": ["qr-login"]},
+        {"version": "v1", "id": "openclaw.account-registry", "modes": ["watch", "resolve"], "priority": 100},
+        {"id": "openclaw.mcp-route-tool", "modes": ["im2a_route"], "priority": 100, "version": "v1"},
+        {"id": "openclaw.agent-gateway", "priority": 100, "version": "v1", "modes": ["status", "ensure"]}
+    ],
+    "optional_requires": [{"version": "v1", "capability": "kernel.eventbus"}],
+    "permissions": [
+        {"scope": ["openclaw"], "class": "exec"},
+        {"class": "fs.read", "scope": ["~/.openclaw/openclaw-weixin/accounts"]},
+        {"class": "capability.call", "scope": ["kernel.eventbus"]}
+    ],
+    "attribution": {
+        "license": "MIT",
+        "copyright": "Copyright (c) 2026 OpenClaw Foundation",
+        "upstream": "https://github.com/openclaw/openclaw",
+        "upstreamName": "OpenClaw",
+        "noticePath": "THIRD_PARTY_LICENSES/OpenClaw-MIT.txt",
+        "derived": true,
+        "usage": [
+            "openclaw CLI 出站契约：openclaw message send --channel <channel> --account <id> --target <wxid> -m <text> --json",
+            "openclaw 扫码登录契约：openclaw channels login --channel <channel>",
+            "openclaw 账号文件契约：<accountsDir>/<accountId>.json 含 userId/token 字段",
+            "openclaw 版本探测契约：openclaw --version 的 \"OpenClaw <ver> (<commit>)\" 输出格式",
+            "openclaw 通道探测契约：openclaw channels capabilities --channel <channel> 的 Status: 行",
+            "openclaw gateway 状态契约：openclaw gateway status --json 的 rpc.ok/service.loaded 字段"
+        ]
+    },
+    "x-k0-note": "K0：permissions 仅供代码评审/依赖注入约束，不是运行期安全边界（SecurityBoundary(K0)=false）；K0 无安装目录/版本回滚，升级=内核滚动重启"
+}

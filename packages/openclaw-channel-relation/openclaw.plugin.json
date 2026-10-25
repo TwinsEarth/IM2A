@@ -1,0 +1,59 @@
+{
+  "id": "im2a-relation",
+  "name": "IM2A Relation",
+  "description": "IM2A platform edition for OpenClaw: relation trust gating, paid-attention state machine, and three-state approval UI.",
+  "version": "0.1.0",
+  "channels": ["im2a-relation"],
+  "channelConfigs": {
+    "im2a-relation": {
+      "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "defaultTrustLevel": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4,
+            "default": 4,
+            "description": "Default trust level for unknown senders (0=self .. 4=stranger)."
+          },
+          "minPriceCents": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Minimum price (cents) a sender must offer to reach this user."
+          },
+          "autoRejectAboveCents": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Auto-reject offers >= this amount (anti price-harassment); 0 = disabled."
+          },
+          "blockedSenders": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": [],
+            "description": "Sender ids blocked from paid messages."
+          },
+          "transportUrl": {
+            "type": "string",
+            "description": "Optional IM2A core webhook base URL for outbound governance notifications."
+          },
+          "defaultUiState": {
+            "type": "string",
+            "enum": ["approval", "overview", "conversation"],
+            "default": "approval",
+            "description": "Initial three-state UI view."
+          }
+        }
+      },
+      "label": "IM2A Relation",
+      "description": "Relation gating + paid attention + three-state approval for IM2A platform edition."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

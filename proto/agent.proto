@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package human_agent_im.agent;
+
+option go_package = "human-agent-im/proto/gen/agent";
+
+import "common.proto";
+
+// Agent 编排层（§3.3）：Agent Registry + Skill Runtime + 权限门控。
+// 权限门控在代码层强制执行（PreToolUse 钩子），模型无法绕过。
+
+service AgentRegistryService {
+  rpc RegisterAgent(RegisterAgentRequest) returns (AgentInfo);
+  rpc GetAgent(GetAgentRequest) returns (AgentInfo);
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+}
+
+service SkillRuntimeService {
+  rpc ListSkills(ListSkillsRequest) returns (ListSkillsResponse);
+  rpc CallSkill(CallSkillRequest) returns (CallSkillResponse);
+  rpc CheckPermission(CheckPermissionRequest) returns (PermissionDecision); // PreToolUse 门控
+}
+
+enum AgentKind {
+  AGENT_KIND_UNSPECIFIED = 0;
+  AGENT_KIND_MASTER = 1;    // 总 Agent（管家）
+  AGENT_KIND_SUB = 2;       // 子 Agent（专家）
+}
+
+message AgentInfo {
+  string agent_id = 1;             // 如 procurement-agent / family-agent
+  string owner_uid = 2;            // 归属用户
+  AgentKind kind = 3;
+  string display_name = 4;
+  string description = 5;
+  repeated string skill_ids = 6;   // 可用 Skill 白名单
+  int64 registered_at_unix = 7;
+}
+
+message RegisterAgentRequest {
+  string agent_id = 1;
+  uint64 owner_uid = 2;
+  AgentKind kind = 3;
+  string display_name = 4;
+  string description = 5;
+}
+
+message GetAgentRequest {
+  string agent_id = 1;
+}
+
+message ListAgentsRequest {
+  uint64 owner_uid = 1;
+}
+
+message ListAgentsResponse {
+  repeated AgentInfo agents = 1;
+}
+
+// ---- Skill Runtime ----
+
+message SkillInfo {
+  string skill_id = 1;
+  string version = 2;
+  repeated string required_capabilities = 3;  // 所需数据域/外部 API
+  string financial_impact = 4;                // none | read_only | spend_limit
+  human_agent_im.common.TrustLevel trust_zone_min = 5;
+  string approval_policy = 6;                 // auto | require_approval | require_dual_approval
+}
+
+message ListSkillsRequest {
+  string agent_id = 1;
+}
+
+message ListSkillsResponse {
+  repeated SkillInfo skills = 1;
+}
+
+message CallSkillRequest {
+  string agent_id = 1;
+  string skill_id = 2;
+  string args_json = 3;
+}
+
+message CallSkillResponse {
+  string result_json = 1;
+  string trace_id = 2;       // 关联审计日志
+}
+
+// ---- 权限门控（Trust Zone Capability） ----
+
+message AgentCapability {
+  string agent_id = 1;
+  human_agent_im.common.TrustLevel trust_level_min = 2;
+  repeated string allowed_skills = 3;
+  int64 budget_cents_per_day = 4;
+  int64 requires_approval_above_cents = 5;
+}
+
+message CheckPermissionRequest {
+  string agent_id = 1;
+  string skill_id = 2;
+  human_agent_im.common.TrustLevel call_trust_level = 3; // 当前任务的信任档位
+  int64 amount_cents = 4;                                // 涉及金额（无则为 0）
+  string target_uid = 5;
+}
+
+message PermissionDecision {
+  bool allowed = 1;
+  bool requires_approval = 2;   // allowed=false 且 requires_approval=true → 转审批单
+  string reason = 3;            // 拒绝/转审原因（门控事件写入审计日志）
+}
