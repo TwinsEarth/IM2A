@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "version": "2.5.0",
+  "version": "2.5.2",
   "allowedArtifacts": [
     "browser-extension-0.2.3.zip",
     "twinsearth-im2a-dsh-plugin-0.2.0.tgz",

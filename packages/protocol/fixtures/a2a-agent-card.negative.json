@@ -1,7 +1,7 @@
 {
   "name": "negative: missing supportedInterfaces",
   "description": "This fixture MUST be rejected by the A2A profile.",
-  "version": "2.5.0",
+  "version": "2.5.2",
   "capabilities": {},
   "defaultInputModes": [
     "text/plain"

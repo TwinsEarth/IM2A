@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.5.2 — 2026-10-31
+
+Six-party release with the real MCP skill/memory surface.
+
+- Registered 13 MCP tools: 6 IM2A bus, 4 skills, 3 memory.
+- Added SQLite FTS5 Memory Hub with tenant-scoped search and proposal/promotion boundary.
+- Go stdio MCP now registers the same 13 tools and forwards skills/memory to the HTTP MCP/FTS5 backend.
+- Fixed Go vet defect in internal/memoryvault (self-assignment); full build/vet/test PASS (73 packages).
+- Added real SQLite integration/zero-residue tests and performance evidence.
+- Healthz remains excluded; production TLS/multi-tenant deployment is not claimed.
 ## v2.5.0 — 2026-10-30
 
 Agent Plugins 2.0 and evolution contracts.
