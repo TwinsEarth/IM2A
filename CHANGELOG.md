@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.4.6 — 2026-10-30
+
+Six-party release with the release-workflow and ident-code fixes.
+
+- Fixed release allow-list/dry-run behavior for CI and external artifacts.
+- Fixed deterministic Luhn test, 12-digit number leading-zero rule, credentialId leakage, and released-Agent credential revocation.
+- Added DB reliability review; production DB/recovery remains follow-up.
+- Healthz remains excluded from this release.
+- Tests: ident-code 16/16, P0 3/3, validation/dry-run/allow-list PASS.
 ## v2.4.3 — 2026-10-30
 
 Six-party release candidate.

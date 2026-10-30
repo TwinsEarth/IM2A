@@ -1,146 +1,126 @@
 {
-    "schemaVersion":  "1.0",
-    "platformVersion":  "2.4.3",
-    "releaseTag":  "v2.4.3",
-    "goVersion":  "2.3.26",
-    "status":  "draft",
-    "commit":  null,
-    "generatedAt":  null,
-    "components":  [
-
-                   ],
-    "protocols":  [
-                      {
-                          "id":  "a2a",
-                          "protocolVersion":  "1.0",
-                          "patchRelease":  "v1.0.1",
-                          "status":  "pinned"
-                      },
-                      {
-                          "id":  "mcp",
-                          "protocolVersion":  "2026-07-28",
-                          "status":  "pinned"
-                      },
-                      {
-                          "id":  "agent-plugins",
-                          "protocolVersion":  "1.0",
-                          "status":  "draft"
-                      },
-                      {
-                          "id":  "dsh-session-ref",
-                          "protocolVersion":  "1.0",
-                          "status":  "pinned"
-                      }
-                  ],
-    "artifacts":  [
-
-                  ],
-    "nineGates":  {
-                      "commit":  {
-                                     "status":  "pending",
-                                     "evidence":  [
-
-                                                  ]
-                                 },
-                      "tag":  {
-                                  "status":  "pending",
-                                  "evidence":  [
-
-                                               ]
-                              },
-                      "Release":  {
-                                      "status":  "pending",
-                                      "evidence":  [
-
-                                                   ]
-                                  },
-                      "npm":  {
-                                  "status":  "pending",
-                                  "evidence":  [
-
-                                               ]
-                              },
-                      "CI":  {
-                                 "status":  "pending",
-                                 "evidence":  [
-
-                                              ]
-                             },
-                      "Compat":  {
-                                     "evidence":  [
-                                                      {
-                                                          "exitCode":  0,
-                                                          "command":  "live DSH: mcp__im2a__im2a_harness_list",
-                                                          "at":  "2026-10-30T12:23:15.7554800+08:00",
-                                                          "check":  "dsh-live-post-rollback-call"
-                                                      },
-                                                      {
-                                                          "exitCode":  1,
-                                                          "command":  "HTTP 401/404",
-                                                          "at":  "2026-10-30T12:23:15.7554800+08:00",
-                                                          "check":  "dsh-live-healthz"
-                                                      },
-                                                      {
-                                                          "exitCode":  1,
-                                                          "command":  "remaining adapters/Qwen/MiMo/nine gates",
-                                                          "at":  "2026-10-30T12:23:15.7554800+08:00",
-                                                          "check":  "remaining-gates"
-                                                      }
-                                                  ],
-                                     "status":  "blocked"
-                                 },
-                      "Release workflow":  {
-                                               "status":  "pending",
-                                               "evidence":  [
-
-                                                            ]
-                                           },
-                      "npm-publish":  {
-                                          "status":  "pending",
-                                          "evidence":  [
-
-                                                       ]
-                                      },
-                      "healthz":  {
-                                      "status":  "pending",
-                                      "evidence":  [
-
-                                                   ]
-                                  }
-                  },
-    "healthz":  {
-                    "gateway":  {
-                                    "status":  "pending",
-                                    "detail":  ""
-                                },
-                    "imBot":  {
-                                  "status":  "pending",
-                                  "detail":  ""
-                              },
-                    "browser":  {
-                                    "status":  "pending",
-                                    "detail":  ""
-                                },
-                    "wechat":  {
-                                   "status":  "pending",
-                                   "detail":  ""
-                               },
-                    "openclaw":  {
-                                     "status":  "pending",
-                                     "detail":  ""
-                                 },
-                    "agent":  {
-                                  "status":  "pending",
-                                  "detail":  ""
-                              },
-                    "ops":  {
-                                "status":  "pending",
-                                "detail":  ""
-                            }
-                },
-    "rollback":  {
-                     "commit":  null,
-                     "tag":  null,
-                     "reason":  null
-                 }
+  "schemaVersion": "1.0",
+  "platformVersion": "2.4.6",
+  "releaseTag": "v2.4.6",
+  "goVersion": "2.3.26",
+  "status": "draft",
+  "commit": null,
+  "generatedAt": null,
+  "components": [],
+  "protocols": [
+    {
+      "id": "a2a",
+      "protocolVersion": "1.0",
+      "patchRelease": "v1.0.1",
+      "status": "pinned"
+    },
+    {
+      "id": "mcp",
+      "protocolVersion": "2026-07-28",
+      "status": "pinned"
+    },
+    {
+      "id": "agent-plugins",
+      "protocolVersion": "1.0",
+      "status": "draft"
+    },
+    {
+      "id": "dsh-session-ref",
+      "protocolVersion": "1.0",
+      "status": "pinned"
+    }
+  ],
+  "artifacts": [],
+  "nineGates": {
+    "commit": {
+      "status": "pending",
+      "evidence": []
+    },
+    "tag": {
+      "status": "pending",
+      "evidence": []
+    },
+    "Release": {
+      "status": "pending",
+      "evidence": []
+    },
+    "npm": {
+      "status": "pending",
+      "evidence": []
+    },
+    "CI": {
+      "status": "pending",
+      "evidence": []
+    },
+    "Compat": {
+      "evidence": [
+        {
+          "exitCode": 0,
+          "command": "live DSH: mcp__im2a__im2a_harness_list",
+          "at": "2026-10-30T12:23:15.7554800+08:00",
+          "check": "dsh-live-post-rollback-call"
+        },
+        {
+          "exitCode": 1,
+          "command": "HTTP 401/404",
+          "at": "2026-10-30T12:23:15.7554800+08:00",
+          "check": "dsh-live-healthz"
+        },
+        {
+          "exitCode": 1,
+          "command": "remaining adapters/Qwen/MiMo/nine gates",
+          "at": "2026-10-30T12:23:15.7554800+08:00",
+          "check": "remaining-gates"
+        }
+      ],
+      "status": "blocked"
+    },
+    "Release workflow": {
+      "status": "pending",
+      "evidence": []
+    },
+    "npm-publish": {
+      "status": "pending",
+      "evidence": []
+    },
+    "healthz": {
+      "status": "pending",
+      "evidence": []
+    }
+  },
+  "healthz": {
+    "gateway": {
+      "status": "pending",
+      "detail": ""
+    },
+    "imBot": {
+      "status": "pending",
+      "detail": ""
+    },
+    "browser": {
+      "status": "pending",
+      "detail": ""
+    },
+    "wechat": {
+      "status": "pending",
+      "detail": ""
+    },
+    "openclaw": {
+      "status": "pending",
+      "detail": ""
+    },
+    "agent": {
+      "status": "pending",
+      "detail": ""
+    },
+    "ops": {
+      "status": "pending",
+      "detail": ""
+    }
+  },
+  "rollback": {
+    "commit": null,
+    "tag": null,
+    "reason": null
+  }
 }
