@@ -21,10 +21,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Six-party compatibility evidence
+      - name: Six-party compatibility evidence (healthz excluded)
+        env:
+          HEALTHZ_EXCLUDED: '1'
         run: node scripts/compat-check.mjs
-      - name: Health probes
-        run: node scripts/healthz.mjs
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4

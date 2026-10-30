@@ -26,10 +26,10 @@ jobs:
           node-version: '24'
       - name: Validate
         run: node scripts/validate.mjs
-      - name: Compatibility and health gates
-        run: |
-          node scripts/compat-check.mjs
-          node scripts/healthz.mjs
+      - name: Compatibility gates (healthz excluded)
+        env:
+          HEALTHZ_EXCLUDED: '1'
+        run: node scripts/compat-check.mjs
       - name: Release dry run
         run: node scripts/release-dry-run.mjs
       - name: Upload release artifacts

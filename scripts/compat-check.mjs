@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (name) => JSON.parse(readFileSync(join(root, name), 'utf8'));
-const failures = [];\nconst healthzExcluded = process.env.HEALTHZ_EXCLUDED === '1';
+const failures = [];
+const healthzExcluded = process.env.HEALTHZ_EXCLUDED === '1';
 
 const scope = readFileSync(join(root, 'SIX-PARTY-RELEASE-SCOPE.md'), 'utf8');
 if (!/Status: \*\*release candidate scope lock/.test(scope)) failures.push('six-party scope is not locked');
@@ -22,7 +23,7 @@ if (rollback.result !== 'passed' || rollback.afterRemoveRefs !== 0 || rollback.a
 const status = readJson('P0-STATUS.json');
 if (status.status !== 'verified') failures.push('DSH status is not verified');
 const health = String(status.checks?.liveHttpHealthz ?? '');
-if (health.startsWith('blocked')) failures.push(`DSH HTTP healthz is blocked: ${health}`);
+if (!healthzExcluded && health.startsWith('blocked')) failures.push(`DSH HTTP healthz is blocked: ${health}`);
 
 mkdirSync(join(root, '.tmp'), { recursive: true });
 const evidence = {

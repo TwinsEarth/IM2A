@@ -25,7 +25,8 @@ gitClean();
 run('validate', ['scripts/validate.mjs']);
 run('p0 tests', ['tests/p0.test.mjs']);
 run('compat', ['scripts/compat-check.mjs']);
-const healthzExcluded = process.env.HEALTHZ_EXCLUDED === '1';\nif (!healthzExcluded) run('healthz', ['scripts/healthz.mjs']);
+const healthzExcluded = process.env.HEALTHZ_EXCLUDED === '1';
+if (!healthzExcluded) run('healthz', ['scripts/healthz.mjs']);
 
 rmSync(artifacts, { recursive: true, force: true });
 mkdirSync(artifacts, { recursive: true });
