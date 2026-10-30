@@ -1,6 +1,9 @@
 # IM2A Identity-Code Contract 1.0
 
-Status: implemented as `@twinsearth/im2a-ident-code` (reference + tests).
+Status: reference implementation + conformance tests (not a production issuer/DB).
+The 93-char suffix is split internally into a 16-char token id and a 77-char
+secret; the 128-char wire shape is unchanged. Released Agent subcodes are
+tombstoned and not reused by the v2.4.3 reference implementation.
 Parent architecture: `docs/design/IM2A-CODE-SERVICE-ARCHITECTURE.md`.
 Security decision: `docs/adr/0004-ident-code-format.md`.
 
@@ -32,8 +35,8 @@ embeds a real private key is invalid and must be revoked.
 
 1. Length and ASCII normalization (no full-width or zero-width characters).
 2. Date prefix must be a real calendar date.
-3. User/Agent segments must be exactly 12/10 digits.
-4. Numbers must pass Luhn.
+3. User/Agent segments must be exactly 12/10 digits; the user number starts 1-9.
+4. Numbers must pass Luhn; the first digit must not be zero.
 5. Auth code must pass the public-UID pattern plus the 93-char secret pattern.
 6. Public resolution is lookup-only and returns a fixed minimal projection.
 7. Auth verification performs HMAC lookup, public-UID match, expiry/revocation/

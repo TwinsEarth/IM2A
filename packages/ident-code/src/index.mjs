@@ -9,6 +9,8 @@ export const IM2A_NUMBER_LENGTH = 12;
 export const AGENT_SUBCODE_LENGTH = 10;
 export const SECRET_LENGTH = 93;
 export const AUTH_TTL_MS = 15 * 60 * 1000;
+export const TOKEN_ID_LENGTH = 16;
+export const SECRET_PART_LENGTH = 77;
 
 const DIGITS_12 = /^\d{12}$/;
 const DIGITS_10 = /^\d{10}$/;
@@ -47,12 +49,12 @@ export function datePrefix(createdAt) {
 }
 
 export function buildUserCode({ createdAt, userId }) {
-  assertDigits(userId, 12, 'INVALID_USER_ID');
+  assertValidNumber(userId, 'INVALID_USER_ID');
   return `${datePrefix(createdAt)}${userId}`;
 }
 
 export function buildPublicUid({ createdAt, userId, agentSubcode }) {
-  assertDigits(userId, 12, 'INVALID_USER_ID');
+  assertValidNumber(userId, 'INVALID_USER_ID');
   assertDigits(agentSubcode, 10, 'INVALID_AGENT_SUBCODE');
   return `${datePrefix(createdAt)}${userId}${agentSubcode}`;
 }
@@ -68,8 +70,9 @@ export function validateUserCode(value) {
   if (text.length !== USER_CODE_LENGTH) throw new CodeError('INVALID_USER_CODE');
   const match = PREFIX_RE.exec(text);
   if (!match || !isCalendarDate(match[1])) throw new CodeError('INVALID_USER_CODE');
-  if (!DIGITS_12.test(text.slice(13))) throw new CodeError('INVALID_USER_CODE');
-  return { kind: 'user', createdAt: match[1], userId: text.slice(13), code: text };
+  const userId = text.slice(13);
+  if (!DIGITS_12.test(userId) || !isValidNumber(userId)) throw new CodeError('INVALID_USER_CODE');
+  return { kind: 'user', createdAt: match[1], userId, code: text };
 }
 
 export function validatePublicUid(value) {
@@ -78,7 +81,7 @@ export function validatePublicUid(value) {
   const match = PREFIX_RE.exec(text);
   if (!match || !isCalendarDate(match[1])) throw new CodeError('INVALID_PUBLIC_UID');
   const body = text.slice(13);
-  if (!DIGITS_12.test(body.slice(0, 12)) || !DIGITS_10.test(body.slice(12))) {
+  if (!DIGITS_12.test(body.slice(0, 12)) || !isValidNumber(body.slice(0, 12)) || !DIGITS_10.test(body.slice(12))) {
     throw new CodeError('INVALID_PUBLIC_UID');
   }
   return {
@@ -92,7 +95,7 @@ export function validatePublicUid(value) {
 
 export function validateNumber(value) {
   const text = String(value ?? '').replaceAll(' ', '').replaceAll('-', '');
-  if (!DIGITS_12.test(text) || !luhnValid(text)) throw new CodeError('INVALID_NUMBER');
+  if (!DIGITS_12.test(text) || text[0] === '0' || !luhnValid(text)) throw new CodeError('INVALID_NUMBER');
   return { kind: 'number', number: text };
 }
 
@@ -115,7 +118,9 @@ export function parsePublicCode(value) {
 }
 
 export function generateNumberCandidate() {
-  const payload = String(randomInt(0, 10 ** 11)).padStart(11, '0');
+  const first = String(randomInt(1, 10));
+  const rest = String(randomInt(0, 10 ** 10)).padStart(10, '0');
+  const payload = first + rest;
   return payload + luhnCheckDigit(payload);
 }
 
@@ -153,6 +158,7 @@ export class CodeRegistry {
     this.agents = new Map();
     this.releasedAgents = new Map();
     this.auth = new Map();
+    this.authById = new Map();
     this.authByPublic = new Map();
     this.agentSeq = new Map();
   }
@@ -176,17 +182,10 @@ export class CodeRegistry {
 
   issueAgentSubcode(userId) {
     if (!this.users.has(userId)) throw new CodeError('UNKNOWN_USER');
-    const released = this.releasedAgents.get(userId) ?? [];
-    const reusableIndex = released.findIndex((entry) => this.now() - entry.releasedAt >= this.agentQuarantineMs);
-    let agentSubcode;
-    if (reusableIndex >= 0) {
-      agentSubcode = released.splice(reusableIndex, 1)[0].agentSubcode;
-    } else {
-      const seq = (this.agentSeq.get(userId) ?? 0) + 1;
-      if (seq > 9_999_999_999) throw new CodeError('AGENT_SUBCODE_EXHAUSTED');
-      this.agentSeq.set(userId, seq);
-      agentSubcode = String(seq).padStart(10, '0');
-    }
+    const seq = (this.agentSeq.get(userId) ?? 0) + 1;
+    if (seq > 9_999_999_999) throw new CodeError('AGENT_SUBCODE_EXHAUSTED');
+    this.agentSeq.set(userId, seq);
+    const agentSubcode = String(seq).padStart(10, '0');
     const publicUid = buildPublicUid({ createdAt: this.users.get(userId).createdAt, userId, agentSubcode });
     const record = { userId, agentSubcode, publicUid, active: true };
     this.agents.set(publicUid, record);
@@ -198,8 +197,12 @@ export class CodeRegistry {
     if (!record) return false;
     record.active = false;
     const released = this.releasedAgents.get(userId) ?? [];
-    released.push({ agentSubcode, releasedAt: this.now() });
+    released.push({ agentSubcode, publicUid: record.publicUid, releasedAt: this.now() });
     this.releasedAgents.set(userId, released);
+    for (const credentialId of this.authByPublic.get(record.publicUid) ?? []) {
+      const credential = this.authById.get(credentialId);
+      if (credential) credential.revoked = true;
+    }
     return true;
   }
 
@@ -226,20 +229,24 @@ export class CodeRegistry {
     const user = this.users.get(userId);
     if (!user) throw new CodeError('UNKNOWN_USER');
     assertDigits(agentSubcode, 10, 'INVALID_AGENT_SUBCODE');
-    if (!this.agents.has(buildPublicUid({ createdAt: user.createdAt, userId, agentSubcode }))) throw new CodeError('UNKNOWN_AGENT');
+    const publicUid = buildPublicUid({ createdAt: user.createdAt, userId, agentSubcode });
+    const agent = this.agents.get(publicUid);
+    if (!agent || !agent.active) throw new CodeError('UNKNOWN_AGENT');
     if (!Array.isArray(scope) || scope.some((item) => typeof item !== 'string')) throw new CodeError('INVALID_SCOPE');
     if (!audience || typeof audience !== 'string') throw new CodeError('INVALID_AUDIENCE');
     if (ttlMs < 60_000 || ttlMs > 30 * 60 * 1000) throw new CodeError('INVALID_TTL');
-    const publicUid = buildPublicUid({ createdAt: user.createdAt, userId, agentSubcode });
-    let secret;
-    let digest;
+    let tokenId;
     do {
-      secret = randomBytes(70).toString('base64url').slice(0, SECRET_LENGTH);
-      digest = fingerprintSecret(secret, this.pepper);
-    } while (this.auth.has(digest));
+      tokenId = randomBytes(12).toString('base64url').slice(0, TOKEN_ID_LENGTH);
+    } while (this.auth.has(tokenId));
+    const secretPart = randomBytes(60).toString('base64url').slice(0, SECRET_PART_LENGTH);
+    const secret = tokenId + secretPart;
     const code = buildAuthCode({ publicUid, secret });
+    const credentialId = randomBytes(12).toString('base64url').slice(0, 16);
     const record = {
-      digest,
+      credentialId,
+      tokenId,
+      digest: fingerprintSecret(secretPart, this.pepper),
       publicUid,
       userId,
       agentSubcode,
@@ -250,17 +257,27 @@ export class CodeRegistry {
       used: false,
       revoked: false,
     };
-    this.auth.set(digest, record);
-    this.authByPublic.set(publicUid, digest);
-    return { code, credentialId: digest, expiresAt: record.expiresAt, scope: [...scope], audience };
+    this.auth.set(tokenId, record);
+    this.authById.set(credentialId, record);
+    const byPublic = this.authByPublic.get(publicUid) ?? new Set();
+    byPublic.add(credentialId);
+    this.authByPublic.set(publicUid, byPublic);
+    return { code, credentialId, expiresAt: record.expiresAt, scope: [...scope], audience };
   }
 
   verifyAuthCode(value) {
     let parts;
     try { parts = splitAuthCode(value); } catch { throw new CodeError('CREDENTIAL_INVALID'); }
-    const digest = fingerprintSecret(parts.secret, this.pepper);
-    const record = this.auth.get(digest);
-    if (!record || record.used || record.revoked || record.expiresAt <= this.now()) {
+    const tokenId = parts.secret.slice(0, TOKEN_ID_LENGTH);
+    const secretPart = parts.secret.slice(TOKEN_ID_LENGTH);
+    const record = this.auth.get(tokenId);
+    const candidate = Buffer.from(fingerprintSecret(secretPart, this.pepper), 'base64url');
+    const stored = Buffer.from(record?.digest ?? 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'base64url');
+    if (!record || candidate.length !== stored.length || !timingSafeEqual(candidate, stored)) {
+      throw new CodeError('CREDENTIAL_INVALID');
+    }
+    const agent = this.agents.get(record.publicUid);
+    if (!agent || !agent.active || record.used || record.revoked || record.expiresAt <= this.now()) {
       throw new CodeError('CREDENTIAL_INVALID');
     }
     if (record.publicUid !== parts.publicUid) throw new CodeError('CREDENTIAL_INVALID');
@@ -272,12 +289,12 @@ export class CodeRegistry {
       scope: [...record.scope],
       audience: record.audience,
       expiresAt: record.expiresAt,
-      credentialId: record.credentialId ?? digest,
+      credentialId: record.credentialId,
     };
   }
 
   revokeAuthCode(credentialId) {
-    const record = this.auth.get(credentialId);
+    const record = this.authById.get(credentialId);
     if (!record) return false;
     record.revoked = true;
     return true;
@@ -290,6 +307,15 @@ export function publicUser(record) {
 
 function assertDigits(value, length, code) {
   if (!new RegExp(`^\\d{${length}}$`).test(String(value ?? ''))) throw new CodeError(code);
+}
+
+function isValidNumber(value) {
+  const text = String(value ?? '');
+  return DIGITS_12.test(text) && text[0] !== '0' && luhnValid(text);
+}
+
+function assertValidNumber(value, code) {
+  if (!isValidNumber(value)) throw new CodeError(code);
 }
 
 function isCalendarDate(yyyymmdd) {

@@ -17,28 +17,28 @@
   "$defs": {
     "userCode": {
       "type": "string",
-      "description": "25-char public user code: IM2A_ + YYYYMMDD + 12-digit user number.",
+      "description": "25-char public user code: IM2A_ + YYYYMMDD + 12-digit user number; the number must start 1-9 and pass Luhn at the codec layer.",
       "minLength": 25,
       "maxLength": 25,
-      "pattern": "^IM2A_[0-9]{8}[0-9]{12}$"
+      "pattern": "^IM2A_[0-9]{8}[1-9][0-9]{11}$"
     },
     "publicUid": {
       "type": "string",
-      "description": "35-char public address: IM2A_ + YYYYMMDD + 12-digit user + 10-digit agent subcode.",
+      "description": "35-char public address: IM2A_ + YYYYMMDD + 12-digit user (1-9 first, Luhn at codec layer) + 10-digit agent subcode.",
       "minLength": 35,
       "maxLength": 35,
-      "pattern": "^IM2A_[0-9]{8}[0-9]{22}$"
+      "pattern": "^IM2A_[0-9]{8}[1-9][0-9]{21}$"
     },
     "im2aNumber": {
       "type": "string",
-      "description": "12 digits: 11 payload digits plus a Luhn check digit.",
+      "description": "12 digits: first digit 1-9, 10 payload digits, and a Luhn check digit.",
       "minLength": 12,
       "maxLength": 12,
-      "pattern": "^[0-9]{12}$"
+      "pattern": "^[1-9][0-9]{11}$"
     },
     "agentSubcode": {
       "type": "string",
-      "description": "10-digit owner-scoped subcode; reuse is allowed only under the owner after quarantine.",
+      "description": "10-digit owner-scoped subcode; v2.4.3 reference implementation does not reuse released subcodes.",
       "minLength": 10,
       "maxLength": 10,
       "pattern": "^[0-9]{10}$"
@@ -53,7 +53,7 @@
       "description": "128 chars: 35-char public UID plus a 93-char opaque server-issued secret. The secret is not a private key and must not be logged.",
       "minLength": 128,
       "maxLength": 128,
-      "pattern": "^IM2A_[0-9]{8}[0-9]{22}[A-Za-z0-9_-]{93}$"
+      "pattern": "^IM2A_[0-9]{8}[1-9][0-9]{21}[A-Za-z0-9_-]{93}$"
     },
     "scope": {
       "type": "array",

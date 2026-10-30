@@ -13,12 +13,15 @@ import {
   buildPublicUid,
   buildUserCode,
   datePrefix,
+  fingerprintSecret,
+  generateNumberCandidate,
   parsePublicCode,
+  splitAuthCode,
   validateNumber,
   validateUserCode,
 } from '../src/index.mjs';
 
-const USER_ID = '123456789012';
+const USER_ID = '129964147968';
 const AGENT = '0000000001';
 const DATE = '2026-10-30';
 
@@ -27,7 +30,7 @@ const registry = () => new CodeRegistry({ pepper: 'test-pepper' });
 test('user code is exactly 25 characters and public', () => {
   const code = buildUserCode({ createdAt: DATE, userId: USER_ID });
   assert.equal(code.length, USER_CODE_LENGTH);
-  assert.equal(code, 'IM2A_20261030123456789012');
+  assert.equal(code, 'IM2A_20261030129964147968');
   assert.equal(validateUserCode(code).userId, USER_ID);
   assert.equal(registry().resolvePublicCode(code), null);
 });
@@ -35,7 +38,7 @@ test('user code is exactly 25 characters and public', () => {
 test('public UID is exactly 35 characters', () => {
   const uid = buildPublicUid({ createdAt: DATE, userId: USER_ID, agentSubcode: AGENT });
   assert.equal(uid.length, PUBLIC_UID_LENGTH);
-  assert.equal(uid, 'IM2A_202610301234567890120000000001');
+  assert.equal(uid, 'IM2A_202610301299641479680000000001');
 });
 
 test('auth code is exactly 128 characters = 35 public + 93 secret', () => {
@@ -58,7 +61,13 @@ test('number has a Luhn check digit and parses as a number', () => {
   const user = registry().createUser({ createdAt: DATE });
   assert.equal(user.userId.length, IM2A_NUMBER_LENGTH);
   assert.equal(validateNumber(user.userId).kind, 'number');
-  assert.throws(() => validateNumber(user.userId.slice(0, -1) + '0'), CodeError);
+  const badLast = user.userId.at(-1) === '0' ? '1' : '0';
+  assert.throws(() => validateNumber(user.userId.slice(0, -1) + badLast), /INVALID_NUMBER/);
+  for (let i = 0; i < 1000; i += 1) {
+    const generated = generateNumberCandidate();
+    assert.equal(generated[0] === '0', false);
+    assert.equal(validateNumber(generated).kind, 'number');
+  }
 });
 
 test('agent subcode is 10 digits and rendered as number.subcode', () => {
@@ -82,12 +91,13 @@ test('agent subcodes are owner-scoped and monotonically unique', () => {
   assert.equal(a1.agentSubcode, '0000000001');
   assert.equal(b1.agentSubcode, '0000000001');
 
-  const reusable = new CodeRegistry({ pepper: 'test-pepper', agentQuarantineMs: 0 });
-  const u = reusable.createUser({ createdAt: DATE });
-  const first = reusable.issueAgentSubcode(u.userId);
-  assert.equal(reusable.releaseAgentSubcode(u.userId, first.agentSubcode), true);
-  const again = reusable.issueAgentSubcode(u.userId);
-  assert.equal(again.agentSubcode, first.agentSubcode);
+  const released = registry();
+  const u = released.createUser({ createdAt: DATE });
+  const first = released.issueAgentSubcode(u.userId);
+  assert.equal(released.releaseAgentSubcode(u.userId, first.agentSubcode), true);
+  const again = released.issueAgentSubcode(u.userId);
+  assert.notEqual(again.agentSubcode, first.agentSubcode);
+  assert.equal(released.resolvePublicCode(first.publicUid), null);
 });
 
 test('public resolver never treats an auth code as a public address', () => {
@@ -96,6 +106,27 @@ test('public resolver never treats an auth code as a public address', () => {
   const agent = r.issueAgentSubcode(user.userId);
   const issued = r.issueAuthCode({ userId: user.userId, agentSubcode: agent.agentSubcode, scope: ['read:registry'], audience: 'workbuddy' });
   assert.equal(r.resolvePublicCode(issued.code), null);
+});
+
+test('credentialId is not the stored HMAC verifier', () => {
+  const r = registry();
+  const user = r.createUser({ createdAt: DATE });
+  const agent = r.issueAgentSubcode(user.userId);
+  const issued = r.issueAuthCode({ userId: user.userId, agentSubcode: agent.agentSubcode, scope: ['read:registry'], audience: 'workbuddy' });
+  const parts = splitAuthCode(issued.code);
+  const digest = fingerprintSecret(parts.secret.slice(16), 'test-pepper');
+  assert.notEqual(issued.credentialId, digest);
+  assert.equal(issued.credentialId.length, 16);
+});
+
+test('released Agent cannot mint or verify credentials', () => {
+  const r = registry();
+  const user = r.createUser({ createdAt: DATE });
+  const agent = r.issueAgentSubcode(user.userId);
+  const issued = r.issueAuthCode({ userId: user.userId, agentSubcode: agent.agentSubcode, scope: ['read'], audience: 'dsh' });
+  assert.equal(r.releaseAgentSubcode(user.userId, agent.agentSubcode), true);
+  assert.throws(() => r.issueAuthCode({ userId: user.userId, agentSubcode: agent.agentSubcode, scope: ['read'], audience: 'dsh' }), /UNKNOWN_AGENT/);
+  assert.throws(() => r.verifyAuthCode(issued.code), /CREDENTIAL_INVALID/);
 });
 
 test('auth code verifies once with scope and audience', () => {

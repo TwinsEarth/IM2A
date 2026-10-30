@@ -11,4 +11,6 @@ Six-party release candidate.
 - Added WorkBuddy MCP connector 0.1.0.
 - DSH plugin remains 0.1.1 for DSH 0.2.1-rc.5.
 - Healthz remains excluded from this release.
-- Tests: ident-code 14/14; repository validation; allow-list/gate checks.
+- Tests: ident-code 16/16; 20-run stability gate; repository validation; allow-list/gate checks.
+- Fixed release-blocking ident-code issues: numbers now start 1-9, deterministic Luhn negative test, credential IDs no longer expose the stored HMAC verifier, released Agents cannot mint or verify credentials, and released subcodes are tombstoned rather than silently reused.
+- The ident-code registry remains an in-memory reference implementation; production DB/recovery work is tracked for a follow-up release.
