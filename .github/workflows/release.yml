@@ -17,6 +17,9 @@ permissions:
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    env:
+      HEALTHZ_EXCLUDED: '1'
+      ALLOW_MISSING_EXTERNAL: '1'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,11 +27,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Generate agent plugins
+        run: node packages/agent-plugins/generator/src/cli.mjs generate
       - name: Validate
         run: node scripts/validate.mjs
       - name: Compatibility gates (healthz excluded)
-        env:
-          HEALTHZ_EXCLUDED: '1'
         run: node scripts/compat-check.mjs
       - name: Release dry run
         run: node scripts/release-dry-run.mjs

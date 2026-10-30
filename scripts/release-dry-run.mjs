@@ -37,6 +37,7 @@ const tarResult = spawnSync('tar', ['-czf', hostTgz, '-C', join(root, 'packages'
 });
 if (tarResult.status !== 0) failures.push(`host plugin artifact build failed: ${tarResult.stderr ?? ''}`);
 
+const allowMissingExternal = process.env.ALLOW_MISSING_EXTERNAL === '1';
 const inputs = [
   ['E:/GPT/release/w2m-im2a-2.0.3-rc3/browser-extension-0.2.3.zip', 'browser-extension-0.2.3.zip'],
   ['E:/GPT/release/w2m-im2a-2.0.3-rc3/w2m-tofuture-0.1.5.tgz', 'w2m-tofuture-0.1.5.tgz'],
@@ -52,7 +53,8 @@ for (const [source, name] of inputs) {
     const hash = createHash('sha256').update(readFileSync(destination)).digest('hex');
     hashes.push(`${hash}  ${name}`);
   } catch (error) {
-    failures.push(`artifact missing: ${source}`);
+    if (allowMissingExternal) console.warn(`external artifact unavailable in CI: ${source}`);
+    else failures.push(`artifact missing: ${source}`);
   }
 }
 writeFileSync(join(artifacts, 'SHA256SUMS'), hashes.join('\n') + '\n');
