@@ -41,6 +41,7 @@ const allowMissingExternal = process.env.ALLOW_MISSING_EXTERNAL === '1';
 const inputs = [
   ['E:/GPT/release/w2m-im2a-2.0.3-rc3/browser-extension-0.2.3.zip', 'browser-extension-0.2.3.zip'],
   ['E:/GPT/release/w2m-im2a-2.0.3-rc3/w2m-tofuture-0.1.5.tgz', 'w2m-tofuture-0.1.5.tgz'],
+  ['E:/GPT/release/im2a-workbuddy-connector-0.1.0.zip', 'im2a-workbuddy-connector-0.1.0.zip'],
 ];
 const hashes = [];
 if (tarResult.status === 0) {
@@ -57,7 +58,9 @@ for (const [source, name] of inputs) {
     else failures.push(`artifact missing: ${source}`);
   }
 }
+writeFileSync(join(artifacts, 'RELEASE-NOTES.md'), readFileSync(join(root, 'CHANGELOG.md')));
 writeFileSync(join(artifacts, 'SHA256SUMS'), hashes.join('\n') + '\n');
+run('allowlist', ['scripts/check-release-allowlist.mjs']);
 
 const evidence = {
   schemaVersion: '1.0',

@@ -3,8 +3,8 @@
     "generatedAt":  null,
     "releaseStatus":  "draft",
     "platform":  {
-                     "version":  "2.3.45",
-                     "tag":  "v2.3.45",
+                     "version":  "2.4.3",
+                     "tag":  "v2.4.3",
                      "npmScope":  "@twinsearth"
                  },
     "go":  {
@@ -25,7 +25,7 @@
                            "id":  "im-bot-node",
                            "kind":  "npm",
                            "current":  "0.2.0",
-                           "target":  "2.3.45",
+                           "target":  "2.4.3",
                            "publishedBy":  "npm-publish",
                            "status":  "planned"
                        },
@@ -33,7 +33,7 @@
                            "id":  "browser-extension",
                            "kind":  "zip",
                            "current":  "0.2.3",
-                           "target":  "2.3.45",
+                           "target":  "2.4.3",
                            "publishedBy":  "github-release",
                            "status":  "planned"
                        },
@@ -41,7 +41,7 @@
                            "id":  "ops-tofuture",
                            "kind":  "tgz",
                            "current":  "0.1.23",
-                           "target":  "2.3.45",
+                           "target":  "2.4.3",
                            "publishedBy":  "github-release",
                            "status":  "planned"
                        },

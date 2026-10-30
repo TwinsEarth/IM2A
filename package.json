@@ -1,26 +1,27 @@
 {
-  "name": "@twinsearth/im2a-platform",
-  "version": "2.3.45",
-  "private": true,
-  "type": "module",
-  "description": "IM2A v2.3.45 platform monorepo (P0 scaffold; no release yet)",
-  "packageManager": "pnpm@10.0.0",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
-  "scripts": {
-    "validate": "node scripts/validate.mjs",
-    "compat": "node scripts/compat-check.mjs",
-    "healthz": "node scripts/healthz.mjs",
-    "release:dry-run": "node scripts/release-dry-run.mjs",
-    "test": "node packages/agent-plugins/generator/src/cli.mjs generate && node tests/p0.test.mjs",
-    "test:ci": "node packages/agent-plugins/generator/src/cli.mjs generate && node --test tests/*.test.mjs",
-    "generate": "node packages/agent-plugins/generator/src/cli.mjs generate",
-    "generate:check": "node packages/agent-plugins/generator/src/cli.mjs check"
-  },
-  "engines": {
-    "node": ">=22"
-  },
-  "license": "MIT"
+    "name":  "@twinsearth/im2a-platform",
+    "version":  "2.4.3",
+    "private":  true,
+    "type":  "module",
+    "description":  "IM2A v2.4.3 platform monorepo",
+    "packageManager":  "pnpm@10.0.0",
+    "workspaces":  [
+                       "packages/*",
+                       "apps/*"
+                   ],
+    "scripts":  {
+                    "validate":  "node scripts/validate.mjs",
+                    "compat":  "node scripts/compat-check.mjs",
+                    "healthz":  "node scripts/healthz.mjs",
+                    "allowlist":  "node scripts/check-release-allowlist.mjs",
+                    "release:dry-run":  "node scripts/release-dry-run.mjs",
+                    "test":  "node packages/agent-plugins/generator/src/cli.mjs generate \u0026\u0026 node tests/p0.test.mjs",
+                    "test:ci":  "node packages/agent-plugins/generator/src/cli.mjs generate \u0026\u0026 node --test tests/*.test.mjs",
+                    "generate":  "node packages/agent-plugins/generator/src/cli.mjs generate",
+                    "generate:check":  "node packages/agent-plugins/generator/src/cli.mjs check"
+                },
+    "engines":  {
+                    "node":  "\u003e=22"
+                },
+    "license":  "MIT"
 }

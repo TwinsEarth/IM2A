@@ -1,11 +1,24 @@
 {
-  "name": "negative: missing supportedInterfaces",
-  "description": "This fixture MUST be rejected by the A2A profile.",
-  "version": "2.3.45",
-  "capabilities": {},
-  "defaultInputModes": ["text/plain"],
-  "defaultOutputModes": ["text/plain"],
-  "skills": [
-    { "id": "x", "name": "x", "description": "x", "tags": ["x"] }
-  ]
+    "name":  "negative: missing supportedInterfaces",
+    "description":  "This fixture MUST be rejected by the A2A profile.",
+    "version":  "2.4.3",
+    "capabilities":  {
+
+                     },
+    "defaultInputModes":  [
+                              "text/plain"
+                          ],
+    "defaultOutputModes":  [
+                               "text/plain"
+                           ],
+    "skills":  [
+                   {
+                       "id":  "x",
+                       "name":  "x",
+                       "description":  "x",
+                       "tags":  [
+                                    "x"
+                                ]
+                   }
+               ]
 }

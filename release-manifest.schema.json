@@ -21,8 +21,8 @@
   ],
   "properties": {
     "schemaVersion": { "const": "1.0" },
-    "platformVersion": { "type": "string", "pattern": "^2\\.3\\.[0-9]+$" },
-    "releaseTag": { "type": "string", "pattern": "^v2\\.3\\.[0-9]+$" },
+    "platformVersion": { "type": "string", "pattern": "^2\\.4\\.[0-9]+$" },
+    "releaseTag": { "type": "string", "pattern": "^v2\\.4\\.[0-9]+$" },
     "goVersion": { "type": "string", "pattern": "^2\\.3\\.[0-9]+$" },
     "status": {
       "type": "string",

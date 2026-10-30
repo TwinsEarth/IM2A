@@ -36,7 +36,7 @@ export async function validateP0({ root = defaultRoot } = {}) {
   const identPackage = await readJson(root, "packages/ident-code/package.json");
   const identSchema = await readJson(root, "packages/protocol/schemas/ident-code.schema.json");
 
-  if (matrix.platform.version !== "2.3.45") throw new Error("platform version mismatch");
+  if (matrix.platform.version !== "2.4.3") throw new Error("platform version mismatch");
   if (matrix.go.version !== "2.3.26") throw new Error("go version mismatch");
   if (matrix.releaseGates.length !== GATES.length) throw new Error("release gates must be nine");
 

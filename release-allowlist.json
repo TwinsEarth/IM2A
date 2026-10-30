@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "version": "2.4.3",
+  "allowedArtifacts": [
+    "browser-extension-0.2.3.zip",
+    "twinsearth-im2a-dsh-plugin-0.1.1.tgz",
+    "w2m-tofuture-0.1.5.tgz",
+    "im2a-workbuddy-connector-0.1.0.zip",
+    "SHA256SUMS",
+    "RELEASE-NOTES.md"
+  ],
+  "allowedTrackedPrefixes": [
+    "apps/",
+    "docs/",
+    "packages/",
+    "scripts/",
+    "skills/",
+    "tests/",
+    ".github/"
+  ],
+  "allowedTrackedFiles": [
+    ".gitignore",
+    "CHANGELOG.md",
+    "P0-BROWSER-E2E.json",
+    "P0-DSH-TOOL-CALL.json",
+    "P0-EVIDENCE.json",
+    "P0-LIVE-DSH-TOOL-CALL.json",
+    "P0-LIVE-ROLLBACK-DRILL.json",
+    "P0-REPORT.md",
+    "P0-STATUS.json",
+    "README.md",
+    "RELEASE-GATE-STATUS.md",
+    "SIX-PARTY-RELEASE-SCOPE.md",
+    "T0-STATUS.md",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "release-allowlist.json",
+    "release-manifest.json",
+    "release-manifest.schema.json",
+    "tsconfig.base.json",
+    "version-matrix.json"
+  ],
+  "forbiddenPatterns": [
+    ".tmp/",
+    "node_modules/",
+    ".env",
+    ".pem",
+    ".key"
+  ]
+}

@@ -32,3 +32,5 @@ jobs:
         run: node --test packages/harness-adapters/dsh/dsh-adapter.test.mjs packages/harness-adapters/dsh/verify.test.mjs
       - name: Identity-code tests
         run: node --test packages/ident-code/test/ident-code.test.mjs
+      - name: Release allow-list and version check
+        run: node scripts/check-release-allowlist.mjs
