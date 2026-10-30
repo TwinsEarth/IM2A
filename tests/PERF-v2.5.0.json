@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "measuredAt": "2026-10-30T21:20:11.217Z",
+  "runtime": "Node 24.16 / node:sqlite",
+  "database": "SQLite real file",
+  "operations": {
+    "registerMs": {
+      "n": 1000,
+      "avgMs": 6.52,
+      "p50Ms": 6.371,
+      "p95Ms": 7.175
+    },
+    "listMs": {
+      "n": 1000,
+      "avgMs": 3.73,
+      "p50Ms": 3.625,
+      "p95Ms": 4.237
+    },
+    "viewMs": {
+      "n": 1000,
+      "avgMs": 0.211,
+      "p50Ms": 0.199,
+      "p95Ms": 0.262
+    },
+    "promoteMs": {
+      "n": 100,
+      "avgMs": 18.509,
+      "p50Ms": 18.021,
+      "p95Ms": 21.064
+    }
+  },
+  "integrity": {
+    "activeSkills": 1000,
+    "ledgerRows": 1100,
+    "idempotencyRows": 100,
+    "databaseRemoved": true,
+    "directoryRemoved": true
+  }
+}

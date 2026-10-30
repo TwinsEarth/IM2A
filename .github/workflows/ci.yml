@@ -36,6 +36,10 @@ jobs:
         run: node scripts/check-release-allowlist.mjs
       - name: Skill runtime tests
         run: node --test packages/skill-runtime/test/skill-runtime.test.mjs
+      - name: Skill runtime SQLite integration tests
+        run: node --test packages/skill-runtime/test/sqlite-store.test.mjs
+      - name: Skill runtime SQLite performance
+        run: node scripts/bench-skill-runtime.mjs
       - name: Agent Plugins 2.0 projection
         run: node scripts/check-agent-plugins-2.mjs
       - name: v2.5.0 contracts and boundaries

@@ -8,7 +8,7 @@ Agent Plugins 2.0 and evolution contracts.
 - Added proposal-only skill runtime with L0/L1/L2 progressive disclosure, staging/eval floor, operator promotion, pointer rollback, session pinning.
 - Added realtime D/P/C contracts, trajectory/RL default-off boundaries, MCP bridge tool catalog, and negative-control checks.
 - Healthz remains excluded; production RL and external endpoint wiring are not claimed.
-- Tests: skill runtime 8/8; ident-code 16/16; contract/boundary checks PASS.
+- Tests: skill runtime 8/8; real SQLite integration 6/6; ident-code 16/16; contract/boundary checks PASS.\n- Real SQLite persistence, transaction, uniqueness and zero-residue tests added; Go gateway full build/vet/test verified on Linux after fixing memoryvault self-assignment.
 ## Unreleased — v2.5.0 realtime contract layer
 
 Contract-level work only. No wire protocol, MCP method, or A2A extension was added.

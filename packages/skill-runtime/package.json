@@ -1,11 +1,18 @@
 {
-  "name": "@twinsearth/im2a-skill-runtime",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "description": "Proposal-only skill runtime for Agent Plugins 2.0.",
-  "exports": "./src/index.mjs",
-  "engines": { "node": ">=22" },
-  "scripts": { "test": "node --test test/skill-runtime.test.mjs" },
-  "license": "MIT"
+    "name":  "@twinsearth/im2a-skill-runtime",
+    "version":  "0.1.0",
+    "private":  true,
+    "type":  "module",
+    "description":  "Proposal-only skill runtime for Agent Plugins 2.0.",
+    "exports":  {
+                    ".":  "./src/index.mjs",
+                    "./sqlite":  "./src/sqlite-store.mjs"
+                },
+    "engines":  {
+                    "node":  "\u003e=22"
+                },
+    "scripts":  {
+                    "test":  "node --test test/skill-runtime.test.mjs"
+                },
+    "license":  "MIT"
 }
