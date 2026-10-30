@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "checkedAt": "2026-10-30T06:36:18.931Z",
+  "browser": "Microsoft Edge 156.0.4314.50",
+  "extensionId": "oaiokcjfggldmndnaniebjclnjbpogle",
+  "popup": {
+    "url": "chrome-extension://oaiokcjfggldmndnaniebjclnjbpogle/popup.html",
+    "title": "IM2A 浏览器终端",
+    "text": "IM2A 浏览器终端\n网关：http://127.0.0.1:18080\n令牌：未配置（匿名 /v1/chat/stream）\n打开 / 收起浮窗\n全页终端\n设置网关与令牌\n浮窗在任意网页右下角；Chrome / Edge / Safari（WebExtension）共用这一份实现。",
+    "inputs": 0,
+    "buttons": 3,
+    "config": {
+      "im2aConfig": {
+        "baseUrl": "http://127.0.0.1:18080",
+        "systemPrompt": "",
+        "token": ""
+      }
+    }
+  },
+  "options": {
+    "url": "chrome-extension://oaiokcjfggldmndnaniebjclnjbpogle/options.html",
+    "title": "IM2A 浏览器终端 · 设置",
+    "text": "IM2A 浏览器终端 · 设置\nChrome / Edge 直接加载本目录；Safari 需在 macOS 用 safari-web-extension-converter 转换后安装。\n网关地址（IM2A gateway）\n访问令牌（可选；默认匿名调用 /v1/chat/stream）\n系统提示词（可选，会作为首条 system 消息）\nHarness 支持（多选；服务端清单 + Web 输入框入口）\n第一批（7）\nGemini\nGoogle · browser · input-box/floating/mcp-tool · 浏览器扩展或 Gemini CLI MCP\nGPT\nOpenAI · browser · input-box/floating/mcp-tool · 浏览器扩展（ChatGPT/GPT Web）或 MCP\nCodex\nOpenAI · mcp · mcp-tool · Codex CLI 配置 im2a MCP\nClaude\nAnthropic · native · input-box/floating/mcp-tool · Claude Web 扩展或 Cla",
+    "inputs": 36,
+    "buttons": 4,
+    "config": {
+      "im2aConfig": {
+        "baseUrl": "http://127.0.0.1:18080",
+        "systemPrompt": "",
+        "token": ""
+      }
+    }
+  }
+}

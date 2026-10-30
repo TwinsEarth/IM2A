@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "1.0",
+  "executedAt": "2026-10-30T14:40:00+08:00",
+  "environment": {
+    "os": "Windows 10.0.26300",
+    "node": "24.16.0",
+    "dsh": "0.2.1-rc.5",
+    "plugin": "0.1.1",
+    "edge": "156.0.4314.50",
+    "gateway": "http://127.0.0.1:18080",
+    "gatewayStatus": 200
+  },
+  "summary": {
+    "total": 14,
+    "passed": 13,
+    "blocked": 1,
+    "failed": 0
+  },
+  "cases": [
+    {
+      "id": "TP-001",
+      "name": "环境预检",
+      "status": "PASS",
+      "evidence": "DSH 0.2.1-rc.5; Node 24.16.0; Edge 156; gateway 200; live plugin 0.1.1"
+    },
+    {
+      "id": "TP-002",
+      "name": "npm 公网包安装",
+      "status": "PASS",
+      "evidence": "npm view 0.1.1 PASS; temp profile npm-test install exit 0; dump-config has im2a-mcp/serverName im2a"
+    },
+    {
+      "id": "TP-003",
+      "name": "DSH rc.5 兼容加载",
+      "status": "PASS",
+      "evidence": "live 0.1.1 loaded; IM2A MCP namespace and tool call available"
+    },
+    {
+      "id": "TP-004",
+      "name": "harness_list",
+      "status": "PASS",
+      "evidence": "33 harnesses; no isError"
+    },
+    {
+      "id": "TP-005",
+      "name": "whoami",
+      "status": "PASS",
+      "evidence": "agent=dsh; harness=deepseek-harness; session=hs_45c557370376",
+      "note": "last_stream_error was recorded during an earlier tunnel outage; current calls pass"
+    },
+    {
+      "id": "TP-006",
+      "name": "presence",
+      "status": "PASS",
+      "evidence": "count=1; dsh session online"
+    },
+    {
+      "id": "TP-007",
+      "name": "history",
+      "status": "PASS",
+      "evidence": "count=0, messages=[]; empty history is valid"
+    },
+    {
+      "id": "TP-008",
+      "name": "browser popup",
+      "status": "PASS",
+      "evidence": "title=IM2A 浏览器终端; 3 buttons; baseUrl=http://127.0.0.1:18080"
+    },
+    {
+      "id": "TP-009",
+      "name": "browser options",
+      "status": "PASS",
+      "evidence": "title=IM2A 浏览器终端 · 设置; 36 inputs; 4 buttons"
+    },
+    {
+      "id": "TP-010",
+      "name": "browser SSE chat",
+      "status": "PASS",
+      "evidence": "ok=true; deltas=1; content=OK; model=deepseek-flash"
+    },
+    {
+      "id": "TP-011",
+      "name": "negative auth",
+      "status": "PASS",
+      "evidence": "invalid token -> 401; no token -> 401; no data returned"
+    },
+    {
+      "id": "TP-012",
+      "name": "controlled send/recv",
+      "status": "BLOCKED",
+      "reason": "No approved test target; broadcast forbidden. Not executed."
+    },
+    {
+      "id": "TP-013",
+      "name": "rollback in temp profile",
+      "status": "PASS",
+      "evidence": "remove exit 0; refs_after=0; dump im2a-mcp rows=0"
+    },
+    {
+      "id": "TP-014",
+      "name": "release artifact verification",
+      "status": "PASS",
+      "evidence": "6 assets; 5 checksum entries; 0 mismatches; npm 0.1.1 public"
+    }
+  ],
+  "excluded": ["healthz (release scope exclusion)"],
+  "evidence": [
+    "tests/evidence/browser-stream.json",
+    "tests/evidence/browser-ui.json",
+    "P0-LIVE-DSH-TOOL-CALL.json",
+    "P0-LIVE-ROLLBACK-DRILL.json"
+  ]
+}
