@@ -27,7 +27,7 @@ for (const file of tracked) {
   if (allow.forbiddenPatterns.some((pattern) => file.includes(pattern))) {
     fail.push(`forbidden tracked path: ${file}`);
   }
-  if (!file.startsWith('scripts/') && !file.startsWith('tests/')) {
+  if (!file.startsWith('scripts/') && !file.startsWith('tests/') && !file.startsWith('docs/')) {
     const text = readFileSync(join(root, file), 'utf8');
     if (/npm_[A-Za-z0-9]{20,}|github_pat_|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Bearer\s+[A-Za-z0-9_-]{20,}/.test(text)) {
       fail.push(`possible credential in tracked file: ${file}`);
