@@ -1,0 +1,23 @@
+{
+  "name": "@twinsearth/im2a-platform",
+  "version": "2.3.45",
+  "private": true,
+  "type": "module",
+  "description": "IM2A v2.3.45 platform monorepo (P0 scaffold; no release yet)",
+  "packageManager": "pnpm@10.0.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "test": "node packages/agent-plugins/generator/src/cli.mjs generate && node tests/p0.test.mjs",
+    "test:ci": "node packages/agent-plugins/generator/src/cli.mjs generate && node --test tests/*.test.mjs",
+    "generate": "node packages/agent-plugins/generator/src/cli.mjs generate",
+    "generate:check": "node packages/agent-plugins/generator/src/cli.mjs check"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

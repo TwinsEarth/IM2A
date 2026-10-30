@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "IM2A Fleet Control (MCP)",
+    "description": "Connects the IM2A MCP server so the agent can inspect harnesses and hand off sessions."
+  }
+}

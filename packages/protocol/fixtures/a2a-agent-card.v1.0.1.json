@@ -1,0 +1,32 @@
+{
+  "name": "IM2A Fleet Control",
+  "description": "A2A v1.0.1 profile fixture for IM2A cross-harness fleet control.",
+  "supportedInterfaces": [
+    {
+      "url": "https://mcp.example.com/a2a",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0",
+      "tenant": ""
+    }
+  ],
+  "version": "2.3.45",
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "extendedAgentCard": false,
+    "extensions": []
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+    {
+      "id": "fleet-control",
+      "name": "Fleet Control",
+      "description": "Coordinate multiple IM2A agents across harnesses with explicit handoff.",
+      "tags": ["agents", "handoff", "coordination"]
+    }
+  ],
+  "securitySchemes": {},
+  "securityRequirements": [],
+  "signatures": []
+}

@@ -1,0 +1,12 @@
+{
+  "serverName": "im2a",
+  "transport": "stdio",
+  "protocolVersion": "2026-07-28",
+  "command": "im2a-mcp",
+  "args": [],
+  "env": {
+    "IM2A_HARNESS_URL": "http://127.0.0.1:18080",
+    "IM2A_HARNESS_ID": "deepseek-harness",
+    "IM2A_AGENT_NAME": "dsh"
+  }
+}

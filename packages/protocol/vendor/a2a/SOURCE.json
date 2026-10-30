@@ -1,0 +1,14 @@
+{
+  "name": "A2A Protocol",
+  "aliasForIm2a": "ACA",
+  "release": "v1.0.1",
+  "protocolVersion": "1.0",
+  "publishedAt": "2026-05-28",
+  "repository": "https://github.com/a2aproject/A2A",
+  "specification": "https://github.com/a2aproject/A2A/tree/v1.0.1/specification",
+  "releaseCommit": "3303592588e388e62e0f69f701af531d2f4e3991",
+  "protoBlobSha": "400cdbad934654e27d7abbae1e145923eb40ac52",
+  "normativeArtifact": "specification/a2a.proto",
+  "license": "Apache-2.0",
+  "note": "The full normative A2A artifact is the upstream a2a.proto at the release commit. This repository pins the source and maintains a local adapter profile schema; it does not re-declare the A2A standard."
+}

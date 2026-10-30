@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "checkedAt": "2026-10-30T03:41:29.774Z",
+  "browser": "Microsoft Edge 156.0.4314.50",
+  "extensionId": "oaiokcjfggldmndnaniebjclnjbpogle",
+  "gateway": "http://127.0.0.1:18080",
+  "stream": {
+    "ok": true,
+    "deltas": 1,
+    "content": "OK",
+    "model": "deepseek-flash"
+  },
+  "popup": {
+    "title": "IM2A 浏览器终端",
+    "buttons": 3,
+    "config": {
+      "baseUrl": "http://127.0.0.1:18080",
+      "systemPrompt": "",
+      "token": ""
+    }
+  },
+  "options": {
+    "title": "IM2A 浏览器终端 · 设置",
+    "inputs": 36,
+    "buttons": 4,
+    "config": {
+      "baseUrl": "http://127.0.0.1:18080",
+      "systemPrompt": "",
+      "token": ""
+    }
+  },
+  "result": "passed"
+}

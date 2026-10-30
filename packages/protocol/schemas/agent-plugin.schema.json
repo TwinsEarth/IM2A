@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/agent-plugin-1.0.json",
+  "title": "IM2A Agent Plugins 1.0 profile",
+  "description": "Single-source Agent Plugins profile. Platform-specific outputs are generated, never maintained separately.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "version", "description", "skills", "mcp", "targets"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+    "description": { "type": "string", "minLength": 1 },
+    "license": { "type": "string" },
+    "skills": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^skills/[a-z0-9-]+/SKILL\\.md$" }
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serverName", "transport", "protocolVersion"],
+      "properties": {
+        "serverName": { "type": "string", "minLength": 1 },
+        "transport": { "type": "string", "enum": ["stdio", "streamable-http"] },
+        "protocolVersion": { "const": "2026-07-28" },
+        "command": { "type": "string" },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "env": { "type": "object", "additionalProperties": { "type": "string" } },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "dsh", "openclaw", "qwen-code", "mimo-code", "workbuddy",
+          "codex", "claude", "gemini-cli", "muse", "vscode",
+          "copilot", "doubao"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "extensions": {
+      "type": "array",
+      "description": "A2A extension URIs, not harness names.",
+      "items": { "type": "string", "format": "uri" },
+      "uniqueItems": true
+    }
+  }
+}

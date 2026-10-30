@@ -1,0 +1,27 @@
+{
+  "name": "@twinsearth/im2a-dsh-plugin",
+  "version": "0.1.1",
+  "description": "Mounts the IM2A MCP server in DeepSeek Harness.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "dsh": "0.2.1-rc.5"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "exports": {
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ]
+}

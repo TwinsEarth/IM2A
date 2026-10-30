@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "checkedAt": "2026-10-29T23:54:28.328Z",
+  "adapter": "dsh",
+  "dshVersion": "0.2.1-rc.3",
+  "transport": "streamable-http",
+  "probe": "im2a-dsh-probe",
+  "tool": "mcp__im2a__im2a_harness_list",
+  "ok": true,
+  "isError": false,
+  "harnessCount": 33,
+  "result": "passed",
+  "scope": "sandbox DSH ToolRuntime; live profile not installed",
+  "rawEvidence": ".tmp/p0-dsh-tool-call.json"
+}

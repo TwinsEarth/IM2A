@@ -1,0 +1,21 @@
+# Live overlay: override the stdio MCP row with a token launcher.
+#
+# This bundle must be selected after @twinsearth/im2a-dsh-plugin. It replaces
+# the row's command/env while keeping the bundle's insert row and serverName.
+- id: im2a-mcp
+  config:
+    serverName: im2a
+    transport: stdio
+    command: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    args:
+      - "-NoProfile"
+      - "-NonInteractive"
+      - "-ExecutionPolicy"
+      - "Bypass"
+      - "-File"
+      - "C:\\Users\\fangw\\.dsh\\im2a\\launcher.ps1"
+    env:
+      IM2A_HARNESS_URL: "http://127.0.0.1:18080"
+      IM2A_HARNESS_ID: "deepseek-harness"
+      IM2A_AGENT_NAME: "dsh"
+    failOnStartupError: true

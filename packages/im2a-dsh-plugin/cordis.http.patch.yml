@@ -1,0 +1,15 @@
+# P0-6 override: use the local Streamable HTTP MCP bridge instead of stdio.
+#
+# Apply with:
+#   dsh --profile <sandbox> --patch <this-file> --dump-config
+#
+# The bundle still inserts im2a-mcp with stdio. This layer overrides the same
+# id only for a sandbox test; it is not installed into the live profile.
+- id: im2a-mcp
+  config:
+    serverName: im2a
+    transport: streamable-http
+    url: http://127.0.0.1:18082/mcp
+    # P0-6 local test bridge binds loopback and does not require a second
+    # bearer layer. Remote deployment must use HTTPS + an explicit auth policy.
+    failOnStartupError: true

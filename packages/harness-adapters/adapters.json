@@ -1,0 +1,189 @@
+[
+    {
+        "id":  "dsh",
+        "displayName":  "DeepSeek Harness",
+        "tier":  "T0",
+        "status":  "verified",
+        "transports":  [
+                           "stdio",
+                           "streamable-http"
+                       ],
+        "install":  {
+                        "method":  "bundle"
+                    },
+        "verify":  {
+                       "tool":  "mcp__im2a__im2a_harness_list",
+                       "mode":  "dsh-toolruntime-live",
+                       "evidence":  "P0-LIVE-DSH-TOOL-CALL.json",
+                       "lastResult":  "passed",
+                       "scope":  "rc.5 live; rollback drill and post-reinstall call passed"
+                   }
+    },
+    {
+        "id":  "qwen-code",
+        "displayName":  "Qwen Code",
+        "tier":  "T0",
+        "status":  "planned",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "agent-plugins"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "mimo-code",
+        "displayName":  "MiMo Code",
+        "tier":  "T0",
+        "status":  "planned",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "agent-plugins"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "openclaw",
+        "displayName":  "OpenClaw",
+        "tier":  "T0",
+        "status":  "planned",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "bundle"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "codex",
+        "displayName":  "OpenAI Codex",
+        "tier":  "T1",
+        "status":  "planned",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "mcp-config"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "claude",
+        "displayName":  "Anthropic Claude Code",
+        "tier":  "T1",
+        "status":  "planned",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "mcp-config"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "gemini-cli",
+        "displayName":  "Gemini CLI",
+        "tier":  "T1",
+        "status":  "planned",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "mcp-config"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "copilot",
+        "displayName":  "GitHub Copilot",
+        "tier":  "T1",
+        "status":  "planned",
+        "transports":  [
+                           "stdio",
+                           "streamable-http"
+                       ],
+        "install":  {
+                        "method":  "mcp-config"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "vscode",
+        "displayName":  "VS Code",
+        "tier":  "T1",
+        "status":  "planned",
+        "transports":  [
+                           "stdio",
+                           "streamable-http"
+                       ],
+        "install":  {
+                        "method":  "mcp-config"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "workbuddy",
+        "displayName":  "WorkBuddy",
+        "tier":  "T2",
+        "status":  "observed",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "mcp-config"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "doubao",
+        "displayName":  "闂傚倸鍊峰ù鍥х暦閸偅鍙忛柣鎴ｆ绾剧粯绻涢幋鐑嗙劯婵炴垶顭傞弮鍫濈闁挎繂鎳嶆竟?/ Ark",
+        "tier":  "T2",
+        "status":  "observed",
+        "transports":  [
+                           "streamable-http"
+                       ],
+        "install":  {
+                        "method":  "remote-mcp"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    },
+    {
+        "id":  "muse",
+        "displayName":  "Muse Code",
+        "tier":  "T2",
+        "status":  "observed",
+        "transports":  [
+                           "stdio"
+                       ],
+        "install":  {
+                        "method":  "mcp-config"
+                    },
+        "verify":  {
+                       "tool":  "im2a_harness_list"
+                   }
+    }
+]

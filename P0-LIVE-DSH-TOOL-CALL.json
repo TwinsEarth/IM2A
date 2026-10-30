@@ -1,0 +1,14 @@
+{
+    "schemaVersion":  "1.0",
+    "checkedAt":  "2026-10-30T10:43:27.9403568+08:00",
+    "adapter":  "dsh",
+    "dshVersion":  "0.2.1-rc.5",
+    "pluginVersion":  "0.1.1",
+    "scope":  "live DSH ToolRuntime current session",
+    "tool":  "mcp__im2a__im2a_harness_list",
+    "ok":  true,
+    "isError":  false,
+    "harnessCount":  33,
+    "result":  "passed",
+    "transport":  "mcp-stdio"
+}

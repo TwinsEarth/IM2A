@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "checkedAt": "2026-10-29T23:39:15.010Z",
+  "adapter": "dsh",
+  "profile": "E:\\GPT\\im2a-v2.3.45\\.tmp\\dsh-home-p03\\profiles\\im2a-p03",
+  "mcpBin": "E:\\GPT\\release\\w2m-im2a-2.0.3-rc3\\im2a-mcp.exe",
+  "mcpBinSha256": "63c3eade231bbcfc1e77f302500d5197add21a8f5b10de0db1af8b8e7198aad0",
+  "tool": "im2a_harness_list",
+  "transport": "pipe",
+  "result": {
+    "ok": true,
+    "status": "passed",
+    "code": null,
+    "harnessCount": 33
+  },
+  "checks": [
+    {
+      "name": "profile-mcp-installed",
+      "ok": true,
+      "detail": "bundle=@twinsearth/im2a-dsh-plugin"
+    },
+    {
+      "name": "initialize",
+      "ok": true,
+      "detail": "im2a-harness-bridge"
+    },
+    {
+      "name": "tools/list",
+      "ok": true,
+      "detail": "im2a_harness_list"
+    },
+    {
+      "name": "tools/call",
+      "ok": true,
+      "detail": "harnesses=33"
+    }
+  ],
+  "credential": "process-env:IM2A_HARNESS_TOKEN (not recorded)"
+}

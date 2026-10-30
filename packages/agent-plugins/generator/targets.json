@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "source": "packages/agent-plugins/source",
+  "targets": [
+    { "id": "dsh", "format": "bundle", "status": "planned" },
+    { "id": "openclaw", "format": "bundle", "status": "planned" },
+    { "id": "qwen-code", "format": "agent-plugins", "status": "planned" },
+    { "id": "mimo-code", "format": "agent-plugins", "status": "planned" },
+    { "id": "workbuddy", "format": "mcp-config", "status": "planned" },
+    { "id": "codex", "format": "mcp-config", "status": "planned" },
+    { "id": "claude", "format": "mcp-config", "status": "planned" },
+    { "id": "gemini-cli", "format": "mcp-config", "status": "planned" },
+    { "id": "muse", "format": "mcp-config", "status": "planned" },
+    { "id": "vscode", "format": "mcp-config", "status": "planned" },
+    { "id": "copilot", "format": "mcp-config", "status": "planned" },
+    { "id": "doubao", "format": "remote-mcp", "status": "planned" }
+  ]
+}

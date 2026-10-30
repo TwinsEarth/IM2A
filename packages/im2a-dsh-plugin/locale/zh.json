@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "IM2A 编队控制（MCP）",
+    "description": "接入 IM2A MCP 服务，让 Agent 查看 Harness 并交接会话。"
+  }
+}

@@ -1,0 +1,23 @@
+# IM2A DSH host plugin (bundle layer)
+#
+# This is a DSH bundle patch, not a profile patch. The bundle is selected by
+# plugin_manager; it must not be copied into the live profile by an installer.
+#
+# The MCP client row is inserted, not targeted by a bare id. A bare id would
+# be an override for a row that does not exist and would be skipped by the
+# Loader.
+- insert:
+    - id: im2a-mcp
+      name: "@deepseek-ai/dsh-mcp-client"
+      config:
+        serverName: im2a
+        transport: stdio
+        command: !!js process.env.IM2A_MCP_BIN
+        env:
+          IM2A_HARNESS_URL: !!js process.env.IM2A_HARNESS_URL || 'http://127.0.0.1:18080'
+          IM2A_HARNESS_ID: deepseek-harness
+          IM2A_AGENT_NAME: dsh
+          # Required: DSH scrubs ambient names matching /TOKEN/i, so this
+          # explicit mapping is the only supported credential path.
+          IM2A_HARNESS_TOKEN: !!js process.env.IM2A_HARNESS_TOKEN
+        failOnStartupError: true

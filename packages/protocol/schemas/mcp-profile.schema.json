@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/mcp-profile-1.0.json",
+  "title": "IM2A MCP server profile",
+  "description": "Local policy schema for MCP server configuration. The upstream MCP specification remains authoritative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["serverName", "transport", "protocolVersion"],
+  "properties": {
+    "serverName": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+    "transport": { "type": "string", "enum": ["stdio", "streamable-http"] },
+    "protocolVersion": { "const": "2026-07-28" },
+    "command": { "type": "string" },
+    "args": { "type": "array", "items": { "type": "string" } },
+    "cwd": { "type": "string" },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "url": { "type": "string", "format": "uri" },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "tlsRequired": { "type": "boolean" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "transport": { "const": "stdio" } }, "required": ["transport"] },
+      "then": { "required": ["command"] }
+    },
+    {
+      "if": { "properties": { "transport": { "const": "streamable-http" } }, "required": ["transport"] },
+      "then": {
+        "required": ["url", "tlsRequired"],
+        "properties": {
+          "url": { "type": "string", "pattern": "^https://" },
+          "tlsRequired": { "const": true }
+        }
+      }
+    }
+  ]
+}

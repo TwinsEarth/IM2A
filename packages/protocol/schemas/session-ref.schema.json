@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/session-ref-1.0.json",
+  "title": "IM2A dsh-session-ref 1.0",
+  "description": "Opaque cross-session reference. A reference is not a bearer token and never carries conversation content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ref", "protocolVersion", "scope", "createdAt", "expiresAt"],
+  "properties": {
+    "ref": {
+      "type": "string",
+      "pattern": "^dsh-session:[A-Za-z0-9._:-]+$"
+    },
+    "protocolVersion": { "const": "1.0" },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Caller scope required to resolve this reference."
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "revoked": { "type": "boolean", "default": false },
+    "crossOrg": { "type": "boolean", "const": false }
+  }
+}

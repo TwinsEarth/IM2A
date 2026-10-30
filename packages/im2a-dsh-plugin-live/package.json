@@ -1,0 +1,13 @@
+{
+  "name": "@twinsearth/im2a-dsh-plugin-live",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "description": "Live overlay for IM2A DSH MCP: token launcher, no credential in profile.",
+  "engines": { "dsh": "0.2.1-rc.5" },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "files": ["cordis.patch.yml", "README.md"]
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "protocols": {
+    "a2a": {
+      "alias": "ACA",
+      "officialName": "Agent2Agent (A2A) Protocol",
+      "protocolVersion": "1.0",
+      "patchRelease": "v1.0.1",
+      "publishedAt": "2026-05-28",
+      "source": "https://github.com/a2aproject/A2A",
+      "spec": "https://github.com/a2aproject/A2A/tree/v1.0.1/specification",
+      "releaseCommit": "3303592588e388e62e0f69f701af531d2f4e3991",
+      "protoBlobSha": "400cdbad934654e27d7abbae1e145923eb40ac52",
+      "generatedSchemaSha256": null,
+      "license": "Apache-2.0",
+      "normativeArtifact": "specification/a2a.proto",
+      "vendorStatus": "source-pinned; fetch upstream artifact at build and verify protoBlobSha",
+      "profileSchema": "schemas/a2a-profile.schema.json"
+    },
+    "mcp": {
+      "protocolVersion": "2026-07-28",
+      "source": "https://modelcontextprotocol.io/specification/2026-07-28",
+      "status": "pinned",
+      "profileSchema": "schemas/mcp-profile.schema.json"
+    },
+    "agent-plugins": {
+      "profileVersion": "1.0",
+      "status": "im2a-profile-draft",
+      "schema": "schemas/agent-plugin.schema.json"
+    },
+    "dsh-session-ref": {
+      "protocolVersion": "1.0",
+      "status": "pinned",
+      "schema": "schemas/session-ref.schema.json"
+    }
+  }
+}

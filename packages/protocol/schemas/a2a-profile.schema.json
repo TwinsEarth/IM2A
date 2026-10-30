@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/a2a-agent-card-1.0.json",
+  "title": "IM2A A2A v1.0.1 Agent Card profile",
+  "description": "Validation profile for an A2A v1.0.1 Agent Card. The normative source is the upstream specification/a2a.proto at v1.0.1; this profile adds only IM2A-required policy checks and does not redefine the A2A standard.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "name",
+    "description",
+    "supportedInterfaces",
+    "version",
+    "capabilities",
+    "defaultInputModes",
+    "defaultOutputModes",
+    "skills"
+  ],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "supportedInterfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["url", "protocolBinding", "protocolVersion"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "protocolBinding": { "type": "string", "minLength": 1 },
+          "protocolVersion": { "type": "string", "minLength": 1 },
+          "tenant": { "type": "string" }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "streaming": { "type": "boolean" },
+        "pushNotifications": { "type": "boolean" },
+        "extendedAgentCard": { "type": "boolean" },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["uri"],
+            "properties": {
+              "uri": { "type": "string", "minLength": 1 },
+              "required": { "type": "boolean" },
+              "params": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "defaultInputModes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "defaultOutputModes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "skills": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "name", "description", "tags"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "examples": { "type": "array", "items": { "type": "string" } },
+          "inputModes": { "type": "array", "items": { "type": "string" } },
+          "outputModes": { "type": "array", "items": { "type": "string" } },
+          "securityRequirements": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    },
+    "provider": { "type": "object", "additionalProperties": true },
+    "documentationUrl": { "type": "string", "format": "uri" },
+    "iconUrl": { "type": "string", "format": "uri" },
+    "securitySchemes": { "type": "object", "additionalProperties": true },
+    "securityRequirements": { "type": "array", "items": { "type": "object" } },
+    "signatures": { "type": "array", "items": { "type": "object" } }
+  }
+}

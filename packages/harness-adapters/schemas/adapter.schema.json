@@ -1,0 +1,132 @@
+{
+    "$schema":  "https://json-schema.org/draft/2020-12/schema",
+    "$id":  "https://im2a.dev/schemas/harness-adapter-1.0.json",
+    "title":  "IM2A Harness adapter descriptor",
+    "type":  "object",
+    "additionalProperties":  false,
+    "required":  [
+                     "id",
+                     "tier",
+                     "status",
+                     "transports",
+                     "install",
+                     "verify"
+                 ],
+    "properties":  {
+                       "id":  {
+                                  "type":  "string",
+                                  "enum":  [
+                                               "dsh",
+                                               "workbuddy",
+                                               "doubao",
+                                               "qwen-code",
+                                               "mimo-code",
+                                               "codex",
+                                               "claude",
+                                               "gemini-cli",
+                                               "openclaw",
+                                               "muse",
+                                               "copilot",
+                                               "vscode"
+                                           ]
+                              },
+                       "displayName":  {
+                                           "type":  "string",
+                                           "minLength":  1
+                                       },
+                       "tier":  {
+                                    "type":  "string",
+                                    "enum":  [
+                                                 "T0",
+                                                 "T1",
+                                                 "T2"
+                                             ]
+                                },
+                       "status":  {
+                                      "type":  "string",
+                                      "enum":  [
+                                                   "planned",
+                                                   "observed",
+                                                   "verified",
+                                                   "blocked"
+                                               ]
+                                  },
+                       "transports":  {
+                                          "type":  "array",
+                                          "items":  {
+                                                        "type":  "string",
+                                                        "enum":  [
+                                                                     "stdio",
+                                                                     "streamable-http"
+                                                                 ]
+                                                    },
+                                          "minItems":  1,
+                                          "uniqueItems":  true
+                                      },
+                       "install":  {
+                                       "type":  "object",
+                                       "additionalProperties":  false,
+                                       "required":  [
+                                                        "method"
+                                                    ],
+                                       "properties":  {
+                                                          "method":  {
+                                                                         "type":  "string",
+                                                                         "enum":  [
+                                                                                      "agent-plugins",
+                                                                                      "mcp-config",
+                                                                                      "bundle",
+                                                                                      "remote-mcp",
+                                                                                      "manual"
+                                                                                  ]
+                                                                     },
+                                                          "notes":  {
+                                                                        "type":  "string"
+                                                                    }
+                                                      }
+                                   },
+                       "verify":  {
+                                      "type":  "object",
+                                      "additionalProperties":  false,
+                                      "required":  [
+                                                       "tool"
+                                                   ],
+                                      "properties":  {
+                                                         "tool":  {
+                                                                      "type":  "string",
+                                                                      "minLength":  1
+                                                                  },
+                                                         "expect":  {
+                                                                        "type":  "string",
+                                                                        "minLength":  1
+                                                                    },
+                                                         "mode":  {
+                                                                      "type":  "string",
+                                                                      "enum":  [
+                                                                                   "mcp-stdio",
+                                                                                   "file-fd",
+                                                                                   "dsh-toolruntime",
+                                                                                   "dsh-toolruntime-live",
+                                                                                   "manual"
+                                                                               ]
+                                                                  },
+                                                         "evidence":  {
+                                                                          "type":  "string",
+                                                                          "minLength":  1
+                                                                      },
+                                                         "lastResult":  {
+                                                                            "type":  "string",
+                                                                            "enum":  [
+                                                                                         "passed",
+                                                                                         "failed",
+                                                                                         "blocked"
+                                                                                     ]
+                                                                        },
+                                                         "scope":  {
+                                                                       "type":  "string",
+                                                                       "minLength":  1
+                                                                   }
+                                                     }
+                                  }
+                   }
+}

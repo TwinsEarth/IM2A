@@ -1,0 +1,20 @@
+{
+    "schemaVersion":  "1.0",
+    "checkedAt":  "2026-10-30T12:23:15.7554800+08:00",
+    "profile":  "C:\\Users\\fangw\\.dsh\\profiles\\desktop",
+    "backup":  "C:\\Users\\fangw\\.dsh\\profiles\\desktop\\.im2a-rollback-drill-20261030121314",
+    "beforeRefs":  4,
+    "afterRemoveRefs":  0,
+    "afterReinstallRefs":  4,
+    "removed":  [
+                    "@twinsearth/im2a-dsh-plugin-live",
+                    "@twinsearth/im2a-dsh-plugin"
+                ],
+    "reinstalled":  [
+                        "@twinsearth/im2a-dsh-plugin@0.1.1",
+                        "@twinsearth/im2a-dsh-plugin-live@0.1.1"
+                    ],
+    "postReinstallToolCall":  "passed",
+    "harnessCount":  33,
+    "result":  "passed"
+}

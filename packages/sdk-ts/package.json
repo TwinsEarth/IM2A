@@ -1,0 +1,10 @@
+{
+  "name": "@twinsearth/im2a-sdk",
+  "version": "2.3.45",
+  "private": true,
+  "type": "module",
+  "description": "IM2A TypeScript SDK (P0 placeholder; no published API yet)",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "im2a-fleet-control",
+  "version": "0.1.0",
+  "description": "IM2A fleet control and cross-harness handoff plugin",
+  "license": "MIT",
+  "skills": [
+    "skills/fleet-control/SKILL.md",
+    "skills/memory-sync/SKILL.md",
+    "skills/session-ref/SKILL.md",
+    "skills/resource-schedule/SKILL.md"
+  ],
+  "mcp": {
+    "serverName": "im2a",
+    "transport": "stdio",
+    "protocolVersion": "2026-07-28",
+    "command": "im2a-mcp"
+  },
+  "targets": [
+    "dsh",
+    "openclaw",
+    "qwen-code",
+    "mimo-code",
+    "workbuddy",
+    "codex",
+    "claude",
+    "gemini-cli",
+    "muse",
+    "vscode",
+    "copilot",
+    "doubao"
+  ]
+}
