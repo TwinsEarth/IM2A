@@ -1,0 +1,73 @@
+{
+  "checkedAt": "2026-10-30T22:39:36.166Z",
+  "healthStatus": 200,
+  "health": {
+    "ok": true,
+    "transport": "streamable-http",
+    "tools": [
+      "im2a_harness_list",
+      "im2a_send",
+      "im2a_recv",
+      "im2a_presence",
+      "im2a_whoami",
+      "im2a_history",
+      "skills_list",
+      "skill_view",
+      "skill_manage",
+      "curator",
+      "memory_search",
+      "memory_get",
+      "memory_propose"
+    ]
+  },
+  "initStatus": 200,
+  "serverInfo": {
+    "name": "im2a-http-mcp",
+    "version": "0.1.0"
+  },
+  "toolCount": 13,
+  "tools": [
+    "im2a_harness_list",
+    "im2a_send",
+    "im2a_recv",
+    "im2a_presence",
+    "im2a_whoami",
+    "im2a_history",
+    "skills_list",
+    "skill_view",
+    "skill_manage",
+    "curator",
+    "memory_search",
+    "memory_get",
+    "memory_propose"
+  ],
+  "skillsError": null,
+  "skills": {
+    "items": [
+      {
+        "id": "tencent-deploy-skill",
+        "description": "Tencent v2.5.2 deployment smoke skill",
+        "version": "1.0.0",
+        "packageSha": "f3d1ef7f4fb268c3de686051b6acec0b4dbb2565498728c3b696380791d7187a",
+        "tags": [
+          "tencent",
+          "smoke"
+        ]
+      }
+    ],
+    "count": 1
+  },
+  "memoryError": null,
+  "memory": {
+    "items": [
+      {
+        "id": "a212003a-ed83-443a-9ac9-b109b56a4c69",
+        "kind": "fact",
+        "title": "Tencent v2.5.2 deployment",
+        "snippet": "MCP tools and FTS5 memory are running on the Tencent development server.",
+        "rank": -0.000001
+      }
+    ],
+    "count": 1
+  }
+}
