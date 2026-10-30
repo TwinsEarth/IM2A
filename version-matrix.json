@@ -1,143 +1,143 @@
 {
-  "schemaVersion": "1.0",
-  "generatedAt": null,
-  "releaseStatus": "draft",
-  "platform": {
-    "version": "2.4.6",
-    "tag": "v2.4.6",
-    "npmScope": "@twinsearth"
-  },
-  "go": {
-    "version": "2.3.26",
-    "tag": "v2.3.26",
-    "current": "2.3.25"
-  },
-  "components": [
-    {
-      "id": "gateway",
-      "kind": "go",
-      "current": "2.3.25",
-      "target": "2.3.26",
-      "publishedBy": "go-tag",
-      "status": "planned"
-    },
-    {
-      "id": "im-bot-node",
-      "kind": "npm",
-      "current": "0.2.0",
-      "target": "2.4.6",
-      "publishedBy": "npm-publish",
-      "status": "planned"
-    },
-    {
-      "id": "browser-extension",
-      "kind": "zip",
-      "current": "0.2.3",
-      "target": "2.4.6",
-      "publishedBy": "github-release",
-      "status": "planned"
-    },
-    {
-      "id": "ops-tofuture",
-      "kind": "tgz",
-      "current": "0.1.23",
-      "target": "2.4.6",
-      "publishedBy": "github-release",
-      "status": "planned"
-    },
-    {
-      "id": "agent-experts",
-      "kind": "npm",
-      "current": "1.2.18",
-      "target": "1.2.18",
-      "publishedBy": "upstream",
-      "status": "external-pinned"
-    },
-    {
-      "id": "w2m-dsh-plugin",
-      "kind": "npm",
-      "current": "2.0.8",
-      "target": "2.0.8",
-      "publishedBy": "upstream",
-      "status": "external-pinned"
-    },
-    {
-      "id": "im2a-dsh-plugin",
-      "kind": "npm",
-      "current": "0.1.1",
-      "target": "0.1.1",
-      "publishedBy": "npm-publish",
-      "status": "verified-live"
-    },
-    {
-      "id": "dsh-runtime",
-      "kind": "external",
-      "current": "0.2.1-rc.5",
-      "target": "0.2.1-rc.5",
-      "publishedBy": "upstream",
-      "status": "external-pinned"
-    },
-    {
-      "id": "openclaw",
-      "kind": "external",
-      "current": "2026.10.7",
-      "target": "2026.10.7",
-      "publishedBy": "upstream",
-      "status": "external-pinned"
-    },
-    {
-      "id": "ident-code",
-      "kind": "npm",
-      "current": "0.1.0",
-      "target": "0.1.0",
-      "publishedBy": "workspace",
-      "status": "implemented"
-    }
-  ],
-  "protocols": [
-    {
-      "id": "a2a",
-      "alias": "ACA",
-      "protocolVersion": "1.0",
-      "patchRelease": "v1.0.1",
-      "source": "https://github.com/a2aproject/A2A",
-      "spec": "https://github.com/a2aproject/A2A/tree/v1.0.1/specification",
-      "commit": "3303592588e388e62e0f69f701af531d2f4e3991",
-      "protoBlobSha": "400cdbad934654e27d7abbae1e145923eb40ac52",
-      "sourceType": "official",
-      "status": "pinned"
-    },
-    {
-      "id": "mcp",
-      "protocolVersion": "2026-07-28",
-      "source": "https://modelcontextprotocol.io/specification/2026-07-28",
-      "sourceType": "official",
-      "status": "pinned"
-    },
-    {
-      "id": "agent-plugins",
-      "profileVersion": "1.0",
-      "source": "IM2A Agent Plugins profile",
-      "sourceType": "im2a-profile",
-      "status": "draft"
-    },
-    {
-      "id": "dsh-session-ref",
-      "protocolVersion": "1.0",
-      "source": "DSH MMP / dsh-session-ref",
-      "sourceType": "user-confirmed",
-      "status": "pinned"
-    }
-  ],
-  "releaseGates": [
-    "commit",
-    "tag",
-    "Release",
-    "npm",
-    "CI",
-    "Compat",
-    "Release workflow",
-    "npm-publish",
-    "healthz"
-  ]
+    "schemaVersion":  "1.0",
+    "generatedAt":  null,
+    "releaseStatus":  "draft",
+    "platform":  {
+                     "version":  "2.4.6",
+                     "tag":  "v2.4.6",
+                     "npmScope":  "@twinsearth"
+                 },
+    "go":  {
+               "version":  "2.3.26",
+               "tag":  "v2.3.26",
+               "current":  "2.3.25"
+           },
+    "components":  [
+                       {
+                           "id":  "gateway",
+                           "kind":  "go",
+                           "current":  "2.3.25",
+                           "target":  "2.3.26",
+                           "publishedBy":  "go-tag",
+                           "status":  "planned"
+                       },
+                       {
+                           "id":  "im-bot-node",
+                           "kind":  "npm",
+                           "current":  "0.2.0",
+                           "target":  "2.4.6",
+                           "publishedBy":  "npm-publish",
+                           "status":  "planned"
+                       },
+                       {
+                           "id":  "browser-extension",
+                           "kind":  "zip",
+                           "current":  "0.2.3",
+                           "target":  "2.4.6",
+                           "publishedBy":  "github-release",
+                           "status":  "planned"
+                       },
+                       {
+                           "id":  "ops-tofuture",
+                           "kind":  "tgz",
+                           "current":  "0.1.23",
+                           "target":  "2.4.6",
+                           "publishedBy":  "github-release",
+                           "status":  "planned"
+                       },
+                       {
+                           "id":  "agent-experts",
+                           "kind":  "npm",
+                           "current":  "1.2.18",
+                           "target":  "1.2.18",
+                           "publishedBy":  "upstream",
+                           "status":  "external-pinned"
+                       },
+                       {
+                           "id":  "w2m-dsh-plugin",
+                           "kind":  "npm",
+                           "current":  "2.0.8",
+                           "target":  "2.0.8",
+                           "publishedBy":  "upstream",
+                           "status":  "external-pinned"
+                       },
+                       {
+                           "id":  "im2a-dsh-plugin",
+                           "kind":  "npm",
+                           "current":  "0.2.0",
+                           "target":  "0.2.0",
+                           "publishedBy":  "npm-publish",
+                           "status":  "npm-published"
+                       },
+                       {
+                           "id":  "dsh-runtime",
+                           "kind":  "external",
+                           "current":  "0.2.1-rc.5",
+                           "target":  "0.2.1-rc.5",
+                           "publishedBy":  "upstream",
+                           "status":  "external-pinned"
+                       },
+                       {
+                           "id":  "openclaw",
+                           "kind":  "external",
+                           "current":  "2026.10.7",
+                           "target":  "2026.10.7",
+                           "publishedBy":  "upstream",
+                           "status":  "external-pinned"
+                       },
+                       {
+                           "id":  "ident-code",
+                           "kind":  "npm",
+                           "current":  "0.1.0",
+                           "target":  "0.1.0",
+                           "publishedBy":  "workspace",
+                           "status":  "implemented"
+                       }
+                   ],
+    "protocols":  [
+                      {
+                          "id":  "a2a",
+                          "alias":  "ACA",
+                          "protocolVersion":  "1.0",
+                          "patchRelease":  "v1.0.1",
+                          "source":  "https://github.com/a2aproject/A2A",
+                          "spec":  "https://github.com/a2aproject/A2A/tree/v1.0.1/specification",
+                          "commit":  "3303592588e388e62e0f69f701af531d2f4e3991",
+                          "protoBlobSha":  "400cdbad934654e27d7abbae1e145923eb40ac52",
+                          "sourceType":  "official",
+                          "status":  "pinned"
+                      },
+                      {
+                          "id":  "mcp",
+                          "protocolVersion":  "2026-07-28",
+                          "source":  "https://modelcontextprotocol.io/specification/2026-07-28",
+                          "sourceType":  "official",
+                          "status":  "pinned"
+                      },
+                      {
+                          "id":  "agent-plugins",
+                          "profileVersion":  "1.0",
+                          "source":  "IM2A Agent Plugins profile",
+                          "sourceType":  "im2a-profile",
+                          "status":  "draft"
+                      },
+                      {
+                          "id":  "dsh-session-ref",
+                          "protocolVersion":  "1.0",
+                          "source":  "DSH MMP / dsh-session-ref",
+                          "sourceType":  "user-confirmed",
+                          "status":  "pinned"
+                      }
+                  ],
+    "releaseGates":  [
+                         "commit",
+                         "tag",
+                         "Release",
+                         "npm",
+                         "CI",
+                         "Compat",
+                         "Release workflow",
+                         "npm-publish",
+                         "healthz"
+                     ]
 }
