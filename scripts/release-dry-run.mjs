@@ -29,12 +29,21 @@ run('healthz', ['scripts/healthz.mjs']);
 
 rmSync(artifacts, { recursive: true, force: true });
 mkdirSync(artifacts, { recursive: true });
+const hostTgz = join(artifacts, 'twinsearth-im2a-dsh-plugin-0.1.1.tgz');
+const tarResult = spawnSync('tar', ['-czf', hostTgz, '-C', join(root, 'packages'), 'im2a-dsh-plugin'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+if (tarResult.status !== 0) failures.push(`host plugin artifact build failed: ${tarResult.stderr ?? ''}`);
+
 const inputs = [
-  ['.tmp/artifacts/twinsearth-im2a-dsh-plugin-0.1.1.tgz', 'twinsearth-im2a-dsh-plugin-0.1.1.tgz'],
   ['E:/GPT/release/w2m-im2a-2.0.3-rc3/browser-extension-0.2.3.zip', 'browser-extension-0.2.3.zip'],
   ['E:/GPT/release/w2m-im2a-2.0.3-rc3/w2m-tofuture-0.1.5.tgz', 'w2m-tofuture-0.1.5.tgz'],
 ];
 const hashes = [];
+if (tarResult.status === 0) {
+  hashes.push(`${createHash('sha256').update(readFileSync(hostTgz)).digest('hex')}  ${'twinsearth-im2a-dsh-plugin-0.1.1.tgz'}`);
+}
 for (const [source, name] of inputs) {
   try {
     const destination = join(artifacts, name);
