@@ -84,6 +84,14 @@
                            "target":  "2026.10.7",
                            "publishedBy":  "upstream",
                            "status":  "external-pinned"
+                       },
+                       {
+                           "id":  "ident-code",
+                           "kind":  "npm",
+                           "current":  "0.1.0",
+                           "target":  "0.1.0",
+                           "publishedBy":  "workspace",
+                           "status":  "implemented"
                        }
                    ],
     "protocols":  [

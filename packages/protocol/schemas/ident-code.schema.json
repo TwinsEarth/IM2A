@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/ident-code-1.0.json",
+  "title": "IM2A identity-code contract 1.0",
+  "description": "Public addressing codes are not credentials. Auth codes are opaque, short-lived, single-use secrets. Calendar and Luhn checks are semantic and must be enforced by the codec.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userCode": { "$ref": "#/$defs/userCode" },
+    "publicUid": { "$ref": "#/$defs/publicUid" },
+    "im2aNumber": { "$ref": "#/$defs/im2aNumber" },
+    "agentSubcode": { "$ref": "#/$defs/agentSubcode" },
+    "agentAddress": { "$ref": "#/$defs/agentAddress" },
+    "authCode": { "$ref": "#/$defs/authCode" },
+    "grant": { "$ref": "#/$defs/grant" }
+  },
+  "$defs": {
+    "userCode": {
+      "type": "string",
+      "description": "25-char public user code: IM2A_ + YYYYMMDD + 12-digit user number.",
+      "minLength": 25,
+      "maxLength": 25,
+      "pattern": "^IM2A_[0-9]{8}[0-9]{12}$"
+    },
+    "publicUid": {
+      "type": "string",
+      "description": "35-char public address: IM2A_ + YYYYMMDD + 12-digit user + 10-digit agent subcode.",
+      "minLength": 35,
+      "maxLength": 35,
+      "pattern": "^IM2A_[0-9]{8}[0-9]{22}$"
+    },
+    "im2aNumber": {
+      "type": "string",
+      "description": "12 digits: 11 payload digits plus a Luhn check digit.",
+      "minLength": 12,
+      "maxLength": 12,
+      "pattern": "^[0-9]{12}$"
+    },
+    "agentSubcode": {
+      "type": "string",
+      "description": "10-digit owner-scoped subcode; reuse is allowed only under the owner after quarantine.",
+      "minLength": 10,
+      "maxLength": 10,
+      "pattern": "^[0-9]{10}$"
+    },
+    "agentAddress": {
+      "type": "string",
+      "description": "12-digit user number, a dot, and a 10-digit subcode.",
+      "pattern": "^[0-9]{12}\\.[0-9]{10}$"
+    },
+    "authCode": {
+      "type": "string",
+      "description": "128 chars: 35-char public UID plus a 93-char opaque server-issued secret. The secret is not a private key and must not be logged.",
+      "minLength": 128,
+      "maxLength": 128,
+      "pattern": "^IM2A_[0-9]{8}[0-9]{22}[A-Za-z0-9_-]{93}$"
+    },
+    "scope": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 64,
+      "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+    },
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["userId", "agentSubcode", "scope", "audience", "expiresAt"],
+      "properties": {
+        "userId": { "$ref": "#/$defs/im2aNumber" },
+        "agentSubcode": { "$ref": "#/$defs/agentSubcode" },
+        "scope": { "$ref": "#/$defs/scope" },
+        "audience": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "expiresAt": { "type": "integer", "minimum": 0 },
+        "credentialId": { "type": "string", "minLength": 16, "maxLength": 128 }
+      }
+    }
+  }
+}

@@ -32,6 +32,12 @@
       "protocolVersion": "1.0",
       "status": "pinned",
       "schema": "schemas/session-ref.schema.json"
+    },
+    "ident-code": {
+      "protocolVersion": "1.0",
+      "status": "pinned",
+      "schema": "schemas/ident-code.schema.json",
+      "implementation": "packages/ident-code"
     }
   }
 }

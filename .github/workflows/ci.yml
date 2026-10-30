@@ -30,3 +30,5 @@ jobs:
         run: node --test tests/p0.test.mjs
       - name: DSH adapter tests
         run: node --test packages/harness-adapters/dsh/dsh-adapter.test.mjs packages/harness-adapters/dsh/verify.test.mjs
+      - name: Identity-code tests
+        run: node --test packages/ident-code/test/ident-code.test.mjs

@@ -1,0 +1,13 @@
+{
+  "name": "@twinsearth/im2a-ident-code",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "IM2A identity-code format, public resolution and private credential registry (compatibility implementation).",
+  "exports": "./src/index.mjs",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test test/ident-code.test.mjs"
+  },
+  "license": "MIT"
+}

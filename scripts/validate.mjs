@@ -33,6 +33,8 @@ export async function validateP0({ root = defaultRoot } = {}) {
   const mcp = await readJson(root, "packages/agent-plugins/source/mcp.json");
   const dshPackage = await readJson(root, "packages/im2a-dsh-plugin/package.json");
   const dshPatch = await readFile(path.join(root, "packages/im2a-dsh-plugin/cordis.patch.yml"), "utf8");
+  const identPackage = await readJson(root, "packages/ident-code/package.json");
+  const identSchema = await readJson(root, "packages/protocol/schemas/ident-code.schema.json");
 
   if (matrix.platform.version !== "2.3.45") throw new Error("platform version mismatch");
   if (matrix.go.version !== "2.3.26") throw new Error("go version mismatch");
@@ -43,6 +45,11 @@ export async function validateP0({ root = defaultRoot } = {}) {
   if (versions.protocols.a2a.releaseCommit !== a2aSource.releaseCommit) throw new Error("A2A commit pin mismatch");
   if (versions.protocols.a2a.spec.includes("/latest/")) throw new Error("A2A spec must not use /latest/");
   if (versions.protocols.a2a.protocolVersion !== "1.0") throw new Error("A2A protocol version must be 1.0");
+  if (versions.protocols["ident-code"]?.protocolVersion !== "1.0") throw new Error("ident-code protocol must be 1.0");
+  if (versions.protocols["ident-code"]?.status !== "pinned") throw new Error("ident-code must be pinned");
+  if (identPackage.name !== "@twinsearth/im2a-ident-code") throw new Error("ident-code package name mismatch");
+  if (identSchema.$id !== "https://im2a.dev/schemas/ident-code-1.0.json") throw new Error("ident-code schema id mismatch");
+  if (!identSchema.$defs?.authCode || !identSchema.$defs?.userCode) throw new Error("ident-code schema definitions missing");
   if (versions.protocols.mcp.protocolVersion !== "2026-07-28") throw new Error("MCP pin mismatch");
   if (versions.protocols.mcp.status !== "pinned") throw new Error("MCP must be pinned");
 
@@ -132,6 +139,7 @@ export async function validateP0({ root = defaultRoot } = {}) {
     gates: GATES.length,
     a2a: `${versions.protocols.a2a.protocolVersion}/${versions.protocols.a2a.patchRelease}`,
     mcp: versions.protocols.mcp.protocolVersion,
+    identCode: versions.protocols["ident-code"].protocolVersion,
     sourceHash: checked.sourceHash,
     generatedTargets: checked.targets,
     dshHostPlugin: `${dshPackage.name}@${dshPackage.version}`,
