@@ -11,6 +11,9 @@
   ],
   "scripts": {
     "validate": "node scripts/validate.mjs",
+    "compat": "node scripts/compat-check.mjs",
+    "healthz": "node scripts/healthz.mjs",
+    "release:dry-run": "node scripts/release-dry-run.mjs",
     "test": "node packages/agent-plugins/generator/src/cli.mjs generate && node tests/p0.test.mjs",
     "test:ci": "node packages/agent-plugins/generator/src/cli.mjs generate && node --test tests/*.test.mjs",
     "generate": "node packages/agent-plugins/generator/src/cli.mjs generate",

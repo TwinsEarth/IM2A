@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Generate agent plugins
+        run: node packages/agent-plugins/generator/src/cli.mjs generate
+      - name: Validate repository
+        run: node scripts/validate.mjs
+      - name: P0 tests
+        run: node --test tests/p0.test.mjs
+      - name: DSH adapter tests
+        run: node --test packages/harness-adapters/dsh/dsh-adapter.test.mjs packages/harness-adapters/dsh/verify.test.mjs

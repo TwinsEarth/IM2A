@@ -1,0 +1,37 @@
+name: compat
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'P0-*.json'
+      - 'release-manifest.json'
+      - 'version-matrix.json'
+      - 'SIX-PARTY-RELEASE-SCOPE.md'
+      - 'packages/harness-adapters/**'
+
+permissions:
+  contents: read
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Six-party compatibility evidence
+        run: node scripts/compat-check.mjs
+      - name: Health probes
+        run: node scripts/healthz.mjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-evidence
+          path: |
+            P0-*.json
+            release-manifest.json
+            SIX-PARTY-RELEASE-SCOPE.md
+          if-no-files-found: error

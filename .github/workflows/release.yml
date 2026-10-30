@@ -1,0 +1,59 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and verify without creating a Release
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate
+        run: node scripts/validate.mjs
+      - name: Compatibility and health gates
+        run: |
+          node scripts/compat-check.mjs
+          node scripts/healthz.mjs
+      - name: Release dry run
+        run: node scripts/release-dry-run.mjs
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: im2a-release-artifacts
+          path: .tmp/release-artifacts
+          if-no-files-found: error
+
+  publish-release:
+    needs: preflight
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: im2a-release-artifacts
+          path: .tmp/release-artifacts
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            .tmp/release-artifacts/* \
+            --title "IM2A ${GITHUB_REF_NAME}" \
+            --notes-file SIX-PARTY-RELEASE-SCOPE.md
