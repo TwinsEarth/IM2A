@@ -38,6 +38,8 @@ jobs:
         run: node --test packages/skill-runtime/test/skill-runtime.test.mjs
       - name: Skill runtime SQLite integration tests
         run: node --test packages/skill-runtime/test/sqlite-store.test.mjs
+      - name: Memory Hub FTS5 tests
+        run: node --test packages/memory-hub/test/memory-hub.test.mjs
       - name: Skill runtime SQLite performance
         run: node scripts/bench-skill-runtime.mjs
       - name: Agent Plugins 2.0 projection

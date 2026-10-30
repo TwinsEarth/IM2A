@@ -1,0 +1,103 @@
+{
+  "ok": true,
+  "tools": [
+    "im2a_harness_list",
+    "im2a_send",
+    "im2a_recv",
+    "im2a_presence",
+    "im2a_whoami",
+    "im2a_history",
+    "skills_list",
+    "skill_view",
+    "skill_manage",
+    "curator",
+    "memory_search",
+    "memory_get",
+    "memory_propose"
+  ],
+  "count": 13,
+  "missing": [],
+  "extra": [],
+  "skills": {
+    "items": [
+      {
+        "id": "demo-skill",
+        "description": "demo skill",
+        "version": "1.0.0",
+        "packageSha": "70853294f5d99f7a20c6f30989017740f8cd9a91adb15c8ce8be2c4f16b26e9d",
+        "tags": [
+          "test"
+        ]
+      }
+    ],
+    "count": 1
+  },
+  "skillView": {
+    "level": "L2",
+    "packageSha": "70853294f5d99f7a20c6f30989017740f8cd9a91adb15c8ce8be2c4f16b26e9d",
+    "fileSha": "2cfad9e92c9ebcdf1c2af8c186e3ce03c46d31a75c6560363483fd6f90576942",
+    "path": "references/a.md",
+    "content": "reference content",
+    "lines": {
+      "total": 1
+    },
+    "updateAvailable": false
+  },
+  "proposal": {
+    "proposalId": "32a02188-f98f-4547-9397-c1edbc885176",
+    "status": "proposed",
+    "candidateSha": "8486665ac31594621d5c51e1dcb7f0ffb03130b82e14dbd57931e997d411ca0b"
+  },
+  "curator": {
+    "action": "status",
+    "active": [
+      {
+        "id": "demo-skill",
+        "description": "demo skill",
+        "version": "1.0.0",
+        "packageSha": "70853294f5d99f7a20c6f30989017740f8cd9a91adb15c8ce8be2c4f16b26e9d",
+        "tags": [
+          "test"
+        ]
+      }
+    ],
+    "proposals": [
+      {
+        "proposal_id": "32a02188-f98f-4547-9397-c1edbc885176",
+        "skill_id": "new-skill",
+        "status": "proposed"
+      }
+    ]
+  },
+  "memorySearch": {
+    "items": [
+      {
+        "id": "f69da9de-38b9-43fe-9529-6ae7b9a671f4",
+        "kind": "fact",
+        "title": "FTS5 recall",
+        "snippet": "agent [evolution] memory from DSH",
+        "rank": -0.000001
+      }
+    ],
+    "count": 1
+  },
+  "memoryGet": {
+    "found": true,
+    "item": {
+      "id": "f69da9de-38b9-43fe-9529-6ae7b9a671f4",
+      "kind": "fact",
+      "title": "FTS5 recall",
+      "body": "agent evolution memory from DSH",
+      "metadata": {
+        "source": "test"
+      },
+      "createdAt": 1793395851459
+    }
+  },
+  "memoryProposal": {
+    "proposalId": "46bf84e9-2a3c-4295-867c-12748fa776b6",
+    "status": "proposed",
+    "tenant": "local"
+  },
+  "checkedAt": "2026-10-30T21:31:47.408Z"
+}

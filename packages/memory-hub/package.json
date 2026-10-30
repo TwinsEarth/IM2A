@@ -1,0 +1,11 @@
+{
+  "name": "@twinsearth/im2a-memory-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SQLite FTS5 memory hub for IM2A Agent Plugins 2.0.",
+  "exports": "./src/index.mjs",
+  "engines": { "node": ">=24" },
+  "scripts": { "test": "node --test test/memory-hub.test.mjs" },
+  "license": "MIT"
+}

@@ -10,6 +10,11 @@
  */
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { SqliteSkillStore } from "../skill-runtime/src/sqlite-store.mjs";
+import { MemoryHub } from "../memory-hub/src/index.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -19,6 +24,14 @@ const SESSION_ID = randomUUID();
 const PROTOCOL_VERSION = "2024-11-05";
 const HARNESS_ID = process.env.IM2A_HARNESS_ID ?? "deepseek-harness";
 const AGENT_NAME = process.env.IM2A_AGENT_NAME ?? "dsh";
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const DB_DIR = process.env.IM2A_MCP_DB_DIR ?? join(ROOT, ".tmp", "im2a-mcp");
+mkdirSync(DB_DIR, { recursive: true });
+const skillStore = new SqliteSkillStore({ path: join(DB_DIR, "skills.db") });
+const memoryHub = new MemoryHub({
+  path: join(DB_DIR, "memory.db"),
+  tenant: process.env.IM2A_TENANT_ID ?? "local",
+});
 
 let gatewaySession = null;
 let lastSeen = 0;
@@ -71,6 +84,97 @@ const TOOLS = [
         limit: { type: "integer", minimum: 1, maximum: 200, default: 50 },
       },
       required: [],
+    },
+  },
+  {
+    name: "skills_list",
+    description: "L0 skill catalog: id, description, version and package hash; no skill body.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer", minimum: 1, maximum: 200, default: 50 },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "skill_view",
+    description: "L1 skill body plus file list, or L2 one reference file with offset/limit.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        path: { type: "string" },
+        offset: { type: "integer", minimum: 0, default: 0 },
+        limit: { type: "integer", minimum: 1, maximum: 65536, default: 65536 },
+        sessionId: { type: "string" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "skill_manage",
+    description: "Create a skill proposal; never mutates active. Promotion is operator-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["create", "patch", "archive"] },
+        id: { type: "string" },
+        baseSha: { type: "string" },
+        content: { type: "string" },
+        files: { type: "object" },
+      },
+      required: ["action", "id"],
+    },
+  },
+  {
+    name: "curator",
+    description: "Curator status/scan/report or stage a proposal; cannot promote or rollback.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["status", "scan", "report", "stage"] },
+        proposalId: { type: "string" },
+        evidence: { type: "array", items: { type: "string" } },
+        evalCases: { type: "array", items: { type: "string" } },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "memory_search",
+    description: "Search the tenant-scoped FTS5 memory hub; returns snippets, not full bodies.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "memory_get",
+    description: "Read one tenant-scoped memory document by id.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "memory_propose",
+    description: "Propose a memory document; does not become searchable until operator promotion.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", default: "fact" },
+        title: { type: "string" },
+        body: { type: "string" },
+        metadata: { type: "object" },
+      },
+      required: ["title", "body"],
     },
   },
 ];
@@ -145,7 +249,7 @@ async function handleRpc(message) {
             version: "0.1.0",
           },
         },
-        instructions: "IM2A HTTP MCP bridge (P0-8): six IM2A tools are available.",
+        instructions: "IM2A Agent Plugins 2.0 bridge: thirteen tools (IM2A bus, skills, memory).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -160,7 +264,7 @@ async function handleRpc(message) {
         resultType: "complete",
         capabilities: { tools: {} },
         serverInfo: { name: "im2a-http-mcp", version: "0.1.0" },
-        instructions: "IM2A HTTP MCP bridge (P0-8): six IM2A tools are available.",
+        instructions: "IM2A Agent Plugins 2.0 bridge: thirteen tools (IM2A bus, skills, memory).",
       },
     };
   }
@@ -233,6 +337,63 @@ async function handleRpc(message) {
         const text = await gatewayRequest(`/v1/harness/messages?session=${encodeURIComponent(session.id)}&since=${since}&limit=${limit}`);
         return { jsonrpc: "2.0", id, result: resultText(text) };
       }
+      if (name === "skills_list") {
+        const query = String(args.query ?? '').toLowerCase();
+        const limit = Math.min(Math.max(Number(args.limit ?? 50), 1), 200);
+        const items = skillStore.list()
+          .filter((item) => !query || item.id.includes(query) || item.description.toLowerCase().includes(query) || item.tags.some((tag) => String(tag).toLowerCase().includes(query)))
+          .slice(0, limit);
+        return { jsonrpc: "2.0", id, result: resultText({ items, count: items.length }) };
+      }
+      if (name === "skill_view") {
+        const result = skillStore.view(String(args.id), {
+          path: args.path ? String(args.path) : undefined,
+          offset: Math.max(Number(args.offset ?? 0), 0),
+          limit: Math.min(Math.max(Number(args.limit ?? 65536), 1), 65536),
+          sessionId: args.sessionId ? String(args.sessionId) : undefined,
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "skill_manage") {
+        const result = skillStore.manage({
+          action: String(args.action),
+          id: String(args.id),
+          baseSha: args.baseSha ? String(args.baseSha) : undefined,
+          content: args.content === undefined ? undefined : String(args.content),
+          files: args.files && typeof args.files === 'object' ? args.files : undefined,
+          proposer: AGENT_NAME,
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "curator") {
+        const action = String(args.action);
+        const result = action === 'stage'
+          ? skillStore.stage(String(args.proposalId), {
+              evidence: Array.isArray(args.evidence) ? args.evidence.map(String) : [],
+              evalCases: Array.isArray(args.evalCases) ? args.evalCases.map(String) : [],
+              stagedBy: AGENT_NAME,
+            })
+          : skillStore.curator({ action });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "memory_search") {
+        if (typeof args.query !== 'string') throw new Error('query is required');
+        const items = memoryHub.search(args.query, { limit: Math.min(Math.max(Number(args.limit ?? 20), 1), 100) });
+        return { jsonrpc: "2.0", id, result: resultText({ items, count: items.length }) };
+      }
+      if (name === "memory_get") {
+        const item = memoryHub.get(String(args.id));
+        return { jsonrpc: "2.0", id, result: resultText({ found: Boolean(item), item }) };
+      }
+      if (name === "memory_propose") {
+        const result = memoryHub.propose({
+          kind: args.kind ? String(args.kind) : 'fact',
+          title: String(args.title ?? ''),
+          body: String(args.body ?? ''),
+          metadata: args.metadata && typeof args.metadata === 'object' ? args.metadata : {},
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {
       return { jsonrpc: "2.0", id, result: resultText(String(error.message), true) };
@@ -291,5 +452,5 @@ server.listen(PORT, HOST, () => {
   console.log(JSON.stringify({ ok: true, transport: "streamable-http", host: HOST, port: PORT, gateway: GATEWAY, tools: TOOLS.map((tool) => tool.name) }));
 });
 
-process.on("SIGTERM", () => server.close(() => process.exit(0)));
-process.on("SIGINT", () => server.close(() => process.exit(0)));
+process.on("SIGTERM", () => server.close(() => { try { skillStore.close(); memoryHub.close(); } catch {} process.exit(0); }));
+process.on("SIGINT", () => server.close(() => { try { skillStore.close(); memoryHub.close(); } catch {} process.exit(0); }));
