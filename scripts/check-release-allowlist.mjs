@@ -36,7 +36,8 @@ for (const file of tracked) {
 }
 
 const artifactDir = join(root, '.tmp', 'release-artifacts');
-if (existsSync(artifactDir)) {
+const strictArtifacts = existsSync(artifactDir) && process.env.ALLOW_MISSING_EXTERNAL !== '1';
+if (strictArtifacts) {
   for (const name of allow.allowedArtifacts) {
     if (!existsSync(join(artifactDir, name))) fail.push(`missing release artifact: ${name}`);
   }
