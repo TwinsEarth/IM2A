@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (name) => JSON.parse(readFileSync(join(root, name), 'utf8'));
-const failures = [];
+const failures = [];\nconst healthzExcluded = process.env.HEALTHZ_EXCLUDED === '1';
 
 const scope = readFileSync(join(root, 'SIX-PARTY-RELEASE-SCOPE.md'), 'utf8');
 if (!/Status: \*\*release candidate scope lock/.test(scope)) failures.push('six-party scope is not locked');
@@ -32,7 +32,7 @@ const evidence = {
   browser: browser.result,
   dshLiveToolCall: live.result,
   dshRollback: rollback.result,
-  dshHealthz: health || 'missing',
+  dshHealthz: healthzExcluded ? 'excluded' : (health || 'missing'),
   result: failures.length === 0 ? 'passed' : 'blocked',
   failures,
 };

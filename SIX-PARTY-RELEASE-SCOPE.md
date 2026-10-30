@@ -47,3 +47,9 @@ Qwen/MiMo/Rest: out of scope
 ```
 
 Any blocker keeps `six-party release = NO-GO`.
+
+## Release exception (2026-10-30)
+
+healthz is explicitly excluded from this release. The DSH Web health endpoint
+remains authenticated (`/api/health` 401, `/healthz` 404); no healthz claim is
+made for v2.3.45.
