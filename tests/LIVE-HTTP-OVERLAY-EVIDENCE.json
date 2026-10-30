@@ -1,0 +1,14 @@
+{
+    "schemaVersion":  "1.0",
+    "checkedAt":  "2026-10-31T07:32:49.4854473+08:00",
+    "package":  "@twinsearth/im2a-dsh-plugin-live",
+    "version":  "0.2.0",
+    "dsh":  "0.2.1-rc.5",
+    "transport":  "streamable-http",
+    "url":  "http://127.0.0.1:18082/mcp",
+    "commandAbsent":  true,
+    "stdioLauncherAbsent":  true,
+    "verifiedIn":  "temporary DSH profile live-http-test",
+    "liveProfileModified":  false,
+    "tarball":  "E:\\GPT\\release\\twinsearth-im2a-dsh-plugin-live-0.2.0.tgz"
+}
