@@ -149,7 +149,9 @@ test('tampering the public part or secret is rejected', () => {
   const issued = r.issueAuthCode({ userId: user.userId, agentSubcode: agent.agentSubcode, scope: ['read'], audience: 'dsh' });
   const tamperedPublic = issued.code.slice(0, -1) + (issued.code.at(-1) === 'A' ? 'B' : 'A');
   assert.throws(() => r.verifyAuthCode(tamperedPublic), /CREDENTIAL_INVALID/);
-  const tamperedSecret = issued.code.slice(0, 35) + 'B' + issued.code.slice(36);
+  const original = issued.code[35];
+  const replacement = original === 'A' ? 'B' : 'A';
+  const tamperedSecret = issued.code.slice(0, 35) + replacement + issued.code.slice(36);
   assert.throws(() => r.verifyAuthCode(tamperedSecret), /CREDENTIAL_INVALID/);
 });
 

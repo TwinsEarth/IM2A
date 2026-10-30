@@ -1,0 +1,97 @@
+{
+  "profileVersion": "2.0",
+  "name": "im2a-fleet-control",
+  "version": "2.5.0",
+  "description": "IM2A Agent Plugins 2.0: fleet control, skill proposals, memory and evolution contracts.",
+  "license": "MIT",
+  "skills": [
+    {
+      "id": "fleet-control",
+      "ref": "skills/fleet-control/SKILL.md",
+      "sha256": "30f0ee523b18e92b3dd6b4c9c31d88e5be66f98cd088d4bf1a31314e9a4eb44b",
+      "profileVersion": "2.0",
+      "tags": ["fleet", "delegation"]
+    },
+    {
+      "id": "memory-sync",
+      "ref": "skills/memory-sync/SKILL.md",
+      "sha256": "e37d6074026fdbbcf973a180b7c957855ac7e40aa6fd0642ca276fe8a9cbc9c0",
+      "profileVersion": "2.0",
+      "tags": ["memory"]
+    },
+    {
+      "id": "session-ref",
+      "ref": "skills/session-ref/SKILL.md",
+      "sha256": "45bdfddf747680f8194bf9fb20cc85d25f950f56eadc190f5839440a3bc99878",
+      "profileVersion": "2.0",
+      "tags": ["session"]
+    },
+    {
+      "id": "resource-schedule",
+      "ref": "skills/resource-schedule/SKILL.md",
+      "sha256": "5ba378e3bcd8022b2731a94ba545a7589adc003548e4ac202f48ecdf7ee23353",
+      "profileVersion": "2.0",
+      "tags": ["schedule"]
+    }
+  ],
+  "mcp": {
+    "serverName": "im2a",
+    "transport": "stdio",
+    "protocolVersion": "2026-07-28",
+    "command": "im2a-mcp",
+    "args": []
+  },
+  "toolCatalogRef": "docs/contracts/fixtures/mcp-bridge-tool-catalog.valid.json",
+  "targets": [
+    "dsh",
+    "openclaw",
+    "qwen-code",
+    "mimo-code",
+    "workbuddy",
+    "codex",
+    "claude",
+    "gemini-cli",
+    "muse",
+    "vscode",
+    "copilot",
+    "doubao"
+  ],
+  "agents": [
+    {
+      "id": "fleet-coordinator",
+      "role": "Coordinate bounded subagents and collect evidence.",
+      "scope": ["bus:read", "bus:send", "skill:read", "memory:read"],
+      "tools": ["skills_list", "skill_view", "memory_search", "im2a_send"],
+      "maxDepth": 2,
+      "budget": { "maxTokens": 64000, "maxWallMs": 600000 },
+      "outputContract": { "format": "json", "required": ["result", "evidence"] }
+    },
+    {
+      "id": "skill-curator",
+      "role": "Propose skill candidates; never mutate active skills.",
+      "scope": ["skill:read", "skill:propose"],
+      "tools": ["skills_list", "skill_view", "skill_manage", "curator"],
+      "maxDepth": 0,
+      "budget": { "maxTokens": 16000, "maxWallMs": 120000 }
+    }
+  ],
+  "formations": [
+    {
+      "id": "research-then-build",
+      "version": "1.0.0",
+      "roles": ["fleet-coordinator", "skill-curator"],
+      "edges": [
+        { "from": "fleet-coordinator", "to": "skill-curator", "mode": "sequential" }
+      ],
+      "entry": "fleet-coordinator",
+      "termination": { "maxDepth": 2, "maxFanout": 3, "maxRounds": 3 },
+      "failurePolicy": "partial-degrade"
+    }
+  ],
+  "learning": {
+    "evalRefs": ["docs/contracts/fixtures/trajectory-record.synthetic.json"],
+    "curatorPolicy": "propose-only",
+    "promotionGates": ["eval-floor-20", "approval", "rollback-drill"],
+    "retentionDays": 365
+  }
+}

@@ -34,3 +34,15 @@ jobs:
         run: node --test packages/ident-code/test/ident-code.test.mjs
       - name: Release allow-list and version check
         run: node scripts/check-release-allowlist.mjs
+      - name: Skill runtime tests
+        run: node --test packages/skill-runtime/test/skill-runtime.test.mjs
+      - name: Agent Plugins 2.0 projection
+        run: node scripts/check-agent-plugins-2.mjs
+      - name: v2.5.0 contracts and boundaries
+        run: |
+          node scripts/check-bridge-contracts.mjs
+          node scripts/check-trajectory-contract.mjs
+          node scripts/check-trajectory-pipeline.mjs
+          node scripts/check-training-backend.mjs
+          node scripts/check-v250-boundaries.mjs
+          node scripts/validate-realtime.mjs

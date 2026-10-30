@@ -1,0 +1,400 @@
+{
+  "profileVersion": "2.0",
+  "toolCatalogVersion": "2.5.0",
+  "mcp": {
+    "protocolVersion": "2026-07-28",
+    "transport": "streamable-http",
+    "resumability": "none",
+    "listTtlMs": 3600000,
+    "cacheScopePolicy": "private-when-scoped"
+  },
+  "tools": [
+    {
+      "name": "im2a_harness_list",
+      "title": "List harnesses",
+      "description": "List the harnesses registered on the IM2A bus and the current selection. Use before addressing a peer or choosing a transport.",
+      "scope": ["bus:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": { "type": "object", "properties": {}, "required": [], "additionalProperties": false },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "harnesses": { "type": "array", "items": { "type": "object" } },
+          "selected": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "required": ["harnesses", "count"]
+      },
+      "errors": ["NOT_AUTHORIZED", "UPSTREAM_UNAVAILABLE", "INTERNAL"]
+    },
+    {
+      "name": "im2a_send",
+      "title": "Send bus message",
+      "description": "Send one message to the IM2A bus: broadcast, a harness, an agent, or a session. Use when another agent must act or must know something.",
+      "scope": ["bus:send"],
+      "sideEffect": "message-send",
+      "idempotency": "keyed",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "description": "broadcast | harness:<id> | agent:<name> | <session id>; defaults to broadcast" },
+          "text": { "type": "string", "description": "Message body; UTF-8, at most 8000 bytes" },
+          "clientMsgId": { "type": "string", "description": "Idempotency key; resend with the same value after a timeout" },
+          "meta": { "type": "object", "description": "Structured metadata; never credentials" }
+        },
+        "required": ["text"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "messageId": { "type": "string" },
+          "seq": { "type": "integer" },
+          "conversationId": { "type": "string" },
+          "dedupe": { "type": "string" }
+        },
+        "required": ["messageId", "seq"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "RATE_LIMITED", "UPSTREAM_UNAVAILABLE"]
+    },
+    {
+      "name": "im2a_recv",
+      "title": "Drain bus inbox",
+      "description": "Drain new bus messages for the caller's own cursor. Use after a send or while waiting for a handoff reply; it advances only the caller's cursor.",
+      "scope": ["bus:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "limit": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Max messages to return; defaults to 50" } },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "messages": { "type": "array", "items": { "type": "object" } },
+          "count": { "type": "integer" },
+          "nextSeq": { "type": "integer" }
+        },
+        "required": ["messages", "count", "nextSeq"]
+      },
+      "errors": ["NOT_AUTHORIZED", "UPSTREAM_UNAVAILABLE", "UNVERIFIED"]
+    },
+    {
+      "name": "im2a_presence",
+      "title": "List online sessions",
+      "description": "List online harness sessions with their agent names. Use to check whether a peer is reachable before a handoff.",
+      "scope": ["bus:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": { "type": "object", "properties": {}, "required": [], "additionalProperties": false },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "sessions": { "type": "array", "items": { "type": "object" } }, "count": { "type": "integer" } },
+        "required": ["sessions", "count"]
+      },
+      "errors": ["NOT_AUTHORIZED", "UPSTREAM_UNAVAILABLE"]
+    },
+    {
+      "name": "im2a_whoami",
+      "title": "Show resolved identity",
+      "description": "Return this bridge's harness id, agent name, resolved principal and scope. Use to confirm identity before any send.",
+      "scope": ["bus:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "inputSchema": { "type": "object", "properties": {}, "required": [], "additionalProperties": false },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "harness": { "type": "string" },
+          "agent": { "type": "string" },
+          "principalUserId": { "type": "string" },
+          "scope": { "type": "array", "items": { "type": "string" } },
+          "transport": { "type": "string" }
+        },
+        "required": ["harness", "agent", "transport"]
+      },
+      "errors": ["NOT_AUTHORIZED"]
+    },
+    {
+      "name": "im2a_history",
+      "title": "Read bus history",
+      "description": "Read bus history for the caller from a given sequence number. Use to replay after a gap, never to poll for new messages.",
+      "scope": ["bus:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "since": { "type": "integer", "minimum": 0, "description": "Exclusive lower bound on seq; 0 reads from the retention floor" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Max messages to return; defaults to 50" }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "messages": { "type": "array", "items": { "type": "object" } },
+          "head": { "type": "integer" },
+          "resyncRequired": { "type": "boolean" }
+        },
+        "required": ["messages", "head"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "UPSTREAM_UNAVAILABLE"]
+    },
+    {
+      "name": "skills_list",
+      "title": "List skill index",
+      "description": "List the effective skill index at L0: id, description, version and package hash only. Use first, before loading any skill body.",
+      "scope": ["skill:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Case-insensitive substring over id, description and tags" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Max skills to return; defaults to 50" },
+          "cursor": { "type": "string", "description": "Opaque cursor from a previous call" }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "type": "object" } },
+          "total": { "type": "integer" },
+          "nextCursor": { "type": "string" },
+          "indexEtag": { "type": "string" },
+          "delta": { "type": "object" }
+        },
+        "required": ["items", "total", "indexEtag"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INTERNAL"]
+    },
+    {
+      "name": "skill_view",
+      "title": "Load skill (L1/L2)",
+      "description": "Load one skill at L1 (body plus file list) or L2 (one reference file, paged). Use after skills_list matched the id.",
+      "scope": ["skill:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Skill id from skills_list" },
+          "path": { "type": "string", "description": "Omit for L1; set a manifest path for L2" },
+          "offset": { "type": "integer", "minimum": 1, "description": "L2 line offset; defaults to 1" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 2000, "description": "L2 line limit" }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "version": { "type": "string" },
+          "profileVersion": { "type": "string" },
+          "packageSha": { "type": "string" },
+          "etag": { "type": "string" },
+          "body": { "type": "string" },
+          "bodyBytes": { "type": "integer" },
+          "files": { "type": "array", "items": { "type": "object" } },
+          "provenance": { "type": "object" },
+          "updateAvailable": { "type": "boolean" },
+          "disclosure": { "type": "object" },
+          "text": { "type": "string" },
+          "lines": { "type": "object" }
+        },
+        "required": ["id", "packageSha", "etag", "disclosure"]
+      },
+      "errors": ["NOT_AUTHORIZED", "SKILL_NOT_FOUND", "SKILL_VERSION_GONE", "PATH_INVALID", "PATH_NOT_FOUND", "BINARY_FILE"]
+    },
+    {
+      "name": "skill_manage",
+      "title": "Propose skill change",
+      "description": "Propose a skill change (create, patch, archive, write_file, remove_file). Use instead of editing skills: it never touches the active pointer.",
+      "scope": ["skill:propose"],
+      "sideEffect": "proposal-write",
+      "idempotency": "keyed",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": { "enum": ["create", "patch", "archive", "write_file", "remove_file"], "description": "Proposal kind" },
+          "id": { "type": "string", "description": "Skill id; kebab-case, immutable" },
+          "proposalId": { "type": "string", "description": "Required for write_file and remove_file" },
+          "baseSha": { "type": "string", "description": "Current active packageSha; patch and archive require it" },
+          "description": { "type": "string", "description": "At most 60 characters, no newline" },
+          "version": { "type": "string", "description": "Semver; defaults to a patch bump" },
+          "body": { "type": "string", "description": "SKILL.md body after frontmatter; at most 32 KiB" },
+          "path": { "type": "string", "description": "Support file under references/, templates/, examples/ or scripts/" },
+          "content": { "type": "string", "description": "Support file text; at most 64 KiB" },
+          "evidence": { "type": "object", "description": "traceIds, failureRefs, reason; reason is required" },
+          "message": { "type": "string", "description": "Human note for the approver" }
+        },
+        "required": ["action", "id"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "proposalId": { "type": "string" },
+          "status": { "enum": ["proposed"] },
+          "skillId": { "type": "string" },
+          "kind": { "type": "string" },
+          "baseSha": { "type": "string" },
+          "candidateSha": { "type": "string" },
+          "diff": { "type": "object" },
+          "gates": { "type": "array", "items": { "type": "object" } },
+          "next": { "type": "string" },
+          "traceId": { "type": "string" }
+        },
+        "required": ["proposalId", "status", "skillId", "kind", "candidateSha"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "SKILL_EXISTS", "SKILL_NOT_FOUND", "SKILL_READ_ONLY", "BASE_MISMATCH", "PROPOSAL_NOT_FOUND", "PROPOSAL_NOT_OWNED", "PROPOSAL_NOT_EDITABLE", "PROPOSAL_LIMIT", "INVALID_ID", "DESCRIPTION_TOO_LONG", "BODY_TOO_LARGE", "PATH_INVALID", "FILE_TOO_LARGE", "NFC_REQUIRED"]
+    },
+    {
+      "name": "curator",
+      "title": "Curator actions",
+      "description": "Run curator-only skill lifecycle actions: status, scan, propose, stage, report. Never promotes or rolls back, and is mounted only for the curator identity.",
+      "scope": ["skill:curate"],
+      "sideEffect": "proposal-write",
+      "idempotency": "keyed",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": { "enum": ["status", "scan", "propose", "stage", "report"], "description": "status/scan/report are read-only; propose/stage write proposals and staging" },
+          "proposalId": { "type": "string", "description": "Required for stage" },
+          "skillId": { "type": "string", "description": "Filter or target skill" },
+          "kind": { "type": "string", "description": "Proposal kind for propose" },
+          "evidence": { "type": "object", "description": "Evidence attached to a proposal" },
+          "evalRun": { "type": "object", "description": "Deterministic eval result; absent means eval pending" },
+          "dryRun": { "type": "boolean", "description": "Report the gates without staging" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Max candidates or rows to return" }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "lastScanAt": { "type": "string" },
+          "counts": { "type": "object" },
+          "pinned": { "type": "array", "items": { "type": "string" } },
+          "pendingProposals": { "type": "array", "items": { "type": "object" } },
+          "candidates": { "type": "array", "items": { "type": "object" } },
+          "runId": { "type": "string" },
+          "proposalId": { "type": "string" },
+          "status": { "type": "string" },
+          "packageSha": { "type": "string" },
+          "gates": { "type": "array", "items": { "type": "object" } },
+          "eval": { "type": "object" },
+          "markdown": { "type": "string" }
+        },
+        "required": []
+      },
+      "errors": ["NOT_AUTHORIZED", "FORBIDDEN", "INVALID_ARGUMENT", "PROPOSAL_NOT_FOUND", "BASE_MISMATCH", "CANDIDATE_DRIFT", "STAGE_SCHEMA", "STAGE_CONTENT"]
+    },
+    {
+      "name": "memory_search",
+      "title": "Search fleet memory",
+      "description": "Search scoped fleet memory facts by query and topic. Use before re-deriving an answer that may already be recorded.",
+      "scope": ["memory:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Free-text query over statements and topics" },
+          "scope": { "enum": ["local", "project", "fleet"], "description": "Defaults to project; may narrow, never broaden, on denial" },
+          "topics": { "type": "array", "items": { "type": "string" }, "description": "Require every topic to match" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 50, "description": "Max facts to return; defaults to 20" },
+          "includeStale": { "type": "boolean", "description": "Include superseded facts; defaults to false" }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "facts": { "type": "array", "items": { "type": "object" } },
+          "total": { "type": "integer" },
+          "nextCursor": { "type": "string" },
+          "degraded": { "type": "object" }
+        },
+        "required": ["facts", "total"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "UPSTREAM_UNAVAILABLE", "INTERNAL"]
+    },
+    {
+      "name": "memory_get",
+      "title": "Read memory fact",
+      "description": "Read one memory fact by its stable ref. Use when a search result needs full provenance or the revision history.",
+      "scope": ["memory:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ref": { "type": "string", "description": "Stable fact ref, opaque and never a path" },
+          "includeHistory": { "type": "boolean", "description": "Include superseded revisions; defaults to false" }
+        },
+        "required": ["ref"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": { "fact": { "type": "object" }, "history": { "type": "array", "items": { "type": "object" } } },
+        "required": ["fact"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "STALE_REFERENCE", "UPSTREAM_UNAVAILABLE"]
+    },
+    {
+      "name": "memory_propose",
+      "title": "Propose memory fact",
+      "description": "Propose one durable memory fact for approval. Use instead of writing memory: this call never changes active memory.",
+      "scope": ["memory:propose"],
+      "sideEffect": "proposal-write",
+      "idempotency": "keyed",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "statement": { "type": "string", "description": "One durable fact, decision or convention; no transcripts, no credentials" },
+          "topics": { "type": "array", "items": { "type": "string" }, "description": "At least one topic for retrieval" },
+          "scope": { "enum": ["local", "project", "fleet"], "description": "Defaults to local; cross-agent sharing needs approval" },
+          "source": { "type": "object", "description": "platform, device, recordedAt; never a credential" },
+          "supersedes": { "type": "string", "description": "Ref of the fact this proposal replaces, if any" },
+          "idempotencyKey": { "type": "string", "description": "Replays return the first proposalId" },
+          "rationale": { "type": "string", "description": "Why the fact is durable; shown to the approver" }
+        },
+        "required": ["statement", "topics", "idempotencyKey"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "proposalId": { "type": "string" },
+          "state": { "enum": ["pending-approval"] },
+          "dedupe": { "enum": ["created", "replayed"] },
+          "conflicts": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["proposalId", "state", "dedupe"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "MEMORY_CONFLICT", "RATE_LIMITED", "UPSTREAM_UNAVAILABLE"]
+    }
+  ]
+}

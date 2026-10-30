@@ -1,0 +1,101 @@
+{
+  "schema": "docs/contracts/agent-plugin-2.0.schema.json",
+  "base": "docs/contracts/fixtures/agent-plugin-2.0.valid.json",
+  "note": "Negatives are mutations of the valid manifest; validMutations are positive controls proving a rule is not simply 'reject everything http'.",
+  "cases": [
+    {
+      "id": "P1",
+      "why": "a 2.0 document without profileVersion is indistinguishable from 1.0",
+      "unset": ["profileVersion"],
+      "expect": "missing required profileVersion"
+    },
+    {
+      "id": "P2",
+      "why": "content addressing without a hash cannot support promotion or rollback by pointer",
+      "unset": ["skills.0.sha256"],
+      "expect": "missing required sha256"
+    },
+    {
+      "id": "P3",
+      "why": "the harness set is closed at 12; a thirteenth id must fail, not warn",
+      "set": { "targets.0": "not-a-harness" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "P4",
+      "why": "plain http to a non-loopback host must be rejected",
+      "set": {
+        "mcp.transport": "streamable-http",
+        "mcp.url": "http://10.0.0.5:18082/mcp",
+        "mcp.tlsRequired": false
+      },
+      "expect": "pattern mismatch"
+    },
+    {
+      "id": "P5",
+      "why": "fan-out above 5 exceeds merge capacity; the limit must be schema-enforced, not prose",
+      "set": { "formations.0.termination.maxFanout": 9 },
+      "expect": "above maximum"
+    },
+    {
+      "id": "P6",
+      "why": "prompts are harness-side; smuggling one into the protocol must fail",
+      "set": { "prompt": "You are a helpful agent" },
+      "expect": "unexpected property"
+    },
+    {
+      "id": "P7",
+      "why": "depth above 2 is rejected by policy before it becomes a runaway chain",
+      "set": { "agents.0.maxDepth": 3 },
+      "expect": "above maximum"
+    },
+    {
+      "id": "P8",
+      "why": "the curator may only propose; auto-promotion is the rejected R1 design",
+      "set": { "learning.curatorPolicy": "auto-promote" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "P9",
+      "why": "a truncated hash must not be accepted as content addressing",
+      "set": { "skills.0.sha256": "abc123" },
+      "expect": "pattern mismatch"
+    },
+    {
+      "id": "P10",
+      "why": "SSE-only transport is not a declared profile transport; 2026-07-28 streamable-http is",
+      "set": { "mcp.transport": "sse" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "P11",
+      "why": "duplicate skills would ship twice with two different hashes to two targets",
+      "set": { "skills": ["skills/fleet-control/SKILL.md", "skills/fleet-control/SKILL.md"] },
+      "expect": "duplicate item"
+    },
+    {
+      "id": "P12",
+      "why": "failurePolicy is a closed set: silent-ignore is exactly the failure this release forbids",
+      "set": { "formations.0.failurePolicy": "ignore" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "P13",
+      "why": "a 2.0 document carries content-addressed skill objects; a bare 1.0 path is produced only by projection",
+      "set": { "skills": ["skills/fleet-control/SKILL.md"] },
+      "expect": "expected object"
+    }
+  ],
+  "validMutations": [
+    {
+      "id": "P-V1",
+      "why": "loopback http is allowed only when the manifest says so explicitly",
+      "set": {
+        "mcp.transport": "streamable-http",
+        "mcp.url": "http://127.0.0.1:18082/mcp",
+        "mcp.tlsRequired": false,
+        "mcp.allowInsecureLoopback": true
+      }
+    }
+  ]
+}

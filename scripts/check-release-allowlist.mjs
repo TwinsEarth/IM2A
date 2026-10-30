@@ -10,12 +10,12 @@ const packageJson = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const matrix = JSON.parse(readFileSync(join(root, 'version-matrix.json'), 'utf8'));
 const manifest = JSON.parse(readFileSync(join(root, 'release-manifest.json'), 'utf8'));
 
-if (allow.version !== '2.4.6') fail.push('allow-list version must be 2.4.6');
-if (packageJson.version !== '2.4.6') fail.push('package.json version must be 2.4.6');
-if (matrix.platform?.version !== '2.4.6') fail.push('version-matrix platform must be 2.4.6');
-if (matrix.platform?.tag !== 'v2.4.6') fail.push('version-matrix tag must be v2.4.6');
-if (manifest.platformVersion !== '2.4.6') fail.push('release-manifest platformVersion must be 2.4.6');
-if (manifest.releaseTag !== 'v2.4.6') fail.push('release-manifest tag must be v2.4.6');
+if (allow.version !== '2.5.0') fail.push('allow-list version must be 2.5.0');
+if (packageJson.version !== '2.5.0') fail.push('package.json version must be 2.5.0');
+if (matrix.platform?.version !== '2.5.0') fail.push('version-matrix platform must be 2.5.0');
+if (matrix.platform?.tag !== 'v2.5.0') fail.push('version-matrix tag must be v2.5.0');
+if (manifest.platformVersion !== '2.5.0') fail.push('release-manifest platformVersion must be 2.5.0');
+if (manifest.releaseTag !== 'v2.5.0') fail.push('release-manifest tag must be v2.5.0');
 
 const tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
   .split('\n')

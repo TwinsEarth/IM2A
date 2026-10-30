@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/mcp-bridge-tool-catalog-2.0.json",
+  "title": "IM2A MCP bridge tool catalog 2.0 (draft)",
+  "description": "Normative catalog of the tools the IM2A MCP bridge exposes to clients. A tool result stays plain JSON in content[0].text, so this catalog adds no MCP method and no MCP version. Scope strings are the only authorization vocabulary; a tool without a scope cannot be registered. Skill tool names and shapes are owned by docs/design/SKILL-RUNTIME-MVP-v2.5.0.md §4; this catalog must not rename them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profileVersion", "toolCatalogVersion", "mcp", "tools"],
+  "properties": {
+    "profileVersion": { "const": "2.0" },
+    "toolCatalogVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocolVersion", "transport", "listTtlMs", "cacheScopePolicy"],
+      "properties": {
+        "protocolVersion": { "const": "2026-07-28" },
+        "transport": { "enum": ["stdio", "streamable-http"] },
+        "resumability": { "enum": ["none", "last-event-id"] },
+        "listTtlMs": { "type": "integer", "minimum": 0, "maximum": 3600000 },
+        "cacheScopePolicy": {
+          "enum": ["public", "private-when-scoped"],
+          "description": "private-when-scoped: tools/list is caller-dependent, so cacheScope must be private."
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/tool" }
+    }
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "title", "description", "scope", "sideEffect", "idempotency", "inputSchema", "outputSchema", "errors"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory)_[a-z][a-z0-9_]{2,40}|curator)$" },
+        "title": { "type": "string", "minLength": 3 },
+        "description": { "type": "string", "minLength": 40 },
+        "scope": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/scope" }
+        },
+        "sideEffect": { "enum": ["none", "read", "proposal-write", "message-send"] },
+        "idempotency": { "enum": ["pure", "keyed", "at-most-once"] },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "readOnlyHint": { "type": "boolean" },
+            "destructiveHint": { "type": "boolean" },
+            "idempotentHint": { "type": "boolean" }
+          }
+        },
+        "inputSchema": { "$ref": "#/$defs/jsonObjectSchema" },
+        "outputSchema": { "$ref": "#/$defs/jsonObjectSchema" },
+        "errors": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/errorCode" }
+        }
+      }
+    },
+    "scope": {
+      "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "memory:read", "memory:propose"],
+      "description": "Closed set. skill:curate mounts only for the curator identity; promotion scopes (memory:promote, skill:promote) are deliberately absent: promotion is an L6 governance action, never a tool."
+    },
+    "errorCode": {
+      "enum": [
+        "NOT_AUTHORIZED",
+        "INVALID_ARGUMENT",
+        "FORBIDDEN",
+        "RATE_LIMITED",
+        "UPSTREAM_UNAVAILABLE",
+        "UNVERIFIED",
+        "INTERNAL",
+        "SKILL_NOT_FOUND",
+        "SKILL_EXISTS",
+        "SKILL_READ_ONLY",
+        "SKILL_VERSION_GONE",
+        "BASE_MISMATCH",
+        "PROPOSAL_NOT_FOUND",
+        "PROPOSAL_NOT_OWNED",
+        "PROPOSAL_NOT_EDITABLE",
+        "PROPOSAL_LIMIT",
+        "CANDIDATE_DRIFT",
+        "STAGE_SCHEMA",
+        "STAGE_CONTENT",
+        "INVALID_ID",
+        "DESCRIPTION_TOO_LONG",
+        "BODY_TOO_LARGE",
+        "PATH_INVALID",
+        "PATH_NOT_FOUND",
+        "FILE_TOO_LARGE",
+        "BINARY_FILE",
+        "NFC_REQUIRED",
+        "MEMORY_CONFLICT",
+        "STALE_REFERENCE"
+      ],
+      "description": "IM2A namespace codes in UPPER_SNAKE, matching SKILL-RUNTIME-MVP-v2.5.0 §4. The bridge does not paraphrase subsystem codes."
+    },
+    "jsonObjectSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "properties"],
+      "properties": {
+        "type": { "const": "object" },
+        "properties": { "type": "object", "additionalProperties": { "type": "object" } },
+        "required": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "additionalProperties": { "type": "boolean" }
+      }
+    }
+  }
+}

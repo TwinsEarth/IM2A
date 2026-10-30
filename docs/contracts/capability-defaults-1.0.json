@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "1.0",
+  "status": "draft",
+  "description": "Default state for every v2.5.0 trajectory/RL capability. Two capabilities are on by default because they cannot touch user data or a production reply path. Everything else is off and needs its own decision, evidence, and stop condition. Absence of a decision is off.",
+  "capabilities": [
+    {
+      "id": "synthetic_trajectory_generation",
+      "title": "Synthetic trajectory generation (no personal data)",
+      "default": "on",
+      "gate": "preflight",
+      "owner": "training-data",
+      "preconditions": ["record and manifest schemas frozen", "redaction policy and scanner pass", "fake backend cannot pass clean-load"],
+      "evidenceRef": "scripts/check-trajectory-contract.mjs; scripts/check-trajectory-pipeline.mjs",
+      "stopCondition": "any schema or deny-list check fails; stop generation and fix the contract, not the samples",
+      "reason": "Engineering risk only; no user data and no model promotion."
+    },
+    {
+      "id": "offline_eval_harness",
+      "title": "Offline evaluation harness (read-only)",
+      "default": "on",
+      "gate": "preflight",
+      "owner": "eval",
+      "preconditions": ["evaluator version and promptSetHash frozen", "decoding frozen", "no write path"],
+      "evidenceRef": "docs/contracts/eval-metrics-1.0.json",
+      "stopCondition": "evaluator or prompt set changes; retire the eval version and re-run the baseline",
+      "reason": "Read-only; cannot mutate production or spend GPU budget."
+    },
+    {
+      "id": "production_trajectory_capture",
+      "title": "Production trajectory capture (de-identified)",
+      "default": "off",
+      "gate": "privacy",
+      "owner": "privacy",
+      "preconditions": ["F-01/F-02/F-03/F-07 closed with dynamic evidence", "tenth privacy release gate green", "consent coverage 100%", "deletion drill recorded"],
+      "evidenceRef": "docs/privacy/IM2A-IDENTITY-PRIVACY-REVIEW-v2.3.45.md",
+      "stopCondition": "any cross-subject read, missing consent, or credential hit; stop capture and quarantine the dataset",
+      "reason": "A service-token collector over query-derived subjects would reproduce cross-user reads and fake deletion inside the training set."
+    },
+    {
+      "id": "human_approval_events_in_training",
+      "title": "Human approval events as labels (gate/approval)",
+      "default": "off",
+      "gate": "signal",
+      "owner": "behaviour",
+      "preconditions": ["approval semantics review", "label policy review", "gate and approval turns excluded from loss"],
+      "evidenceRef": "docs/design/IM2A-v2.5.0-TRAJECTORY-RL-BOUNDARY.md §4.3",
+      "stopCondition": "any gate/approval token carries loss, or the model self-approves in probes",
+      "reason": "Without an explicit label policy the model learns 'request approval' as 'approve myself'."
+    },
+    {
+      "id": "consented_sft",
+      "title": "Consent-based SFT",
+      "default": "off",
+      "gate": "controlled",
+      "owner": "training",
+      "preconditions": ["P2 gate passed", "subject-level split", "withdrawal drill", "matched baseline"],
+      "evidenceRef": "docs/design/GATE-RECORD-v2.5.0-SFT-SYNTHETIC.md",
+      "stopCondition": "any eval subject appears in train; the experiment is void, not retuned",
+      "reason": "A subject cannot be removed from weights; withdrawal must mean stop + rebuild + retrain."
+    },
+    {
+      "id": "dpo_preference_pairs",
+      "title": "Preference pairs and DPO training",
+      "default": "off",
+      "gate": "signal",
+      "owner": "training",
+      "preconditions": ["pair integrity proven after tokenization", "chosen/rejected remain distinct", "response-preserving truncation"],
+      "evidenceRef": "docs/design/IM2A-v2.5.0-TRAJECTORY-RL-BOUNDARY.md §3",
+      "stopCondition": "effective-pair collapse (identical token sequences) or near-random preference accuracy",
+      "reason": "Truncation can collapse chosen/rejected into the same sequence; tuning beta would hide a data bug."
+    },
+    {
+      "id": "grpo_rlvr",
+      "title": "GRPO / RLVR",
+      "default": "off",
+      "gate": "controlled",
+      "owner": "training",
+      "preconditions": ["reward validated against held-out quality", "non-degenerate group variance", "length-matched ablation"],
+      "evidenceRef": "docs/contracts/eval-metrics-1.0.json",
+      "stopCondition": "zero-variance groups or reward rising while held-out exact match is flat",
+      "reason": "No validated reward exists; approval rate is confounded by trust tier and payment."
+    },
+    {
+      "id": "model_output_as_label",
+      "title": "Model output as automatic label",
+      "default": "off",
+      "gate": "privacy",
+      "owner": "data",
+      "preconditions": ["human spot-check", "upstream ToS verified", "provenance recorded"],
+      "evidenceRef": "license ledger",
+      "stopCondition": "unverified ToS or self-distillation collapse",
+      "reason": "Upstream terms may forbid training a competing model; self-labels amplify errors."
+    },
+    {
+      "id": "auto_promote_to_reply",
+      "title": "Automatic promotion to the reply path",
+      "default": "off",
+      "gate": "controlled",
+      "owner": "release",
+      "preconditions": ["shadow evaluation", "matched comparator", "rollback drill", "checkpoint release record"],
+      "evidenceRef": "docs/design/IM2A-v2.5.0-TRAJECTORY-RL-BOUNDARY.md §9.3",
+      "stopCondition": "no matched comparator or failed clean-load; do not promote",
+      "reason": "A rising training metric is not a held-out quality claim."
+    },
+    {
+      "id": "third_party_training_api",
+      "title": "Third-party training API / cross-border training",
+      "default": "off",
+      "gate": "privacy",
+      "owner": "privacy",
+      "preconditions": ["cross-border register", "DPA", "egress allow-list"],
+      "evidenceRef": "privacy review F-11",
+      "stopCondition": "any unregistered endpoint or unapproved jurisdiction",
+      "reason": "Sending conversations across a border changes the legal basis."
+    },
+    {
+      "id": "full_tool_output_in_training",
+      "title": "Full tool output in training data",
+      "default": "off",
+      "gate": "privacy",
+      "owner": "data",
+      "preconditions": ["per-dataset approval", "redaction level full justified as supervision signal"],
+      "evidenceRef": "redaction policy tool-output levels",
+      "stopCondition": "any file content, URL, or email enters the dataset without approval",
+      "reason": "Tool output routinely contains third-party PII."
+    },
+    {
+      "id": "checkpoint_auto_register_or_resume",
+      "title": "Checkpoint auto-registration or resume",
+      "default": "off",
+      "gate": "controlled",
+      "owner": "release",
+      "preconditions": ["expected inventory", "full hash manifest", "clean-load probe"],
+      "evidenceRef": "checkpoint release record",
+      "stopCondition": "missing shard, index, or failed load probe; block release and resume",
+      "reason": "A directory existing is not a complete distributed checkpoint."
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/agent-plugin-2.0.json",
+  "title": "IM2A Agent Plugins 2.0 profile (draft)",
+  "description": "Self-describing packaging profile. 1.0 stays frozen in packages/protocol/schemas/agent-plugin.schema.json; a 2.0 document must project onto 1.0 by stripping the 2.0-only blocks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profileVersion", "name", "version", "description", "skills", "mcp", "targets"],
+  "properties": {
+    "profileVersion": { "const": "2.0" },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+    "description": { "type": "string", "minLength": 1 },
+    "license": { "type": "string" },
+    "skills": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/skillRef" }
+    },
+    "mcp": { "$ref": "#/$defs/mcp" },
+    "toolCatalogRef": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9._/-]+$",
+      "description": "Repo-relative path of the tool catalog instance this plugin ships."
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/target" }
+    },
+    "agents": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/agent" } },
+    "formations": { "type": "array", "items": { "$ref": "#/$defs/formation" } },
+    "learning": { "$ref": "#/$defs/learning" },
+    "extensions": { "type": "array", "uniqueItems": true, "items": { "type": "string", "format": "uri" } }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mcp": {
+            "required": ["allowInsecureLoopback"],
+            "properties": { "allowInsecureLoopback": { "const": true } }
+          }
+        },
+        "required": ["mcp"]
+      },
+      "then": {
+        "properties": {
+          "mcp": { "properties": { "url": { "pattern": "^http://(127\\.0\\.0\\.1|\\[::1\\])(:[0-9]+)?(/|$)" } } }
+        }
+      },
+      "else": {
+        "properties": {
+          "mcp": { "properties": { "url": { "pattern": "^https://" } } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "target": {
+      "enum": [
+        "dsh", "openclaw", "qwen-code", "mimo-code", "workbuddy",
+        "codex", "claude", "gemini-cli", "muse", "vscode",
+        "copilot", "doubao"
+      ]
+    },
+    "scope": { "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "memory:read", "memory:propose"] },
+    "skillRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ref", "sha256"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+        "ref": { "type": "string", "pattern": "^skills/[a-z0-9-]+/SKILL\\.md$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "profileVersion": { "enum": ["1.0", "2.0"] },
+        "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serverName", "transport", "protocolVersion"],
+      "properties": {
+        "serverName": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$" },
+        "transport": { "enum": ["stdio", "streamable-http"] },
+        "protocolVersion": { "const": "2026-07-28" },
+        "command": { "type": "string" },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "env": { "type": "object", "additionalProperties": { "type": "string" } },
+        "url": { "type": "string", "format": "uri" },
+        "tlsRequired": { "type": "boolean" },
+        "allowInsecureLoopback": { "type": "boolean" },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "transport": { "const": "stdio" } }, "required": ["transport"] },
+          "then": { "required": ["command"] }
+        },
+        {
+          "if": { "properties": { "transport": { "const": "streamable-http" } }, "required": ["transport"] },
+          "then": { "required": ["url", "tlsRequired"] }
+        }
+      ]
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+        "role": { "type": "string", "minLength": 3 },
+        "scope": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/scope" } },
+        "tools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory)_[a-z][a-z0-9_]{2,40}|curator)$" }
+        },
+        "maxDepth": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxTokens"],
+          "properties": {
+            "maxTokens": { "type": "integer", "minimum": 1 },
+            "maxWallMs": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "outputContract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["format"],
+          "properties": {
+            "format": { "enum": ["json", "markdown", "patch"] },
+            "required": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+          }
+        },
+        "modelRouteHint": { "type": "string" }
+      }
+    },
+    "formation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "roles", "edges", "entry", "termination", "failurePolicy"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "roles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "edges": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to", "mode"],
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "mode": { "enum": ["sequential", "parallel", "fanout"] }
+            }
+          }
+        },
+        "entry": { "type": "string" },
+        "termination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxDepth", "maxFanout", "maxRounds"],
+          "properties": {
+            "maxDepth": { "type": "integer", "minimum": 0, "maximum": 2 },
+            "maxFanout": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "maxRounds": { "type": "integer", "minimum": 1, "maximum": 3 }
+          }
+        },
+        "failurePolicy": { "enum": ["partial-degrade", "retry-once", "abort"] }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evalRefs", "curatorPolicy", "promotionGates", "retentionDays"],
+      "properties": {
+        "evalRefs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 3 } },
+        "curatorPolicy": { "enum": ["propose-only"] },
+        "promotionGates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["eval-floor-20", "shadow-traffic", "approval", "rollback-drill"] }
+        },
+        "retentionDays": { "type": "integer", "minimum": 1, "maximum": 3650 }
+      }
+    }
+  }
+}

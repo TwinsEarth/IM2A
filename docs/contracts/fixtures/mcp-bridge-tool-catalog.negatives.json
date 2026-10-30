@@ -1,0 +1,98 @@
+{
+  "schema": "docs/contracts/mcp-bridge-tool-catalog-2.0.schema.json",
+  "base": "docs/contracts/fixtures/mcp-bridge-tool-catalog.valid.json",
+  "note": "Each case mutates one field of the valid catalog, so a negative cannot pass by drifting away from the real surface.",
+  "cases": [
+    {
+      "id": "T1",
+      "why": "memory:write is not in the closed scope vocabulary; only proposals may be written",
+      "set": { "tools.0.scope": ["memory:write"] },
+      "expect": "not in enum"
+    },
+    {
+      "id": "T2",
+      "why": "tool names are verb_noun with underscores; a hyphen breaks the harness tool id mcp__im2a__<name>",
+      "set": { "tools.0.name": "skill-load" },
+      "expect": "pattern mismatch"
+    },
+    {
+      "id": "T3",
+      "why": "a description shorter than 40 chars cannot say when to use the tool",
+      "set": { "tools.0.description": "Load it." },
+      "expect": "shorter than minLength"
+    },
+    {
+      "id": "T4",
+      "why": "error codes are a closed set; free text would make agent recovery unprogrammable",
+      "set": { "tools.0.errors": ["unknown-error"] },
+      "expect": "not in enum"
+    },
+    {
+      "id": "T5",
+      "why": "inputSchema must describe an object; a scalar schema means the caller cannot send named arguments",
+      "set": { "tools.0.inputSchema": { "type": "string", "properties": {} } },
+      "expect": "expected const"
+    },
+    {
+      "id": "T6",
+      "why": "sideEffect classes drive approval routing; an invented class would bypass it",
+      "set": { "tools.0.sideEffect": "write" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "T7",
+      "why": "unknown root keys must fail loudly instead of being ignored by a lenient reader",
+      "set": { "prompt": "system prompt smuggled into the catalog" },
+      "expect": "unexpected property"
+    },
+    {
+      "id": "T8",
+      "why": "without profileVersion a reader cannot tell which profile to parse",
+      "unset": ["profileVersion"],
+      "expect": "missing required profileVersion"
+    },
+    {
+      "id": "T9",
+      "why": "a tool without declared errors cannot be recovered from",
+      "unset": ["tools.0.errors"],
+      "expect": "missing required errors"
+    },
+    {
+      "id": "T10",
+      "why": "the bridge must not drift from the pinned MCP version",
+      "set": { "mcp.protocolVersion": "2025-06-18" },
+      "expect": "expected const"
+    },
+    {
+      "id": "T11",
+      "why": "a caller-dependent tool list cannot be publicly cacheable",
+      "set": { "mcp.cacheScopePolicy": "public-always" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "T12",
+      "why": "a tool without a scope is an unauthenticated capability",
+      "unset": ["tools.0.scope"],
+      "expect": "missing required scope"
+    },
+    {
+      "id": "T13",
+      "why": "one error-code convention only: UPPER_SNAKE, matching the skill runtime; a second casing means two vocabularies",
+      "set": { "tools.0.errors": ["not-authorized"] },
+      "expect": "not in enum"
+    },
+    {
+      "id": "T14",
+      "why": "the unprefixed name form is exactly 'curator'; any other prefix-less name must fail",
+      "set": { "tools.0.name": "curator2" },
+      "expect": "pattern mismatch"
+    }
+  ],
+  "validMutations": [
+    {
+      "id": "T-V1",
+      "why": "the curator mount point is the one unprefixed tool name; its scope comes from the semantic map in the checker, not from the pattern",
+      "set": { "tools.0.name": "curator", "tools.0.scope": ["skill:curate"] }
+    }
+  ]
+}

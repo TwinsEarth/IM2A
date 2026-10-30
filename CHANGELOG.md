@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.5.0 — 2026-10-30
+
+Agent Plugins 2.0 and evolution contracts.
+
+- Added Agent Plugins 2.0 source manifest, v2 schema, 1.0 projection check, agents/formations/learning declarations.
+- Added proposal-only skill runtime with L0/L1/L2 progressive disclosure, staging/eval floor, operator promotion, pointer rollback, session pinning.
+- Added realtime D/P/C contracts, trajectory/RL default-off boundaries, MCP bridge tool catalog, and negative-control checks.
+- Healthz remains excluded; production RL and external endpoint wiring are not claimed.
+- Tests: skill runtime 8/8; ident-code 16/16; contract/boundary checks PASS.
+## Unreleased — v2.5.0 realtime contract layer
+
+Contract-level work only. No wire protocol, MCP method, or A2A extension was added.
+Runtime is **not** ready: see `docs/adr/0006-realtime-session-semantics.md` §5.
+
+- Added `packages/protocol/schemas/realtime-message.schema.json` (D/P/C). Presence and control variants have no payload/content field and `additionalProperties:false`, so they cannot carry text around the egress guard.
+- Added 3 positive + 2 negative message fixtures; a `TEXT` message without `clientMsgId` is now invalid by construction.
+- Added `scripts/validate-realtime.mjs` and wired it into `scripts/validate.mjs` (`schemaChecks` 6→7); the realtime profile schema was previously unexecuted.
+- Added ADR 0006 (D/P/C, cursor 4-tuple, takeover/`SUPERSEDED`, drain via 503, per-channel backpressure, double rate limit).
+- Added `tests/TEST-MATRIX-v2.5.0-REALTIME.md`: 25 cases across six parties; 0 complete real-machine passes.
+- Found and recorded a current-code defect: the harness SSE fanout does not filter by session, so any authenticated subscriber receives every message (`im2agent/internal/api/harness.go:231-245`, ADR G3 / RT-21). Both repositories still need a fix; no test in this repo covers it.
+- Tests: P0 4/4, validation PASS with 7 schema checks.
+
 ## v2.4.6 — 2026-10-30
 
 Six-party release with the release-workflow and ident-code fixes.

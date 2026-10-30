@@ -1,0 +1,13 @@
+{
+  "name": "@twinsearth/im2a-training-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "IM2A v2.5.0 TrainingBackend contract and a deterministic fake backend. No backend is enabled by default and the fake backend cannot pass a clean-load probe.",
+  "exports": {
+    ".": "./src/contract.ts",
+    "./registry": "./src/registry.mjs",
+    "./fake": "./src/fake-backend.mjs",
+    "./plan": "./src/plan.mjs"
+  }
+}

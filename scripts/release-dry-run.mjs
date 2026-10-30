@@ -24,13 +24,22 @@ function gitClean() {
 gitClean();
 run('validate', ['scripts/validate.mjs']);
 run('p0 tests', ['tests/p0.test.mjs']);
+run('ident-code tests', ['--test', 'packages/ident-code/test/ident-code.test.mjs']);
+run('skill-runtime tests', ['--test', 'packages/skill-runtime/test/skill-runtime.test.mjs']);
+run('agent-plugins-2', ['scripts/check-agent-plugins-2.mjs']);
+run('bridge-contracts', ['scripts/check-bridge-contracts.mjs']);
+run('trajectory-contract', ['scripts/check-trajectory-contract.mjs']);
+run('trajectory-pipeline', ['scripts/check-trajectory-pipeline.mjs']);
+run('training-backend', ['scripts/check-training-backend.mjs']);
+run('v250-boundaries', ['scripts/check-v250-boundaries.mjs']);
+run('realtime', ['scripts/validate-realtime.mjs']);
 run('compat', ['scripts/compat-check.mjs']);
 const healthzExcluded = process.env.HEALTHZ_EXCLUDED === '1';
 if (!healthzExcluded) run('healthz', ['scripts/healthz.mjs']);
 
 rmSync(artifacts, { recursive: true, force: true });
 mkdirSync(artifacts, { recursive: true });
-const hostTgz = join(artifacts, 'twinsearth-im2a-dsh-plugin-0.1.1.tgz');
+const hostTgz = join(artifacts, 'twinsearth-im2a-dsh-plugin-0.2.0.tgz');
 const tarResult = spawnSync('tar', ['-czf', hostTgz, '-C', join(root, 'packages'), 'im2a-dsh-plugin'], {
   cwd: root,
   encoding: 'utf8',
@@ -45,7 +54,7 @@ const inputs = [
 ];
 const hashes = [];
 if (tarResult.status === 0) {
-  hashes.push(`${createHash('sha256').update(readFileSync(hostTgz)).digest('hex')}  ${'twinsearth-im2a-dsh-plugin-0.1.1.tgz'}`);
+  hashes.push(`${createHash('sha256').update(readFileSync(hostTgz)).digest('hex')}  ${'twinsearth-im2a-dsh-plugin-0.2.0.tgz'}`);
 }
 for (const [source, name] of inputs) {
   try {

@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/trajectory-dataset-manifest-1.0.json",
+  "title": "IM2A trajectory dataset manifest 1.0 (draft)",
+  "description": "Dataset-level contract for a frozen trajectory set. A manifest hash is referenced by every record (datasetRef.manifestSha256) and by every checkpoint, so a weight can always be traced back to the data version it consumed. Draft; not yet wired into scripts/validate.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "dataset",
+    "counts",
+    "splits",
+    "redaction",
+    "license",
+    "consent",
+    "integrity",
+    "frozen"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "createdAt", "sourceQuery", "filters", "collectorVersion", "recordSchemaId"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][A-Za-z0-9.-]+)?$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "sourceQuery": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "filters": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "collectorVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "recordSchemaId": { "const": "https://im2a.dev/schemas/trajectory-record-1.0.json" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["records", "train", "eval", "holdout", "quarantined", "subjects"],
+      "properties": {
+        "records": { "type": "integer", "minimum": 0 },
+        "train": { "type": "integer", "minimum": 0 },
+        "eval": { "type": "integer", "minimum": 0 },
+        "holdout": { "type": "integer", "minimum": 0 },
+        "quarantined": { "type": "integer", "minimum": 0 },
+        "subjects": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "splits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "seed", "frozenAt", "evalWindow"],
+      "properties": {
+        "unit": { "const": "subject" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "frozenAt": { "type": "string", "format": "date-time" },
+        "evalWindow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "properties": {
+            "from": { "type": "string", "format": "date-time" },
+            "to": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyVersion", "residualRisk", "counts"],
+      "properties": {
+        "policyVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "residualRisk": { "enum": ["low", "medium", "high"] },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "authCode",
+            "token",
+            "phone",
+            "email",
+            "idCard",
+            "wxid",
+            "deviceId",
+            "ip",
+            "sessionRef",
+            "url",
+            "filePath"
+          ],
+          "properties": {
+            "authCode": { "type": "integer", "minimum": 0 },
+            "token": { "type": "integer", "minimum": 0 },
+            "userCode": { "type": "integer", "minimum": 0 },
+            "phone": { "type": "integer", "minimum": 0 },
+            "email": { "type": "integer", "minimum": 0 },
+            "idCard": { "type": "integer", "minimum": 0 },
+            "wxid": { "type": "integer", "minimum": 0 },
+            "deviceId": { "type": "integer", "minimum": 0 },
+            "ip": { "type": "integer", "minimum": 0 },
+            "sessionRef": { "type": "integer", "minimum": 0 },
+            "url": { "type": "integer", "minimum": 0 },
+            "filePath": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codeLicense", "dataBasis", "modelOutputTerms", "ledgerRef"],
+      "properties": {
+        "codeLicense": { "const": "MIT" },
+        "dataBasis": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["explicit_opt_in", "internal_dogfood", "synthetic", "public_license"] }
+        },
+        "modelOutputTerms": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "ledgerRef": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredBasis", "coverageRatio", "withdrawnSubjects"],
+      "properties": {
+        "requiredBasis": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["explicit_opt_in", "internal_dogfood", "synthetic", "public_license"] }
+        },
+        "coverageRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "withdrawnSubjects": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recordSchemaSha256", "shards", "dedupe"],
+      "properties": {
+        "recordSchemaSha256": {
+          "description": "SHA-256 over canonical JSON of trajectory-record 1.0 (keys sorted, no whitespace), not over the file bytes.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "shards": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256", "records"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "records": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "dedupe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exactDupes", "nearDupes", "nearDupeThreshold"],
+          "properties": {
+            "exactDupes": { "type": "integer", "minimum": 0 },
+            "nearDupes": { "type": "integer", "minimum": 0 },
+            "nearDupeThreshold": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "frozen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frozenAt", "frozenBy", "hashManifestSha256"],
+      "properties": {
+        "frozenAt": { "type": "string", "format": "date-time" },
+        "frozenBy": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "hashManifestSha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

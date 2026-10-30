@@ -1,0 +1,92 @@
+{
+  "profileVersion": "2.0",
+  "name": "im2a-fleet-control",
+  "version": "0.2.0",
+  "description": "IM2A fleet control, skill pool and scoped memory facade",
+  "license": "MIT",
+  "toolCatalogRef": "docs/contracts/fixtures/mcp-bridge-tool-catalog.valid.json",
+  "skills": [
+    {
+      "id": "fleet-control",
+      "ref": "skills/fleet-control/SKILL.md",
+      "sha256": "7b26bf1124ab230fcb436076e9b0b244b78cea8d208de4357d41d702c29ff9cf",
+      "profileVersion": "2.0",
+      "tags": ["coordination", "handoff"]
+    },
+    {
+      "id": "memory-sync",
+      "ref": "skills/memory-sync/SKILL.md",
+      "sha256": "9f1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f9012345678abc",
+      "profileVersion": "2.0",
+      "tags": ["memory", "approval"]
+    },
+    {
+      "id": "session-ref",
+      "ref": "skills/session-ref/SKILL.md",
+      "sha256": "5d41402abc4b2a76b9719d911017c592b8f4e2a6c1d3e5f7091b2c3d4e5f6a7b",
+      "profileVersion": "2.0"
+    },
+    {
+      "id": "resource-schedule",
+      "ref": "skills/resource-schedule/SKILL.md",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "profileVersion": "2.0"
+    }
+  ],
+  "mcp": {
+    "serverName": "im2a",
+    "transport": "stdio",
+    "protocolVersion": "2026-07-28",
+    "command": "${IM2A_MCP_BIN}",
+    "args": [],
+    "env": {
+      "IM2A_HARNESS_URL": "${IM2A_HARNESS_URL}",
+      "IM2A_HARNESS_TOKEN": "${IM2A_HARNESS_TOKEN}"
+    },
+    "timeoutMs": 30000
+  },
+  "targets": [
+    "dsh", "openclaw", "qwen-code", "mimo-code", "workbuddy",
+    "codex", "claude", "gemini-cli", "muse", "vscode",
+    "copilot", "doubao"
+  ],
+  "agents": [
+    {
+      "id": "planner",
+      "role": "Plans and delegates; never writes outside its scope",
+      "scope": ["bus:read", "bus:send", "skill:read"],
+      "tools": ["im2a_harness_list", "im2a_presence", "im2a_send", "skills_list", "skill_view"],
+      "maxDepth": 2,
+      "budget": { "maxTokens": 40000, "maxWallMs": 120000 },
+      "outputContract": { "format": "json", "required": ["plan", "owners"] }
+    },
+    {
+      "id": "analyst",
+      "role": "Reads scoped memory and proposes durable facts",
+      "scope": ["memory:read", "memory:propose", "skill:read"],
+      "tools": ["memory_search", "memory_get", "memory_propose", "skills_list"],
+      "maxDepth": 0,
+      "budget": { "maxTokens": 20000 },
+      "outputContract": { "format": "markdown", "required": ["findings"] }
+    }
+  ],
+  "formations": [
+    {
+      "id": "plan-then-read",
+      "version": "1.0.0",
+      "roles": ["planner", "analyst"],
+      "edges": [
+        { "from": "planner", "to": "analyst", "mode": "parallel" }
+      ],
+      "entry": "planner",
+      "termination": { "maxDepth": 2, "maxFanout": 5, "maxRounds": 3 },
+      "failurePolicy": "partial-degrade"
+    }
+  ],
+  "learning": {
+    "evalRefs": ["tests/eval/planner-cases.jsonl"],
+    "curatorPolicy": "propose-only",
+    "promotionGates": ["eval-floor-20", "approval", "rollback-drill"],
+    "retentionDays": 90
+  }
+}

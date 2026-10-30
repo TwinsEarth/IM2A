@@ -10,7 +10,7 @@ import { validateSchema } from "../scripts/schema-validator.mjs";
 test("P0 version matrix, schemas, and generated dist are consistent", async () => {
   const result = await validateP0();
   assert.equal(result.ok, true);
-  assert.equal(result.platform, "2.4.6");
+  assert.equal(result.platform, "2.5.0");
   assert.equal(result.go, "2.3.26");
   assert.equal(result.adapters, 12);
   assert.equal(result.targets, 12);
@@ -20,7 +20,8 @@ test("P0 version matrix, schemas, and generated dist are consistent", async () =
   assert.equal(result.mcp, "2026-07-28");
   assert.match(result.sourceHash, /^[0-9a-f]{64}$/);
   assert.equal(result.generatedTargets, 12);
-  assert.equal(result.schemaChecks, 6);
+  assert.equal(result.realtimeChannels, 3);
+  assert.equal(result.schemaChecks, 7);
 });
 
 test("A2A negative fixture is rejected", async () => {
@@ -30,6 +31,17 @@ test("A2A negative fixture is rejected", async () => {
     new URL("../packages/protocol/fixtures/a2a-agent-card.negative.json", import.meta.url), "utf8"));
   const result = validateSchema(schema, negative);
   assert.equal(result.ok, false);
+});
+
+test("realtime P channel cannot carry content", async () => {
+  const schema = JSON.parse(await readFile(
+    new URL("../packages/protocol/schemas/realtime-message.schema.json", import.meta.url), "utf8"));
+  const presence = JSON.parse(await readFile(
+    new URL("../packages/protocol/fixtures/realtime-message.presence.json", import.meta.url), "utf8"));
+  const smuggled = JSON.parse(await readFile(
+    new URL("../packages/protocol/fixtures/realtime-message.negative.json", import.meta.url), "utf8"));
+  assert.equal(validateSchema(schema, presence).ok, true);
+  assert.equal(validateSchema(schema, smuggled).ok, false);
 });
 
 test("tampered source cannot self-heal during validation", async () => {

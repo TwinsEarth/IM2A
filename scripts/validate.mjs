@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { generate } from "../packages/agent-plugins/generator/src/generate.mjs";
 import { assertValid, validateSchema } from "./schema-validator.mjs";
+import { validateRealtime } from "./validate-realtime.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = path.resolve(here, "..");
@@ -36,7 +37,7 @@ export async function validateP0({ root = defaultRoot } = {}) {
   const identPackage = await readJson(root, "packages/ident-code/package.json");
   const identSchema = await readJson(root, "packages/protocol/schemas/ident-code.schema.json");
 
-  if (matrix.platform.version !== "2.4.6") throw new Error("platform version mismatch");
+  if (matrix.platform.version !== "2.5.0") throw new Error("platform version mismatch");
   if (matrix.go.version !== "2.3.26") throw new Error("go version mismatch");
   if (matrix.releaseGates.length !== GATES.length) throw new Error("release gates must be nine");
 
@@ -62,6 +63,11 @@ export async function validateP0({ root = defaultRoot } = {}) {
   assertValid(pluginSchema, plugin, "Agent plugin source");
   assertValid(sessionSchema, sessionFixture, "session-ref fixture");
   for (const adapter of adapters) assertValid(adapterSchema, adapter, `adapter ${adapter.id}`);
+
+  // v2.5.0 realtime contracts: profile constants + the D/P/C message shape.
+  // The profile and message schema are checked together because the design claim
+  // "presence and control cannot carry content" must hold structurally.
+  const realtime = await validateRealtime({ root });
 
   // P0-1: the DSH host bundle must be an insert patch, not a bare id override,
   // and must pin the fixed DSH build.
@@ -143,7 +149,8 @@ export async function validateP0({ root = defaultRoot } = {}) {
     sourceHash: checked.sourceHash,
     generatedTargets: checked.targets,
     dshHostPlugin: `${dshPackage.name}@${dshPackage.version}`,
-    schemaChecks: 6
+    realtimeChannels: realtime.channels,
+    schemaChecks: 7
   };
 }
 

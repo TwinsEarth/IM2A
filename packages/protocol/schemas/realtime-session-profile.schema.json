@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/realtime-session-profile-1.0.json",
+  "title": "IM2A realtime session profile 1.0",
+  "description": "Local policy profile for IM2A v2.5.0 realtime collaboration sessions. This file extends NO wire protocol: it constrains how the pinned MCP 2026-07-28 and A2A 1.0 surfaces are used, and carries IM2A's own constants. The upstream MCP specification and the pinned A2A artifact remain authoritative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profileVersion",
+    "protocolVersion",
+    "convergenceModel",
+    "noNewMcpMethods",
+    "noNewA2aExtensions",
+    "transports",
+    "channels",
+    "resume",
+    "backoff",
+    "backpressure",
+    "presence",
+    "dedupe",
+    "limits"
+  ],
+  "properties": {
+    "profileVersion": { "const": "1.0" },
+    "protocolVersion": {
+      "const": "2026-07-28",
+      "description": "Pinned MCP version. Must equal packages/protocol/versions.json protocols.mcp.protocolVersion."
+    },
+    "convergenceModel": {
+      "const": "sequenced-log",
+      "description": "Convergence is achieved by a server-sequenced append-only log plus idempotent apply and cursor replay. CRDT/OT are explicitly out of scope; see docs/design/IM2A-v2.5.0-REALTIME-COLLAB-SESSION.md section 12."
+    },
+    "noNewMcpMethods": {
+      "const": true,
+      "description": "Guard: this profile must not introduce MCP methods. Drain signalling uses HTTP 503 + Retry-After and IM2A tool-result fields only."
+    },
+    "noNewA2aExtensions": {
+      "const": true,
+      "description": "Guard: A2A stays at the pinned v1.0.1 surface; any extension requires a new ADR and a new pin."
+    },
+    "transports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stdio", "streamableHttp"],
+      "properties": {
+        "stdio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sessionLifetime", "resumeScope"],
+          "properties": {
+            "sessionLifetime": {
+              "const": "process",
+              "description": "A stdio MCP session lives exactly as long as the child process."
+            },
+            "resumeScope": {
+              "const": "durable-only",
+              "description": "In-flight operations are lost with the process; recovery is mailbox cursor replay, never in-memory queue replay."
+            }
+          }
+        },
+        "streamableHttp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sessionHeader", "resumeHeader", "sessionIdResumeForbidden", "loopbackExempt", "tlsRequired"],
+          "properties": {
+            "sessionHeader": { "const": "mcp-session-id" },
+            "resumeHeader": { "const": "last-event-id" },
+            "sessionIdResumeForbidden": {
+              "const": true,
+              "description": "Mcp-Session-Id must never be used as a resume cursor: it is reissued on deploy and idle reclamation."
+            },
+            "loopbackExempt": {
+              "enum": ["loopback-only", "forbidden"],
+              "description": "Resolves the conflict between mcp-profile.schema.json (https required) and the local bridge's plaintext http://127.0.0.1 usage. 'loopback-only' permits plaintext exclusively for 127.0.0.1/::1 and still forbids it for any non-loopback host; 'forbidden' requires TLS even on loopback."
+            },
+            "tlsRequired": {
+              "const": true,
+              "description": "TLS is required for every non-loopback endpoint regardless of loopbackExempt."
+            }
+          }
+        }
+      }
+    },
+    "channels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["durable", "presence", "control"],
+      "properties": {
+        "durable": { "$ref": "#/$defs/durableChannel" },
+        "presence": { "$ref": "#/$defs/ephemeralChannel" },
+        "control": { "$ref": "#/$defs/ephemeralChannel" }
+      }
+    },
+    "resume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursorFields", "retentionSeqs", "maxBatch", "onGapBelowFloor", "onGapAboveHead", "reverifyIdentity"],
+      "properties": {
+        "cursorFields": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["principalUserId", "agentId", "conversationId", "lastAppliedSeq"] }
+        },
+        "retentionSeqs": { "type": "integer", "minimum": 1 },
+        "maxBatch": { "type": "integer", "minimum": 1 },
+        "onGapBelowFloor": { "const": "RESYNC_REQUIRED" },
+        "onGapAboveHead": { "const": "CURSOR_INVALID" },
+        "reverifyIdentity": {
+          "const": true,
+          "description": "Resume re-validates signed card + token and the delegation chain. A token revoked while offline must not resume."
+        }
+      }
+    },
+    "backoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseMs", "factor", "capMs", "jitter", "herdGuardMs", "retryAfterPrecedence"],
+      "properties": {
+        "baseMs": { "type": "integer", "minimum": 100 },
+        "factor": { "type": "integer", "minimum": 2 },
+        "capMs": { "type": "integer", "minimum": 1000 },
+        "jitter": { "const": "full" },
+        "herdGuardMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Extra per-client random offset applied after a drain, so a batch of drained clients does not reconnect in lockstep."
+        },
+        "retryAfterPrecedence": { "const": true }
+      }
+    },
+    "backpressure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outboundQueueEntries", "outboundQueueBytes", "overflow", "inbound"],
+      "properties": {
+        "outboundQueueEntries": { "type": "integer", "minimum": 1 },
+        "outboundQueueBytes": { "type": "integer", "minimum": 1024 },
+        "overflow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["durable", "presence", "control"],
+          "properties": {
+            "durable": {
+              "const": "drop-push-resync",
+              "description": "The log is never dropped; only pending pushes are. The client is told resyncRequired and replays from its cursor."
+            },
+            "presence": { "const": "coalesce-last" },
+            "control": { "const": "drop-oldest" }
+          }
+        },
+        "inbound": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["turnInboxCapacity", "mailboxCapacityPerAgent", "maxMessageBytes", "maxTextBytes"],
+          "properties": {
+            "turnInboxCapacity": { "type": "integer", "minimum": 1 },
+            "mailboxCapacityPerAgent": { "type": "integer", "minimum": 1 },
+            "maxMessageBytes": { "type": "integer", "minimum": 1 },
+            "maxTextBytes": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "presence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["heartbeatMs", "serverTimeoutMs", "ttlMs", "coalesceHz", "maxFields", "allowsFreeText", "audited"],
+      "properties": {
+        "heartbeatMs": { "type": "integer", "minimum": 1000 },
+        "serverTimeoutMs": { "type": "integer", "minimum": 1000 },
+        "ttlMs": { "type": "integer", "minimum": 1000 },
+        "coalesceHz": { "type": "integer", "minimum": 1, "maximum": 60 },
+        "maxFields": { "type": "integer", "minimum": 1 },
+        "allowsFreeText": {
+          "const": false,
+          "description": "Presence is structurally incapable of carrying content. The egress guard only inspects payload.content, so a free-text presence field would be an uninspected exfiltration path."
+        },
+        "audited": {
+          "const": false,
+          "description": "Presence is ephemeral and is never written to the signed audit log or the mailbox."
+        }
+      }
+    },
+    "dedupe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keyTemplate", "ttlMs", "returnOriginalResult", "scope"],
+      "properties": {
+        "keyTemplate": { "const": "principalUserId:clientMsgId" },
+        "ttlMs": {
+          "type": "integer",
+          "minimum": 3600000,
+          "description": "Must be at least the largest accepted offline retry window."
+        },
+        "returnOriginalResult": {
+          "const": true,
+          "description": "A duplicate must return the first result (messageId + seq). Remembering only the key leaves the caller unable to advance its cursor."
+        },
+        "scope": { "const": "per-principal" }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ratePerAgentPerMin",
+        "ratePerPrincipalPerMin",
+        "maxConnectionsPerPrincipal",
+        "maxDelegatedChildren",
+        "presenceSubscribesToMembership"
+      ],
+      "properties": {
+        "ratePerAgentPerMin": { "type": "integer", "minimum": 1 },
+        "ratePerPrincipalPerMin": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Outer ceiling covering a principal and every agent it delegated to; closes the delegation rate-amplification gap."
+        },
+        "maxConnectionsPerPrincipal": { "type": "integer", "minimum": 1 },
+        "maxDelegatedChildren": { "type": "integer", "minimum": 0 },
+        "presenceSubscribesToMembership": {
+          "const": true,
+          "description": "Presence authorization is checked once at subscribe time (channel membership), not per event. Removal must actively close the subscription to bound the stale window."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "durableChannel": {
+      "description": "D channel. Sequenced, persisted, audited, unread-counting, and the only class allowed to carry message content.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequenced", "persisted", "audited", "mayCarryContent", "countsUnread"],
+      "properties": {
+        "sequenced": { "const": true },
+        "persisted": { "const": true },
+        "audited": { "const": true },
+        "mayCarryContent": { "const": true },
+        "countsUnread": { "const": true }
+      }
+    },
+    "ephemeralChannel": {
+      "description": "P/C channel. Unsequenced, unpersisted, unaudited, never counts unread, and structurally incapable of carrying content. This is what stops presence and CMD from becoming an uninspected exfiltration path around the egress guard.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequenced", "persisted", "audited", "mayCarryContent", "countsUnread"],
+      "properties": {
+        "sequenced": { "const": false },
+        "persisted": { "const": false },
+        "audited": { "const": false },
+        "mayCarryContent": { "const": false },
+        "countsUnread": { "const": false }
+      }
+    }
+  }
+}

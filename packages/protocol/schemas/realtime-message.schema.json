@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/realtime-message-1.0.json",
+  "title": "IM2A realtime message 1.0 (D/P/C)",
+  "description": "Structure of one realtime message on the three frozen channel classes. This file adds NO wire protocol, NO MCP method and NO A2A extension: every property below is either an existing field of harness.Message (im2agent/internal/harness/bus.go:43-51), an existing field of the IM2A envelope (agent-im contracts/INTERFACES.md section 10), or a field the v2.5.0 design already froze (docs/design/IM2A-v2.5.0-REALTIME-COLLAB-SESSION.md sections 2, 4 and 8.2). The schema's job is the one thing prose cannot enforce: the P and C channel classes are STRUCTURALLY incapable of carrying content, because their variants have no payload/content/text property and additionalProperties is false.",
+  "oneOf": [
+    { "$ref": "#/$defs/durable" },
+    { "$ref": "#/$defs/presence" },
+    { "$ref": "#/$defs/control" }
+  ],
+  "$defs": {
+    "durable": {
+      "$comment": "D channel. Sequenced, persisted, audited, unread-counting, the only class that may carry content.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conversationId", "channelClass", "kind", "messageId", "seq", "from", "to", "at", "payload"],
+      "properties": {
+        "conversationId": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Ordering domain. seq is only comparable inside one conversationId (INTERFACES.md:385)."
+        },
+        "channelClass": { "const": "D" },
+        "kind": {
+          "enum": ["TEXT", "AGENT_TURN", "APPROVAL_CARD", "INTENT"],
+          "$comment": "MESSAGE_KIND minus CMD. CMD is C-channel only: stored=false, unread-exempt (INTERFACES.md:521,547)."
+        },
+        "messageId": {
+          "type": "string",
+          "pattern": "^msg-[A-Za-z0-9._:-]{1,64}$",
+          "$comment": "Gateway-generated canonical id. One clientMsgId always maps to one messageId."
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "$comment": "Server-assigned, strictly increasing per conversationId (SeqAllocator.next, INTERFACES.md:371-375). Clients must not submit it. Today the live bus carries Message.id instead, which is global rather than per-conversation (bus.go:45,206) - see ADR 0006 D2."
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Sender session id. Harness sessions are 'hs_' + 12 hex (bus.go:78-82); A2A-originated senders use their own task identity, so no pattern is imposed here."
+        },
+        "to": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "broadcast | harness:<id> | agent:<name> | <session id> (bus.go:175)."
+        },
+        "at": { "type": "string", "format": "date-time", "$comment": "Server clock. Display only; never an ordering input." },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "content": { "type": "string", "minLength": 1, "maxLength": 8000 }
+          },
+          "$comment": "Body lives here because payload.content is the field the egress guard inspects (agent-gateway.mjs:361-387). 8000 bytes is the frozen per-message text cap (bus.go:18, im2a-http-mcp/server.mjs:206)."
+        },
+        "clientMsgId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "$comment": "Idempotency key, client-generated, never reused across principals. Dedupe key space is principalUserId:clientMsgId (profile dedupe.keyTemplate)."
+        },
+        "bizType": { "enum": ["APPROVAL_CARD", "STRANGER_INTENT", "AGENT_DIGEST", "NORMAL_TEXT", "SYSTEM_NOTICE"] },
+        "bizId": { "type": "string", "minLength": 1 },
+        "traceId": { "type": "string", "minLength": 1 },
+        "trustZone": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "origin": { "type": "string", "minLength": 1, "$comment": "Publishing node id, for cross-node fanout dedupe (INTERFACES.md:1418)." },
+        "meta": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["kind"], "properties": { "kind": { "const": "TEXT" } } },
+          "then": {
+            "required": ["clientMsgId"],
+            "properties": { "payload": { "required": ["content"] } }
+          },
+          "$comment": "A client-sent text message without its dedupe key cannot be retried safely, so it is invalid by construction."
+        }
+      ]
+    },
+    "presence": {
+      "$comment": "P channel. Unsequenced, unpersisted, unaudited, TTL-scoped, coalesced. Numeric/boolean state only: there is deliberately no place to put a sentence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conversationId", "channelClass", "memberId", "at"],
+      "anyOf": [
+        { "required": ["cursor"] },
+        { "required": ["selection"] },
+        { "required": ["typing"] },
+        { "required": ["viewport"] }
+      ],
+      "properties": {
+        "conversationId": { "type": "string", "minLength": 1 },
+        "channelClass": { "const": "P" },
+        "memberId": { "type": "string", "minLength": 1, "$comment": "Subject of the presence: a session id or channel member id." },
+        "at": { "type": "string", "format": "date-time" },
+        "cursor": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0 },
+          "$comment": "Numeric coordinates only. Wall-clock and free text are both rejected."
+        },
+        "selection": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        },
+        "viewport": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        },
+        "typing": { "type": "boolean" },
+        "ttlMs": { "type": "integer", "minimum": 1000, "maximum": 60000 },
+        "origin": { "type": "string", "minLength": 1 }
+      }
+    },
+    "control": {
+      "$comment": "C channel. Unsequenced, stored=false, at-most-once, delivered only to subscribed agents. Closed command enum, numeric/boolean args, no free text.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conversationId", "channelClass", "kind", "command", "from", "at"],
+      "properties": {
+        "conversationId": { "type": "string", "minLength": 1 },
+        "channelClass": { "const": "C" },
+        "kind": { "const": "CMD" },
+        "command": {
+          "enum": ["INTERRUPT", "RESUME_HINT"],
+          "$comment": "The only two control codes named by the v2.5.0 design (section 8.2). Extending this enum is a design change, not a schema tweak."
+        },
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "at": { "type": "string", "format": "date-time" },
+        "args": {
+          "type": "object",
+          "additionalProperties": { "type": ["integer", "boolean"] },
+          "$comment": "Numeric/boolean scalars only: a string arg would reopen the uninspected egress path."
+        },
+        "origin": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

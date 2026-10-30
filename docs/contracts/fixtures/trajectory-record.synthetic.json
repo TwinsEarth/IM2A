@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1.0",
+  "trajectoryId": "trj_01J9Z8K3QF7M2C5V8B1N4T6R0X",
+  "datasetRef": {
+    "name": "im2a-synth-gate-1",
+    "version": "0.1.0",
+    "manifestSha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "source": {
+    "harness": "dsh",
+    "platformVersion": "2.4.6",
+    "gatewayVersion": "2.3.26",
+    "model": {
+      "provider": "synthetic",
+      "id": "scripted-approval-v1",
+      "decoding": { "temperature": 0, "topP": 1, "maxTokens": 1024 }
+    },
+    "templateHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "checkpointDigest": null
+  },
+  "consent": {
+    "basis": "synthetic",
+    "scope": ["train", "eval"],
+    "subjectRef": "sub_3c9f1a7d5b2e4086",
+    "grantedAt": "2026-10-30T12:00:00Z",
+    "expiresAt": "2027-10-30T12:00:00Z",
+    "revokedAt": null,
+    "policyVersion": "consent-1.0",
+    "evidenceRef": "evd_synth:gate-1:batch-0007"
+  },
+  "split": {
+    "name": "train",
+    "splitKey": "sub_3c9f1a7d5b2e4086",
+    "seed": 20261030,
+    "frozenAt": "2026-10-30T12:00:00Z"
+  },
+  "conversations": [
+    { "from": "system", "value": "你是 IM2A 助手的规划器。策略：任何写操作先申请审批。", "at": 0 },
+    { "from": "human", "value": "帮我把周五的家庭聚餐改到周六，地点发我 <PHONE>，菜单见 <URL>。", "at": 1200 },
+    {
+      "from": "gpt",
+      "value": "需要调用 calendar.update；该操作需审批，已提交审批单。",
+      "at": 2600,
+      "toolCalls": [
+        {
+          "name": "calendar.update",
+          "argumentsDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "status": "pending_approval"
+        }
+      ]
+    },
+    { "from": "gate", "value": "REQUIRE_APPROVAL", "at": 2700, "gateDecision": "REQUIRE_APPROVAL", "toolName": "calendar.update" },
+    { "from": "approval", "value": "approved", "at": 5400, "approvalOutcome": "approved" },
+    { "from": "tool", "value": "{\"ok\":true,\"eventId\":\"evt_0001\"}", "at": 5600, "toolName": "calendar.update", "toolStatus": "ok" },
+    { "from": "gpt", "value": "已改到周六 18:30，并通知了两位成员。", "at": 6100 }
+  ],
+  "labels": {
+    "mode": "assistant_only",
+    "trainableRoles": ["gpt"],
+    "maskedRoles": ["system", "human", "tool", "gate", "approval"],
+    "ignoreIndex": -100,
+    "verified": true,
+    "verifier": "label-audit-1.0"
+  },
+  "redaction": {
+    "policyVersion": "redact-1.0",
+    "appliedAt": "2026-10-30T12:05:00Z",
+    "counts": {
+      "authCode": 0,
+      "token": 0,
+      "userCode": 0,
+      "phone": 1,
+      "email": 0,
+      "idCard": 0,
+      "wxid": 0,
+      "deviceId": 0,
+      "ip": 0,
+      "sessionRef": 0,
+      "url": 1,
+      "filePath": 0
+    },
+    "residualRisk": "low",
+    "reviewer": "automated+spotcheck"
+  },
+  "quality": {
+    "turns": 7,
+    "apiCalls": 2,
+    "toolStats": { "calendar.update": { "count": 1, "success": 1, "failure": 0 } },
+    "toolErrorCounts": { "calendar.update": 0 },
+    "latencyMsBucket": "1s-3s",
+    "approvalCount": 1,
+    "denyCount": 0
+  },
+  "terminal": { "status": "completed", "reason": null },
+  "provenance": {
+    "collectorVersion": "traj-collector-0.1.0",
+    "pipelineRunId": "run_20261030_01",
+    "recordedAt": "2026-10-30T12:06:00Z",
+    "hostClass": "ci"
+  },
+  "retention": {
+    "retainUntil": "2027-10-30T00:00:00Z",
+    "deleteAfter": "2027-10-30T00:00:00Z",
+    "legalHold": false,
+    "basis": "synthetic"
+  },
+  "contentHash": "sha256:be33762d979bc3e7be8ce701e933efc935ea9ef60bbf922efa95a7b8eda58128"
+}

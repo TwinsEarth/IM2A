@@ -1,0 +1,10 @@
+{
+  "conversationId": "conv-demo-0001",
+  "channelClass": "P",
+  "memberId": "hs_9a1b2c3d4e5f",
+  "at": "2026-10-30T14:52:12.008Z",
+  "typing": false,
+  "cursor": { "line": 42, "ch": 7 },
+  "ttlMs": 60000,
+  "origin": "node-a"
+}

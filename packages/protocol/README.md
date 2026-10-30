@@ -28,3 +28,19 @@ capabilities).
 `dsh-session:<id>` is opaque. It is not a bearer token and must never include
 conversation content. Resolution requires a matching scope and an unexpired,
 non-revoked reference.
+
+## Realtime rule (v2.5.0)
+
+`realtime-session-profile.schema.json` and `realtime-message.schema.json` are
+policy/shape schemas, not a wire protocol:
+
+- Three channel classes: `D` (sequenced, persisted, audited, may carry content),
+  `P` and `C` (unsequenced, unpersisted, audited=false, `mayCarryContent:false`).
+- Resume cursors are `(principalUserId, agentId, conversationId, lastAppliedSeq)`.
+  `Mcp-Session-Id` and `dsh-session:` are never cursors.
+- `P`/`C` carry no payload/content/text at all; the message schema makes that
+  structural, because the egress guard only inspects `payload.content`.
+- No new MCP method (`noNewMcpMethods`) and no new A2A extension
+  (`noNewA2aExtensions`); drain uses HTTP 503 + `Retry-After`.
+- Both schemas are executed against fixtures by `scripts/validate-realtime.mjs`,
+  which `scripts/validate.mjs` calls.

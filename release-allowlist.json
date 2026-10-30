@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0",
-  "version": "2.4.6",
+  "version": "2.5.0",
   "allowedArtifacts": [
     "browser-extension-0.2.3.zip",
-    "twinsearth-im2a-dsh-plugin-0.1.1.tgz",
+    "twinsearth-im2a-dsh-plugin-0.2.0.tgz",
     "w2m-tofuture-0.1.5.tgz",
     "im2a-workbuddy-connector-0.1.0.zip",
     "SHA256SUMS",

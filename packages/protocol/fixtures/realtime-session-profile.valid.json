@@ -1,0 +1,96 @@
+{
+  "profileVersion": "1.0",
+  "protocolVersion": "2026-07-28",
+  "convergenceModel": "sequenced-log",
+  "noNewMcpMethods": true,
+  "noNewA2aExtensions": true,
+  "transports": {
+    "stdio": {
+      "sessionLifetime": "process",
+      "resumeScope": "durable-only"
+    },
+    "streamableHttp": {
+      "sessionHeader": "mcp-session-id",
+      "resumeHeader": "last-event-id",
+      "sessionIdResumeForbidden": true,
+      "loopbackExempt": "loopback-only",
+      "tlsRequired": true
+    }
+  },
+  "channels": {
+    "durable": {
+      "sequenced": true,
+      "persisted": true,
+      "audited": true,
+      "mayCarryContent": true,
+      "countsUnread": true
+    },
+    "presence": {
+      "sequenced": false,
+      "persisted": false,
+      "audited": false,
+      "mayCarryContent": false,
+      "countsUnread": false
+    },
+    "control": {
+      "sequenced": false,
+      "persisted": false,
+      "audited": false,
+      "mayCarryContent": false,
+      "countsUnread": false
+    }
+  },
+  "resume": {
+    "cursorFields": ["principalUserId", "agentId", "conversationId", "lastAppliedSeq"],
+    "retentionSeqs": 10000,
+    "maxBatch": 500,
+    "onGapBelowFloor": "RESYNC_REQUIRED",
+    "onGapAboveHead": "CURSOR_INVALID",
+    "reverifyIdentity": true
+  },
+  "backoff": {
+    "baseMs": 500,
+    "factor": 2,
+    "capMs": 30000,
+    "jitter": "full",
+    "herdGuardMs": 2000,
+    "retryAfterPrecedence": true
+  },
+  "backpressure": {
+    "outboundQueueEntries": 256,
+    "outboundQueueBytes": 1048576,
+    "overflow": {
+      "durable": "drop-push-resync",
+      "presence": "coalesce-last",
+      "control": "drop-oldest"
+    },
+    "inbound": {
+      "turnInboxCapacity": 50,
+      "mailboxCapacityPerAgent": 1000,
+      "maxMessageBytes": 65536,
+      "maxTextBytes": 8000
+    }
+  },
+  "presence": {
+    "heartbeatMs": 30000,
+    "serverTimeoutMs": 90000,
+    "ttlMs": 60000,
+    "coalesceHz": 10,
+    "maxFields": 8,
+    "allowsFreeText": false,
+    "audited": false
+  },
+  "dedupe": {
+    "keyTemplate": "principalUserId:clientMsgId",
+    "ttlMs": 86400000,
+    "returnOriginalResult": true,
+    "scope": "per-principal"
+  },
+  "limits": {
+    "ratePerAgentPerMin": 120,
+    "ratePerPrincipalPerMin": 240,
+    "maxConnectionsPerPrincipal": 8,
+    "maxDelegatedChildren": 4,
+    "presenceSubscribesToMembership": true
+  }
+}

@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.4.6",
+  "version": "2.5.0",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.4.6 platform monorepo",
+  "description": "IM2A v2.5.0 Agent Plugins 2.0 platform",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -14,11 +14,16 @@
     "compat": "node scripts/compat-check.mjs",
     "healthz": "node scripts/healthz.mjs",
     "allowlist": "node scripts/check-release-allowlist.mjs",
+    "bridge:contracts": "node scripts/check-bridge-contracts.mjs",
     "release:dry-run": "node scripts/release-dry-run.mjs",
     "test": "node packages/agent-plugins/generator/src/cli.mjs generate && node tests/p0.test.mjs",
     "test:ci": "node packages/agent-plugins/generator/src/cli.mjs generate && node --test tests/*.test.mjs",
     "generate": "node packages/agent-plugins/generator/src/cli.mjs generate",
-    "generate:check": "node packages/agent-plugins/generator/src/cli.mjs check"
+    "generate:check": "node packages/agent-plugins/generator/src/cli.mjs check",
+    "trajectory:check": "node scripts/check-trajectory-contract.mjs && node scripts/check-trajectory-pipeline.mjs",
+    "skill:test": "node --test packages/skill-runtime/test/skill-runtime.test.mjs",
+    "agent-plugins:check": "node scripts/check-agent-plugins-2.mjs",
+    "realtime:check": "node scripts/validate-realtime.mjs"
   },
   "engines": {
     "node": ">=22"

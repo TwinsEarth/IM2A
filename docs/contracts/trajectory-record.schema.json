@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/trajectory-record-1.0.json",
+  "title": "IM2A trajectory record 1.0 (draft)",
+  "description": "Draft training/eval trajectory contract for IM2A v2.5.0. Not yet wired into scripts/validate.mjs. The deny-list fields (auth codes, tokens, phone/email/id-card, wxid, device ids, raw IP/UA, raw session refs) are rejected structurally by additionalProperties:false rather than filtered afterwards. See docs/design/IM2A-v2.5.0-TRAJECTORY-RL-BOUNDARY.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "trajectoryId",
+    "datasetRef",
+    "source",
+    "consent",
+    "split",
+    "conversations",
+    "labels",
+    "redaction",
+    "quality",
+    "terminal",
+    "provenance",
+    "retention",
+    "contentHash"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "trajectoryId": {
+      "type": "string",
+      "pattern": "^trj_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "datasetRef": { "$ref": "#/$defs/datasetRef" },
+    "source": { "$ref": "#/$defs/source" },
+    "consent": { "$ref": "#/$defs/consent" },
+    "split": { "$ref": "#/$defs/split" },
+    "conversations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 400,
+      "items": { "$ref": "#/$defs/turn" }
+    },
+    "labels": { "$ref": "#/$defs/labels" },
+    "redaction": { "$ref": "#/$defs/redaction" },
+    "quality": { "$ref": "#/$defs/quality" },
+    "terminal": { "$ref": "#/$defs/terminal" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "retention": { "$ref": "#/$defs/retention" },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "datasetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "manifestSha256"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][A-Za-z0-9.-]+)?$" },
+        "manifestSha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness", "platformVersion", "gatewayVersion", "model", "templateHash", "checkpointDigest"],
+      "properties": {
+        "harness": {
+          "enum": [
+            "dsh",
+            "workbuddy",
+            "doubao",
+            "qwen-code",
+            "mimo-code",
+            "codex",
+            "claude",
+            "gemini-cli",
+            "openclaw",
+            "muse",
+            "copilot",
+            "vscode"
+          ]
+        },
+        "platformVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "gatewayVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "id", "decoding"],
+          "properties": {
+            "provider": { "enum": ["synthetic", "deepseek", "openai", "anthropic", "local", "other"] },
+            "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "decoding": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["temperature", "topP", "maxTokens"],
+              "properties": {
+                "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+                "topP": { "type": "number", "minimum": 0, "maximum": 1 },
+                "maxTokens": { "type": "integer", "minimum": 1, "maximum": 131072 }
+              }
+            }
+          }
+        },
+        "templateHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "checkpointDigest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "scope",
+        "subjectRef",
+        "grantedAt",
+        "expiresAt",
+        "revokedAt",
+        "policyVersion",
+        "evidenceRef"
+      ],
+      "properties": {
+        "basis": { "enum": ["explicit_opt_in", "internal_dogfood", "synthetic", "public_license"] },
+        "scope": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["train", "eval"] }
+        },
+        "subjectRef": { "type": "string", "pattern": "^sub_[0-9a-f]{16,64}$" },
+        "grantedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "revokedAt": { "type": ["string", "null"], "format": "date-time" },
+        "policyVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "evidenceRef": { "type": "string", "pattern": "^evd_[A-Za-z0-9:._-]{4,96}$" }
+      }
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "splitKey", "seed", "frozenAt"],
+      "properties": {
+        "name": { "enum": ["train", "eval", "holdout", "quarantine"] },
+        "splitKey": { "type": "string", "pattern": "^sub_[0-9a-f]{16,64}$" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "frozenAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "turn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "value", "at"],
+      "properties": {
+        "from": { "enum": ["system", "human", "gpt", "tool", "gate", "approval"] },
+        "value": { "type": "string", "minLength": 0, "maxLength": 32768 },
+        "at": { "type": "integer", "minimum": 0 },
+        "toolName": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "toolStatus": { "enum": ["ok", "error", "denied", "timeout", "pending_approval"] },
+        "toolCalls": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "argumentsDigest", "status"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "argumentsDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "status": { "enum": ["pending_approval", "ok", "error", "denied", "timeout"] }
+            }
+          }
+        },
+        "gateDecision": { "enum": ["ALLOW", "REQUIRE_APPROVAL", "DENY"] },
+        "approvalOutcome": { "enum": ["approved", "rejected", "expired", "none"] },
+        "truncated": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "from": { "const": "tool" } }, "required": ["from"] },
+          "then": { "required": ["toolName", "toolStatus"] }
+        },
+        {
+          "if": { "properties": { "from": { "const": "gate" } }, "required": ["from"] },
+          "then": { "required": ["gateDecision", "toolName"] }
+        },
+        {
+          "if": { "properties": { "from": { "const": "approval" } }, "required": ["from"] },
+          "then": { "required": ["approvalOutcome"] }
+        }
+      ]
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "trainableRoles", "maskedRoles", "ignoreIndex", "verified", "verifier"],
+      "properties": {
+        "mode": { "const": "assistant_only" },
+        "trainableRoles": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "const": "gpt" }
+        },
+        "maskedRoles": {
+          "description": "Exactly the five non-assistant roles; every one must be masked.",
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "enum": ["system", "human", "tool", "gate", "approval"] }
+        },
+        "ignoreIndex": { "const": -100 },
+        "verified": { "type": "boolean" },
+        "verifier": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyVersion", "appliedAt", "counts", "residualRisk", "reviewer"],
+      "properties": {
+        "policyVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "appliedAt": { "type": "string", "format": "date-time" },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "authCode",
+            "token",
+            "phone",
+            "email",
+            "idCard",
+            "wxid",
+            "deviceId",
+            "ip",
+            "sessionRef",
+            "url",
+            "filePath"
+          ],
+          "properties": {
+            "authCode": { "type": "integer", "minimum": 0 },
+            "token": { "type": "integer", "minimum": 0 },
+            "userCode": { "type": "integer", "minimum": 0 },
+            "phone": { "type": "integer", "minimum": 0 },
+            "email": { "type": "integer", "minimum": 0 },
+            "idCard": { "type": "integer", "minimum": 0 },
+            "wxid": { "type": "integer", "minimum": 0 },
+            "deviceId": { "type": "integer", "minimum": 0 },
+            "ip": { "type": "integer", "minimum": 0 },
+            "sessionRef": { "type": "integer", "minimum": 0 },
+            "url": { "type": "integer", "minimum": 0 },
+            "filePath": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "residualRisk": { "enum": ["low", "medium", "high"] },
+        "reviewer": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "turns",
+        "apiCalls",
+        "toolStats",
+        "toolErrorCounts",
+        "latencyMsBucket",
+        "approvalCount",
+        "denyCount"
+      ],
+      "properties": {
+        "turns": { "type": "integer", "minimum": 1, "maximum": 400 },
+        "apiCalls": { "type": "integer", "minimum": 0 },
+        "toolStats": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["count", "success", "failure"],
+            "properties": {
+              "count": { "type": "integer", "minimum": 0 },
+              "success": { "type": "integer", "minimum": 0 },
+              "failure": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "toolErrorCounts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "latencyMsBucket": { "enum": ["<1s", "1s-3s", "3s-10s", "10s-60s", ">60s"] },
+        "approvalCount": { "type": "integer", "minimum": 0 },
+        "denyCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "enum": ["completed", "partial", "aborted"] },
+        "reason": { "type": ["string", "null"], "maxLength": 200 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collectorVersion", "pipelineRunId", "recordedAt", "hostClass"],
+      "properties": {
+        "collectorVersion": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "pipelineRunId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "hostClass": { "enum": ["local", "ci", "managed"] }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retainUntil", "deleteAfter", "legalHold", "basis"],
+      "properties": {
+        "retainUntil": { "type": "string", "format": "date-time" },
+        "deleteAfter": { "type": "string", "format": "date-time" },
+        "legalHold": { "type": "boolean" },
+        "basis": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    }
+  }
+}

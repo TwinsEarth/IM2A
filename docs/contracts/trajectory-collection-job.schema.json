@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/schemas/trajectory-collection-job-1.0.json",
+  "title": "IM2A trajectory collection job 1.0 (draft)",
+  "description": "A capture job is a separate, explicitly enabled object, not a configuration default. A job without an approved budget and a satisfied preflight is structurally invalid. Draft; not wired into scripts/validate.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "jobId", "datasetRef", "mode", "dataBasis", "owner", "preflight", "budget", "activation", "cursor", "stopOn", "output"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "jobId": { "type": "string", "pattern": "^job_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "datasetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][A-Za-z0-9.-]+)?$" }
+      }
+    },
+    "mode": { "enum": ["synthetic", "consented"] },
+    "dataBasis": { "enum": ["synthetic", "explicit_opt_in", "internal_dogfood", "public_license"] },
+    "owner": { "type": "string", "minLength": 3, "maxLength": 64 },
+    "consentPolicyVersion": { "type": ["string", "null"], "maxLength": 32 },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractFrozen", "denyListClean", "splitPurity", "consentCoverageComplete", "budgetApproved", "rollbackDrillDone", "evalIdentityFrozen"],
+      "properties": {
+        "contractFrozen": { "type": "boolean" },
+        "denyListClean": { "type": "boolean" },
+        "splitPurity": { "type": "boolean" },
+        "consentCoverageComplete": { "type": "boolean" },
+        "budgetApproved": { "type": "boolean" },
+        "rollbackDrillDone": { "type": "boolean" },
+        "evalIdentityFrozen": { "type": "boolean" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxRecords", "maxGpuHours", "costUsdMax"],
+      "properties": {
+        "maxRecords": { "type": "integer", "minimum": 1 },
+        "maxGpuHours": { "type": "number", "exclusiveMinimum": 0 },
+        "costUsdMax": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "approvedBy", "approvalRef"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "approvedBy": { "type": ["string", "null"], "maxLength": 64 },
+        "approvalRef": { "type": ["string", "null"], "pattern": "^apr_[A-Za-z0-9:._-]{4,96}$" }
+      }
+    },
+    "cursor": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conversationRef", "seq"],
+          "properties": {
+            "conversationRef": { "type": "string", "pattern": "^cnv_[A-Za-z0-9_-]{8,64}$" },
+            "seq": { "type": "integer", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "stopOn": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": { "enum": ["deny_list_hit", "mask_violation", "split_leak", "manifest_hash_mismatch", "load_probe_failed", "consent_missing", "budget_exceeded", "eval_contamination"] }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "shardMaxRecords"],
+      "properties": {
+        "format": { "const": "jsonl" },
+        "shardMaxRecords": { "type": "integer", "minimum": 1, "maximum": 100000 }
+      }
+    }
+  }
+}
