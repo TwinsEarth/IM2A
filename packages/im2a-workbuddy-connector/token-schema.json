@@ -1,0 +1,38 @@
+{
+  "title": "IM2A 接入配置",
+  "title_en": "IM2A Connection",
+  "description": "连接 IM2A Harness Bus。凭证只保存在本机 ~/.workbuddy 目录，不会写入连接器或云端。",
+  "description_en": "Connect to the IM2A Harness Bus. Credentials are stored locally under ~/.workbuddy and never written into the connector or cloud.",
+  "fields": [
+    {
+      "key": "IM2A_MCP_BIN",
+      "label": "im2a-mcp 可执行文件",
+      "label_en": "im2a-mcp executable",
+      "type": "text",
+      "required": true,
+      "placeholder": "C:\\path\\to\\im2a-mcp.exe",
+      "description": "IM2A MCP stdio 可执行文件的绝对路径，或 PATH 中的 im2a-mcp。",
+      "description_en": "Absolute path to the IM2A MCP stdio executable, or im2a-mcp on PATH."
+    },
+    {
+      "key": "IM2A_HARNESS_URL",
+      "label": "IM2A Gateway 地址",
+      "label_en": "IM2A Gateway URL",
+      "type": "text",
+      "required": true,
+      "defaultValue": "http://127.0.0.1:18080",
+      "description": "本地或受控网络中的 IM2A gateway 地址。",
+      "description_en": "IM2A gateway address on localhost or a controlled network."
+    },
+    {
+      "key": "IM2A_HARNESS_TOKEN",
+      "label": "IM2A Gateway Token",
+      "label_en": "IM2A Gateway Token",
+      "type": "password",
+      "required": true,
+      "placeholder": "由 IM2A gateway 管理员提供",
+      "description": "Bearer token；只保存在本机，不进入连接器包或日志。",
+      "description_en": "Bearer token. Stored locally only; never placed in the connector package or logs."
+    }
+  ]
+}

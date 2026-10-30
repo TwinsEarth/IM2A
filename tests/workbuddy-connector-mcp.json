@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "initialize": "im2a-harness-bridge",
+  "tools": [
+    "im2a_harness_list",
+    "im2a_send",
+    "im2a_recv",
+    "im2a_presence",
+    "im2a_whoami",
+    "im2a_history"
+  ],
+  "toolCallIsError": null,
+  "harnesses": 33
+}

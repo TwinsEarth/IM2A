@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "im2a": {
+      "type": "stdio",
+      "command": "${IM2A_MCP_BIN}",
+      "args": [],
+      "env": {
+        "IM2A_HARNESS_URL": "${IM2A_HARNESS_URL}",
+        "IM2A_HARNESS_ID": "workbuddy",
+        "IM2A_AGENT_NAME": "workbuddy",
+        "IM2A_HARNESS_TOKEN": "${IM2A_HARNESS_TOKEN}"
+      },
+      "timeout": 30000
+    }
+  }
+}

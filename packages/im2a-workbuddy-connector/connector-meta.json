@@ -1,0 +1,21 @@
+{
+  "name": "IM2A Harness Bus",
+  "name_zh": "IM2A 跨 Harness 总线",
+  "name_en": "IM2A Harness Bus",
+  "description": "连接 IM2A 总线，发现其他 Agent，查看在线状态并收发跨 Harness 消息。",
+  "description_zh": "连接 IM2A 总线，发现其他 Agent，查看在线状态并收发跨 Harness 消息。",
+  "description_en": "Connect to the IM2A bus to discover agents, inspect presence, and exchange cross-harness messages.",
+  "source": "twinsearth-im2a",
+  "type": "mcp",
+  "version": "0.1.0",
+  "auth_mode": "token",
+  "minWorkbuddyVersion": "4.23.0",
+  "examples_zh": [
+    "列出当前接入 IM2A 的 Harness 和在线 Agent。",
+    "通过 IM2A 把这条任务发给在线的 codex，并读取它的回复。"
+  ],
+  "examples_en": [
+    "List the harnesses and agents currently connected to IM2A.",
+    "Send this task to an online codex agent through IM2A and read its reply."
+  ]
+}
