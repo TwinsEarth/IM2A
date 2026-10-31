@@ -295,6 +295,28 @@ export class GoalBuffer {
     return this.db.prepare("SELECT COUNT(*) AS n FROM recall_history").get().n;
   }
 
+  governanceMetrics({ sinceMs = this.now() - 30 * 24 * 60 * 60 * 1000, capacity = this.capacity } = {}) {
+    const since = new Date(sinceMs).toISOString();
+    const scheduledCount = this.db.prepare("SELECT COUNT(*) AS n FROM goal_events WHERE to_status = 'scheduled' AND acted_at >= ?").get(since).n;
+    const completedCount = this.db.prepare("SELECT COUNT(*) AS n FROM goal_events WHERE to_status = 'completed' AND acted_at >= ?").get(since).n;
+    const activeCount = this.db.prepare("SELECT COUNT(*) AS n FROM goals WHERE status IN ('pending','scheduled','executing')").get().n;
+    const draftCount = this.db.prepare("SELECT COUNT(*) AS n FROM goal_executions WHERE draft_patch_json IS NOT NULL").get().n;
+    const completionRate = scheduledCount > 0 ? Math.round((completedCount / scheduledCount) * 1000) / 1000 : null;
+    const capacityUsage = capacity > 0 ? Math.round((activeCount / capacity) * 1000) / 1000 : null;
+    return {
+      window: { from: since, to: new Date(this.now()).toISOString(), days: 30 },
+      scheduled_count: scheduledCount,
+      completed_count: completedCount,
+      completion_rate: completionRate,
+      active_goal_count: activeCount,
+      capacity,
+      capacity_usage: capacityUsage,
+      draft_count: draftCount,
+      draft_to_skill_rate: null,
+      draft_to_skill_rate_note: "v2.6.x records draft telemetry only; skill_claim adoption belongs to v2.7.x",
+    };
+  }
+
   activeGoals() {
     return this.db.prepare("SELECT * FROM goals WHERE status IN ('pending','scheduled','executing') ORDER BY priority_score ASC, proposed_at ASC")
       .all().map((row) => this.#goal(row));

@@ -66,7 +66,10 @@ cycle budget into external_pool and reserved_pool; external demand cannot
 borrow reserved_pool. `goal_schedule` executes one goal with read-only signals
 and writes only a candidate draft under `drafts/`; it never writes a skill.
 `drive_calibrate` reads goal/execution history and returns calibration
-suggestions without modifying `drives/`. `drive_propose` also reads up to five
+suggestions without modifying `drives/`.
+`reserved_ratio` is a Harness-governed setting: scheduler cycles may adjust it
+within ±0.05 of the Agent's base ratio using audited completion and capacity
+metrics. Agent skill writes containing `reserved_ratio` are rejected. `drive_propose` also reads up to five
 recent `skill_load` traces for each candidate skill and runs a lightweight
 `success_pattern` reflection; negative trace evidence halves the proposal's
 `priority_score` (not a veto).

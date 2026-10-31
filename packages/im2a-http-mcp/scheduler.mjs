@@ -22,6 +22,19 @@ export class SchedulerError extends Error {
   }
 }
 
+function containsReservedRatioKey(value, seen = new Set()) {
+  if (value === null || typeof value !== "object" || seen.has(value)) return false;
+  seen.add(value);
+  if (Object.hasOwn(value, "reserved_ratio") || Object.hasOwn(value, "base_reserved_ratio")) return true;
+  return Object.values(value).some((child) => containsReservedRatioKey(child, seen));
+}
+
+export function assertAgentReservedRatioWrite(args) {
+  if (containsReservedRatioKey(args)) {
+    throw new SchedulerError("RESERVED_RATIO_AGENT_WRITE_DENIED", "reserved_ratio is harness-governed and not an Agent-writable field");
+  }
+}
+
 export function loadSchedulerConfig(env = process.env) {
   const ratio = env.IM2A_RESERVED_RATIO === undefined ? DEFAULT_RESERVED_RATIO : Number(env.IM2A_RESERVED_RATIO);
   if (!Number.isFinite(ratio) || ratio < MIN_RESERVED_RATIO || ratio > MAX_RESERVED_RATIO) {
@@ -68,10 +81,12 @@ export class ReservedScheduler {
     if (typeof auditPath !== "string" || auditPath.length === 0) throw new SchedulerError("SCHEDULER_CONFIG_INVALID", "auditPath is required");
     this.goalBuffer = goalBuffer;
     this.auditPath = auditPath;
+    this.baseReservedRatio = reservedRatio;
     this.reservedRatio = reservedRatio;
     this.totalBudgetTokens = totalBudgetTokens;
     this.reservedTaskTokens = reservedTaskTokens;
     this.now = now;
+    this.governanceHistory = [];
   }
 
   get queueDepth() { return this.#queue.length; }
@@ -87,6 +102,7 @@ export class ReservedScheduler {
       schema_version: SCHEDULER_SCHEMA_VERSION,
       config: {
         reserved_ratio: this.reservedRatio,
+        base_reserved_ratio: this.baseReservedRatio,
         total_budget_tokens: this.totalBudgetTokens,
         reserved_task_tokens: this.reservedTaskTokens,
       },
@@ -170,6 +186,7 @@ export class ReservedScheduler {
     this.#tail = run.catch(() => {});
     const event = await run;
     this.#lastCycle = event;
+    const governance = await this.applyGovernance();
     return {
       schema_version: SCHEDULER_SCHEMA_VERSION,
       cycle_id: cycleId,
@@ -177,6 +194,8 @@ export class ReservedScheduler {
       at: event.at,
       total_budget_tokens: this.totalBudgetTokens,
       reserved_ratio: this.reservedRatio,
+      base_reserved_ratio: this.baseReservedRatio,
+      governance,
       external_pool: {
         limit: externalLimit,
         used: externalUsed,
@@ -195,6 +214,67 @@ export class ReservedScheduler {
       scheduled_goal_id: scheduledGoalId,
       audit_event_id: cycleId,
     };
+  }
+
+  async applyGovernance() {
+    if (!this.goalBuffer || typeof this.goalBuffer.governanceMetrics !== "function") {
+      return { changed: false, event: null, reserved_ratio: this.reservedRatio, reason: "metrics_unavailable" };
+    }
+    const metrics = this.goalBuffer.governanceMetrics({
+      sinceMs: this.now() - 30 * 24 * 60 * 60 * 1000,
+      capacity: this.goalBuffer.capacity,
+    });
+    const minAllowed = Math.max(MIN_RESERVED_RATIO, this.baseReservedRatio - 0.05);
+    const maxAllowed = Math.min(MAX_RESERVED_RATIO, this.baseReservedRatio + 0.05);
+    if (metrics.completion_rate === null || metrics.scheduled_count < 5) {
+      return { changed: false, event: null, metrics, reserved_ratio: this.reservedRatio, decision: "unchanged", reason: "insufficient_sample" };
+    }
+    let decision = "unchanged";
+    let next = this.reservedRatio;
+    if (metrics.completion_rate !== null && metrics.completion_rate >= 0.8 && metrics.capacity_usage !== null && metrics.capacity_usage >= 0.95) {
+      decision = "increase";
+      next = Math.min(maxAllowed, Math.round((this.reservedRatio + 0.05) * 1000) / 1000);
+    } else if (metrics.completion_rate !== null && metrics.completion_rate <= 0.3) {
+      decision = "decrease";
+      next = Math.max(minAllowed, Math.round((this.reservedRatio - 0.05) * 1000) / 1000);
+    }
+    if (decision !== "unchanged" && next === this.reservedRatio) {
+      decision = "unchanged";
+    }
+    if (decision === "unchanged") {
+      return { changed: false, event: null, metrics, reserved_ratio: this.reservedRatio, decision };
+    }
+    const event = {
+      schema_version: SCHEDULER_SCHEMA_VERSION,
+      type: "reserved_ratio_adjustment",
+      at: new Date(this.now()).toISOString(),
+      actor: "harness_scheduler_governance",
+      decision,
+      base_reserved_ratio: this.baseReservedRatio,
+      before_reserved_ratio: this.reservedRatio,
+      after_reserved_ratio: next,
+      delta: Math.round((next - this.reservedRatio) * 1000) / 1000,
+      metrics: {
+        completion_rate: metrics.completion_rate,
+        scheduled_count: metrics.scheduled_count,
+        completed_count: metrics.completed_count,
+        active_goal_count: metrics.active_goal_count,
+        capacity: metrics.capacity,
+        capacity_usage: metrics.capacity_usage,
+        draft_count: metrics.draft_count,
+        draft_to_skill_rate: null,
+        draft_to_skill_rate_note: metrics.draft_to_skill_rate_note,
+      },
+    };
+    this.reservedRatio = next;
+    this.governanceHistory.push(event);
+    const run = this.#tail.then(async () => {
+      await mkdir(path.dirname(this.auditPath), { recursive: true, mode: 0o750 });
+      await appendFile(this.auditPath, `${JSON.stringify(event)}\n`, { encoding: "utf8", mode: 0o640 });
+    });
+    this.#tail = run.catch(() => {});
+    await run;
+    return { changed: true, event, metrics, reserved_ratio: this.reservedRatio, decision };
   }
 
   async audit({ limit = 50 } = {}) {

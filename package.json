@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.6.7",
+  "version": "2.6.8",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.6.7 joint drive propose and reflection",
+  "description": "IM2A v2.6.8 dynamic reserved ratio governance",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -39,7 +39,8 @@
     "goal-schedule:test": "node tests/goal-schedule.test.mjs",
     "calibrate:test": "node tests/drive-calibrate.test.mjs",
     "arbitration:test": "node tests/goal-arbitration.test.mjs",
-    "persistence:test": "node tests/goal-persistence.test.mjs"
+    "persistence:test": "node tests/goal-persistence.test.mjs",
+    "governance:test": "node tests/scheduler-governance.test.mjs"
   },
   "engines": {
     "node": ">=22"

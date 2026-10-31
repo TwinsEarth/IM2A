@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.6.7",
+  "toolCatalogVersion": "2.6.8",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",

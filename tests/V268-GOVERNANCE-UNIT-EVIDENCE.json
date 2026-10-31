@@ -1,0 +1,45 @@
+{
+  "release": "v2.6.8",
+  "kind": "local-dynamic-reserved-ratio-governance",
+  "checkedAt": "2026-11-01T07:39:00Z",
+  "toolSurface": 27,
+  "tests": {
+    "schedulerGovernance": { "total": 2, "passed": 2 },
+    "scheduler": { "total": 4, "passed": 4 },
+    "cases": [
+      "high completion at capacity raises reserved_ratio within +5% and audits the metrics",
+      "low completion lowers reserved_ratio within -5% and agent writes are refused"
+    ]
+  },
+  "localAcceptance": {
+    "high": {
+      "completionRate": 1,
+      "capacityUsage": 1,
+      "before": 0.15,
+      "after": 0.2,
+      "delta": 0.05,
+      "auditEvent": true
+    },
+    "low": {
+      "completionRate": 0.125,
+      "before": 0.15,
+      "after": 0.1,
+      "delta": -0.05,
+      "auditEvent": true
+    },
+    "draftToSkillRate": null,
+    "agentWriteRejection": "RESERVED_RATIO_AGENT_WRITE_DENIED"
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`); one transient API stream test passed on retry",
+    "tools": 27
+  },
+  "limits": [
+    "dynamic adjustment is in-memory for the running scheduler; audit log is durable",
+    "draft_to_skill_rate is deferred to v2.7.x skill_claim",
+    "sample gate requires at least 5 scheduled events",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

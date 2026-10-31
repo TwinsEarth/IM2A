@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-10-31T23:38:57.316Z",
+  "toolCount": 27,
+  "cycle": {
+    "reservedRatio": 0.2,
+    "baseReservedRatio": 0.15,
+    "governanceChanged": true,
+    "governanceDecision": "increase"
+  },
+  "auditAdjustment": {
+    "type": "reserved_ratio_adjustment",
+    "actor": "harness_scheduler_governance",
+    "decision": "increase",
+    "at": "2026-10-31T23:37:21.455Z",
+    "before": 0.15,
+    "after": 0.2,
+    "delta": 0.05,
+    "completionRate": 1,
+    "capacityUsage": 1,
+    "scheduledCount": 8,
+    "completedCount": 8,
+    "draftCount": 0,
+    "draftToSkillRate": null
+  },
+  "rejection": {
+    "isError": true,
+    "text": "RESERVED_RATIO_AGENT_WRITE_DENIED: reserved_ratio is harness-governed and not an Agent-writable field"
+  },
+  "seededGoalIds": [
+    "goal_a26800000000000000000000",
+    "goal_a26800000000000000000001",
+    "goal_a26800000000000000000002",
+    "goal_a26800000000000000000003",
+    "goal_a26800000000000000000004",
+    "goal_a26800000000000000000005",
+    "goal_a26800000000000000000006",
+    "goal_a26800000000000000000007",
+    "goal_a26800000000000000000008",
+    "goal_a26800000000000000000009",
+    "goal_a26800000000000000000010",
+    "goal_a26800000000000000000011",
+    "goal_a26800000000000000000012"
+  ]
+}

@@ -22,7 +22,7 @@ import { runEvolutionPipelineDryRun } from "./evolution-pipeline.mjs";
 import { loadDrives, writeDrive } from "./drives.mjs";
 import { GoalBuffer } from "./goal-buffer.mjs";
 import { drivePropose } from "./drive-propose.mjs";
-import { loadSchedulerConfig, ReservedScheduler } from "./scheduler.mjs";
+import { assertAgentReservedRatioWrite, loadSchedulerConfig, ReservedScheduler } from "./scheduler.mjs";
 import { scheduleGoal } from "./goal-executor.mjs";
 import { calibrateDrives } from "./drive-calibrate.mjs";
 
@@ -554,10 +554,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.17.0",
+            version: "0.18.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces with success_pattern reflection).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -571,8 +571,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.17.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces with success_pattern reflection).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.18.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
       },
     };
   }
@@ -682,6 +682,7 @@ async function handleRpc(message, context = {}) {
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "skill_manage") {
+        assertAgentReservedRatioWrite(args);
         const action = String(args.action);
         const targetId = String(args.id);
         const guard = await skillGuard.check({
@@ -895,12 +896,14 @@ async function handleRpc(message, context = {}) {
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "scheduler_cycle") {
+        assertAgentReservedRatioWrite(args);
         const result = await scheduler.scheduleCycle({
           externalRequests: Array.isArray(args.external_requests) ? args.external_requests : [],
         });
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "scheduler_audit") {
+        assertAgentReservedRatioWrite(args);
         if (String(args.action) === "audit") {
           const result = await scheduler.audit({ limit: args.limit ? Number(args.limit) : 50 });
           return { jsonrpc: "2.0", id, result: resultText(result) };

@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.6.8 — 2026-11-01 dynamic reserved ratio governance
+
+- Scheduler governance may adjust reserved_ratio within ±0.05 of the Agent
+  base, bounded by 0.10..0.30.
+- Uses 30-day completion_rate and goal-buffer capacity_usage; requires at
+  least 5 scheduled events.
+- draft_count is recorded; draft_to_skill_rate remains null until v2.7.x.
+- Every adjustment writes a durable scheduler-audit event with before/after
+  ratios, metrics and timestamp.
+- Agent arguments containing reserved_ratio are rejected with
+  RESERVED_RATIO_AGENT_WRITE_DENIED before skill_guard.
+- Added 2 scheduler-governance tests.
+
 ## v2.6.7 — 2026-11-01 joint drive proposal and trace reflection
 
 - `drive_propose` now looks up up to 5 recent `skill_load` traces per candidate

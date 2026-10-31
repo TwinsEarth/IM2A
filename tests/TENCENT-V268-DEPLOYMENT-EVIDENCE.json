@@ -1,0 +1,88 @@
+{
+  "release": "v2.6.8",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T07:43:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T07:36:29+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.8",
+    "httpMcpVersion": "0.18.0",
+    "nodeServerSha256": "738c0bdbd7fd11a5d4db0b1f294d24e22558f903d31f2557170ba38dafe93627",
+    "schedulerSha256": "fff1039b4ed584d669ad7a0305d7b50358d9f3acee496ee9375e6a4eb1ebd666",
+    "goalBufferSha256": "f771276f1f4767af15c39698cf66b3ad04f46a67cf6109a1adaa2f66b17089f5",
+    "nodePackageSha256": "ebcd718bc6881e0f5c8a253a04d4e04ee94b4b177228bf01a8645dc558fab2da",
+    "goMcpVersion": "0.18.0",
+    "goMcpSha256": "4f5737f2672dff3cf63c53de3be3875c1ea108a2b4ef9f3b07deb4874b180d13",
+    "goMcpWindowsSha256": "70af4c38d9d82e4d763bf4f5efd5625e4073d31bdcc3394eb00930f24f8d70dc",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.8/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 27,
+    "cycle": {
+      "before": 0.15,
+      "after": 0.2,
+      "base": 0.15,
+      "decision": "increase",
+      "changed": true
+    },
+    "auditAdjustment": {
+      "type": "reserved_ratio_adjustment",
+      "actor": "harness_scheduler_governance",
+      "at": "2026-10-31T23:37:21.455Z",
+      "completionRate": 1,
+      "scheduledCount": 8,
+      "completedCount": 8,
+      "capacityUsage": 1,
+      "draftCount": 0,
+      "draftToSkillRate": null,
+      "before": 0.15,
+      "after": 0.2,
+      "delta": 0.05
+    },
+    "agentWriteRejection": {
+      "code": "RESERVED_RATIO_AGENT_WRITE_DENIED",
+      "text": "reserved_ratio is harness-governed and not an Agent-writable field",
+      "isError": true
+    },
+    "goMcpTools": 27
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingGoals": 3,
+    "activeGoals": 0,
+    "note": "13 governance seed goals and their events were removed; service restart reset the in-memory ratio to base 0.15; durable audit adjustment remains"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V268-GOVERNANCE-EVIDENCE.json",
+    "tests/V268-GOVERNANCE-UNIT-EVIDENCE.json",
+    "tests/V268-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.8-DYNAMIC-RESERVED-RATIO.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.8-20261101073629",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.7 tree and data are untouched",
+  "notClaimed": [
+    "network-wide allocation",
+    "draft_to_skill_rate adoption metric",
+    "persistent dynamic ratio across restart",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "dynamic ratio is in-memory and resets to base on restart",
+    "draft_to_skill_rate awaits v2.7.x skill_claim",
+    "goal-buffer local writes are not yet caller-authenticated",
+    "curator/operator separation and per-conversation seq remain open"
+  ]
+}
