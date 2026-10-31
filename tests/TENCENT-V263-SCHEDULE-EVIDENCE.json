@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-10-31T21:01:55.424Z",
+  "toolCount": 26,
+  "hasGoalSchedule": true,
+  "high": {
+    "isError": false,
+    "status": "completed",
+    "delta": 0.38,
+    "recommended": "crystallize",
+    "draftPath": "/opt/im2a/v2.6.3/data/drafts/goal_fe5839ba2001ab9782bbc791/stale-skill-a.patch.md",
+    "draftApplied": false,
+    "reservation": {
+      "requested": 2000,
+      "reserved_limit": 15000,
+      "external_queue_empty": true,
+      "source": "reserved_pool"
+    },
+    "budget": {
+      "requested": 2000,
+      "used": 170,
+      "source": "reserved_pool"
+    }
+  },
+  "low": {
+    "isError": false,
+    "delta": -0.18,
+    "recommended": "discard"
+  },
+  "goalStatuses": {
+    "high": "completed",
+    "low": "completed",
+    "highAudit": [
+      "pending",
+      "scheduled",
+      "executing",
+      "completed"
+    ]
+  },
+  "drafts": {
+    "count": 2,
+    "files": [
+      "goal_2b9f96f01a75ea83e48ad776/stale-skill-a.patch.md",
+      "goal_fe5839ba2001ab9782bbc791/stale-skill-a.patch.md"
+    ],
+    "underDrafts": true,
+    "appliedFalse": true,
+    "skillsDirExists": false
+  },
+  "skills": {
+    "beforePackages": 1,
+    "afterPackages": 1,
+    "beforeSha": "af36c567e86a25c37f71bf4c1e8d45b3084095476e5268dc4231682d703f5707",
+    "afterSha": "af36c567e86a25c37f71bf4c1e8d45b3084095476e5268dc4231682d703f5707",
+    "unchanged": true
+  }
+}

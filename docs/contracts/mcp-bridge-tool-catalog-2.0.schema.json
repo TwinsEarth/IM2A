@@ -133,7 +133,10 @@
         "INVALID_STATUS_TRANSITION",
         "SKILL_WRITE_DENIED",
         "SCHEDULER_CONFIG_INVALID",
-        "EXTERNAL_REQUEST_INVALID"
+        "EXTERNAL_REQUEST_INVALID",
+        "RESERVED_POOL_UNAVAILABLE",
+        "INVALID_GOAL_STATE",
+        "EXECUTION_BUDGET_EXCEEDED"
       ],
       "description": "IM2A namespace codes in UPPER_SNAKE, matching SKILL-RUNTIME-MVP-v2.5.0 §4. The bridge does not paraphrase subsystem codes."
     },

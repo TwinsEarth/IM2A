@@ -23,6 +23,7 @@ import { loadDrives, writeDrive } from "./drives.mjs";
 import { GoalBuffer } from "./goal-buffer.mjs";
 import { drivePropose } from "./drive-propose.mjs";
 import { loadSchedulerConfig, ReservedScheduler } from "./scheduler.mjs";
+import { scheduleGoal } from "./goal-executor.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -59,6 +60,7 @@ const scheduler = new ReservedScheduler({
   totalBudgetTokens: schedulerConfig.total_budget_tokens,
   reservedTaskTokens: schedulerConfig.reserved_task_tokens,
 });
+const DRAFTS_DIR = process.env.IM2A_DRAFTS_DIR ?? join(DB_DIR, "drafts");
 
 let gatewaySession = null;
 let gatewaySessionToken = "";
@@ -419,6 +421,20 @@ const TOOLS = [
       required: ["action"],
     },
   },
+  {
+    name: "goal_schedule",
+    description: "Schedule one pending goal into reserved-pool execution. Runs only read-only signals and a draft-only skill patch; transitions pending->scheduled->executing->completed/expired. Never writes the skill library.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        goal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
+        budget_tokens: { type: "integer", minimum: 1 },
+      },
+      required: ["agent_did", "goal_id", "budget_tokens"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -521,10 +537,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.12.0",
+            version: "0.13.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-five tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-six tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -538,8 +554,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.12.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-five tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.13.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-six tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule).",
       },
     };
   }
@@ -843,6 +859,32 @@ async function handleRpc(message, context = {}) {
           return { jsonrpc: "2.0", id, result: resultText(result) };
         }
         return { jsonrpc: "2.0", id, result: resultText(scheduler.state()) };
+      }
+      if (name === "goal_schedule") {
+        const goalId = String(args.goal_id);
+        const budgetTokens = Number(args.budget_tokens);
+        const result = await scheduleGoal({
+          goalBuffer,
+          goalId,
+          agentDid: String(args.agent_did),
+          budgetTokens,
+          skillStore,
+          memoryHub,
+          draftsDir: DRAFTS_DIR,
+          reservedAvailable: scheduler.canUseReserved(budgetTokens),
+        });
+        return {
+          jsonrpc: "2.0", id,
+          result: resultText({
+            ...result,
+            reservation: {
+              requested: budgetTokens,
+              reserved_limit: scheduler.reservedLimit,
+              external_queue_empty: scheduler.queueDepth === 0,
+              source: "reserved_pool",
+            },
+          }),
+        };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {

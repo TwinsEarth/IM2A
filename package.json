@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.6.2",
+  "version": "2.6.3",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.6.2 reserved-ratio scheduler",
+  "description": "IM2A v2.6.3 goal schedule and draft artifacts",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -35,7 +35,8 @@
     "evolution:test": "node tests/evolution-pipeline.test.mjs && node tests/evolution-freeze.test.mjs",
     "drives:test": "node tests/drives-goal-buffer.test.mjs",
     "propose:test": "node tests/drive-propose.test.mjs",
-    "scheduler:test": "node tests/scheduler.test.mjs"
+    "scheduler:test": "node tests/scheduler.test.mjs",
+    "goal-schedule:test": "node tests/goal-schedule.test.mjs"
   },
   "engines": {
     "node": ">=22"

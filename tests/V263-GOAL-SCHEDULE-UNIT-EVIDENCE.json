@@ -1,0 +1,39 @@
+{
+  "release": "v2.6.3",
+  "kind": "local-goal-schedule",
+  "checkedAt": "2026-11-01T05:01:55Z",
+  "toolSurface": 26,
+  "tests": {
+    "total": 3,
+    "passed": 3,
+    "cases": [
+      "goal_schedule transitions pending -> scheduled -> executing -> completed and writes only drafts",
+      "negative confidence_delta recommends discard, never crystallize",
+      "unavailable reserved pool leaves the goal pending"
+    ]
+  },
+  "localAcceptance": {
+    "positiveDelta": 0.38,
+    "positiveRecommendation": "crystallize",
+    "negativeDelta": -0.18,
+    "negativeRecommendation": "discard",
+    "draftPath": "under drafts/",
+    "draftApplied": false,
+    "skillPackageShaUnchanged": true,
+    "goalEventPath": ["pending", "scheduled", "executing", "completed"]
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 26,
+    "goalScheduleDelegation": "PASS"
+  },
+  "limits": [
+    "session_search is not wired into this bridge version",
+    "draft_patch is a candidate artifact, not a valid applied diff",
+    "crystallize is a recommendation label only",
+    "reserved allocation is a scheduling charge, not metered model execution",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.6.3 — 2026-11-01 goal schedule and draft-only execution
+
+- Added `goal_schedule`; tool surface is 26.
+- Executes a pending/scheduled goal through scheduled -> executing ->
+  completed/expired.
+- Uses read-only curator_audit / memory_recall_v2 signals and a restricted
+  skill patch draft under `drafts/`; never writes a skill.
+- Added confidence_delta and recommended_next (crystallize / patch / discard);
+  negative delta can never recommend crystallize.
+- Added 3 goal schedule tests.
+
 ## v2.6.2 — 2026-11-01 reserved-ratio scheduler and idle detection
 
 - Added `scheduler_cycle` and `scheduler_audit`; tool surface is 25.

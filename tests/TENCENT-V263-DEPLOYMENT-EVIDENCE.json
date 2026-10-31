@@ -1,0 +1,99 @@
+{
+  "release": "v2.6.3",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T05:05:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T04:59:13+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.3",
+    "httpMcpVersion": "0.13.0",
+    "nodeServerSha256": "c38a942bf5a640c0e0fd326a4761f432630f32a03d47656284316124d720fe2f",
+    "goalExecutorSha256": "7cd591a792f759bdfb417435f5f07a1668acc8f1c6fee3c374620d4a7f67cd22",
+    "draftsSha256": "5c42dcebf0c32e46c07dcee45f6d02bff1c8572bd76f331f3e525e5aff9e7054",
+    "goMcpVersion": "0.13.0",
+    "goMcpSha256": "d76425b3187361b14f936d77c6be6630631429b4ae658b1f6ba3b18ffdb665e0",
+    "goMcpWindowsSha256": "46e39986d61b7fda9690a006d1aef8662134dae8f3104c6281623b17206ab139",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.3/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "draftsDir": "/opt/im2a/v2.6.3/data/drafts",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 26,
+    "hasGoalSchedule": true,
+    "highGoal": {
+      "goal_id": "goal_fe5839ba2001ab9782bbc791",
+      "status": "completed",
+      "confidence_delta": 0.38,
+      "recommended_next": "crystallize",
+      "draft_path": "/opt/im2a/v2.6.3/data/drafts/goal_fe5839ba2001ab9782bbc791/stale-skill-a.patch.md",
+      "draft_applied": false,
+      "reserved_requested": 2000,
+      "reserved_limit": 15000,
+      "reserved_source": "reserved_pool"
+    },
+    "lowGoal": {
+      "goal_id": "goal_2b9f96f01a75ea83e48ad776",
+      "status": "completed",
+      "confidence_delta": -0.18,
+      "recommended_next": "discard"
+    },
+    "goalEventPath": ["pending", "scheduled", "executing", "completed"],
+    "drafts": {
+      "count": 2,
+      "underDrafts": true,
+      "appliedFalse": true,
+      "skillsDirExists": false
+    },
+    "skillLibrary": {
+      "beforePackages": 1,
+      "afterPackages": 1,
+      "beforeActiveSha": "af36c567e86a25c37f71bf4c1e8d45b3084095476e5268dc4231682d703f5707",
+      "afterActiveSha": "af36c567e86a25c37f71bf4c1e8d45b3084095476e5268dc4231682d703f5707",
+      "unchangedDuringExecution": true
+    },
+    "goMcpTools": 26,
+    "goGoalBuffer": "PASS"
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingSkillPackages": 0,
+    "remainingGoals": 3,
+    "draftsRetained": true,
+    "note": "the seeded stale test skill was removed; two completed v2.6.3 goals and their draft artifacts remain local evidence"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V263-SCHEDULE-EVIDENCE.json",
+    "tests/V263-GOAL-SCHEDULE-UNIT-EVIDENCE.json",
+    "tests/V263-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.3-GOAL-SCHEDULE.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.3-20261101045913",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.2 tree and data are untouched",
+  "notClaimed": [
+    "skill crystallization or claim",
+    "session_search implementation",
+    "applied patch generation",
+    "metered model execution",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "drafts are candidate artifacts without an owner-resolution mechanism until v2.7",
+    "session_search is not wired in this bridge",
+    "goal_schedule is a local state tool without caller authentication",
+    "curator/operator separation and per-conversation seq remain open",
+    "reserved allocation is a scheduling charge, not measured execution"
+  ]
+}

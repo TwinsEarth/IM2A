@@ -75,6 +75,12 @@ export class ReservedScheduler {
   }
 
   get queueDepth() { return this.#queue.length; }
+  get reservedLimit() { return Math.floor(this.totalBudgetTokens * this.reservedRatio); }
+  get externalLimit() { return this.totalBudgetTokens - this.reservedLimit; }
+
+  canUseReserved(tokens) {
+    return Number.isInteger(tokens) && tokens > 0 && tokens <= this.reservedLimit && this.#queue.length === 0;
+  }
 
   state() {
     return {

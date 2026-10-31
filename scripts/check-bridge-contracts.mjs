@@ -21,7 +21,7 @@ const EXPECTED_TOOLS = [
   "memory_search", "memory_get", "memory_propose", "trace_ingest", "reflect_trigger",
   "curator_audit", "skill_guard_check", "memory_recall_v2", "evolution_pipeline_dryrun",
   "drive_list", "drive_manage", "goal_buffer", "drive_propose",
-  "scheduler_cycle", "scheduler_audit"
+  "scheduler_cycle", "scheduler_audit", "goal_schedule"
 ];
 
 /**
@@ -54,7 +54,8 @@ const SCOPE_BY_TOOL = {
   goal_buffer: ["goal:read", "goal:write"],
   drive_propose: ["drive:read", "curator:read", "memory:read"],
   scheduler_cycle: ["scheduler:write", "goal:read"],
-  scheduler_audit: ["scheduler:read"]
+  scheduler_audit: ["scheduler:read"],
+  goal_schedule: ["goal:write", "scheduler:write"]
 };
 
 async function readJson(root, rel) {

@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.6.2",
+  "toolCatalogVersion": "2.6.3",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -754,6 +754,35 @@
         }
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INTERNAL"]
+    },
+    {
+      "name": "goal_schedule",
+      "title": "Schedule a goal",
+      "description": "Schedule one pending goal into reserved-pool execution. Read-only signals plus a draft-only patch; transitions pending->scheduled->executing->completed/expired; never writes skills.",
+      "scope": ["goal:write", "scheduler:write"],
+      "sideEffect": "local-write",
+      "idempotency": "at-most-once",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_did": { "type": "string" },
+          "goal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" },
+          "budget_tokens": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["agent_did", "goal_id", "budget_tokens"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "goal": { "type": "object" },
+          "execution_result": { "type": "object" },
+          "reservation": { "type": "object" }
+        },
+        "required": ["goal", "execution_result"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "GOAL_NOT_FOUND", "INVALID_GOAL_STATE", "RESERVED_POOL_UNAVAILABLE", "EXECUTION_BUDGET_EXCEEDED", "INTERNAL"]
     }
   ]
 }
