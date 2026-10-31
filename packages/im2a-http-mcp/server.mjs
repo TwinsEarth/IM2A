@@ -554,10 +554,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.16.0",
+            version: "0.17.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces with success_pattern reflection).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -571,8 +571,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.16.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.17.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces with success_pattern reflection).",
       },
     };
   }
@@ -870,13 +870,14 @@ async function handleRpc(message, context = {}) {
         for (const goal of goalBuffer.activeGoals()) {
           recentIntentCount[goal.drive_id] = (recentIntentCount[goal.drive_id] ?? 0) + 1;
         }
-        const result = drivePropose({
+        const result = await drivePropose({
           drives,
           driveIds: args.drive_ids,
           agentDid: String(args.agent_did),
           urgencyHint: args.urgency_hint ? String(args.urgency_hint) : undefined,
           skillStore,
           memoryHub,
+          traceStore,
           estimatedTokenCost: goalBuffer.medianRecallBudget({ limit: 50 }),
           recentIntentCount,
           now: Date.now(),

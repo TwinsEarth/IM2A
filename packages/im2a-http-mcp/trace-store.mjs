@@ -249,6 +249,34 @@ export class TraceStore {
     return null;
   }
 
+  /**
+   * Read-only recent traces that loaded a specific skill. The skill id is the
+   * skill_load span name, matching the v2.5.4 trace contract.
+   */
+  async recentForSkill(skillId, { limit = 5 } = {}) {
+    if (typeof skillId !== "string" || skillId.length === 0 || skillId.length > 200) {
+      throw new TraceValidationError("skill_id must be a non-empty string");
+    }
+    let raw;
+    try { raw = await readFile(this.filePath, "utf8"); }
+    catch (error) {
+      if (error.code === "ENOENT") return [];
+      throw error;
+    }
+    const records = [];
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      let record;
+      try { record = JSON.parse(line); } catch { continue; }
+      if (record?.tenant !== this.#tenant) continue;
+      const matched = (record.events ?? []).some((event) =>
+        event.span_type === "skill_load"
+        && (event.name === skillId || event.attributes?.["gen_ai.tool.name"] === skillId));
+      if (matched) records.push(record);
+    }
+    return records.slice(-Math.min(Math.max(Number(limit) || 5, 1), 50));
+  }
+
   async ingest(input) {
     const record = normalizeTraceBatch(input, { tenant: this.#tenant, clock: this.#clock });
     const line = `${JSON.stringify(record)}\n`;

@@ -1,0 +1,85 @@
+{
+  "release": "v2.6.7",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T07:14:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T07:03:51+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.7",
+    "httpMcpVersion": "0.17.0",
+    "nodeServerSha256": "4f4cced835dc9fda2a844056638269993d63b6aa264fb128548b7d2e850a252a",
+    "driveProposeSha256": "3ae3daf9000d56c357670a67220f93019553b535641b609b740db79eb3a2b0fe",
+    "goalBufferSha256": "cd15d9aa73b82efafb5a976f5458d8b66350b9e2a22dea05205b1e53f7b965c8",
+    "traceStoreSha256": "13200407f4448522398045bd71cb20effa3f392b374bc2767c6f6af3343e64b6",
+    "nodePackageSha256": "60924cc91e09d713274a8a2e487a5d22de05e1fd50884e7f4673c097e5782cbf",
+    "goMcpVersion": "0.17.0",
+    "goMcpSha256": "3073bf949e3892c36cfa651275dbcb3edf24f56f2cb30a4b7ca658f8c9a8f49b",
+    "goMcpWindowsSha256": "7fb54f9da548200dd708691aabd34c0f8975718c193e62c16a2cc81c4d957520",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.7/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 27,
+    "traces": {
+      "negative": "2124ea735135645fa76e3b0cd2e27972",
+      "positive": "6c01deba0d273a94ecfc9ffa208e755c"
+    },
+    "reflection": {
+      "negative": { "worthReflecting": false, "candidates": 0 },
+      "positive": { "worthReflecting": true, "candidates": 1 }
+    },
+    "proposals": [
+      { "skillId": "stale-proven", "priorityScore": 0.7, "suppressionFactor": 1, "traceCount": 2 },
+      { "skillId": "stale-silent", "priorityScore": 0.35, "suppressionFactor": 0.5, "traceCount": 2 }
+    ],
+    "goalBufferOrder": {
+      "positiveIndex": 0,
+      "negativeIndex": 1,
+      "positiveFirst": true
+    },
+    "driveHashBefore": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+    "driveHashAfter": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+    "driveUnchanged": true,
+    "goMcpTools": 27
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingGoals": 3,
+    "activeGoals": 0,
+    "remainingSkills": 0,
+    "removedTraces": 4,
+    "note": "seeded stale skills, joint reflection traces and two test goals removed"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V267-JOINT-REFLECTION-EVIDENCE.json",
+    "tests/V267-JOINT-REFLECTION-UNIT-EVIDENCE.json",
+    "tests/V267-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.7-JOINT-REFLECTION.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.7-20261101070351",
+  "hotfixBackup": "/opt/backups/im2a-mcp-v2.6.7-hotfix-20261101071042",
+  "rollback": "restore unit/env/go binary from the main backup; the hotfix backup contains pre-dedup-guard Node files",
+  "notClaimed": [
+    "LLM-based reflection",
+    "automatic patch application",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "trace lookup depends on skill_load span names matching skill ids",
+    "goal dedup requires overlapping source signals",
+    "goal-buffer local writes are not yet caller-authenticated",
+    "curator/operator separation and per-conversation seq remain open"
+  ]
+}

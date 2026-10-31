@@ -1,0 +1,38 @@
+{
+  "release": "v2.6.7",
+  "kind": "local-joint-drive-reflection",
+  "checkedAt": "2026-11-01T07:11:07Z",
+  "toolSurface": 27,
+  "tests": {
+    "drivePropose": { "total": 5, "passed": 5 },
+    "goalArbitration": { "total": 3, "passed": 3 },
+    "cases": [
+      "joint reflection suppresses a stale-only proposal when trace evidence is negative",
+      "similar summaries for disjoint skills do not merge",
+      "pending/scheduled/executing capacity and merge behavior"
+    ]
+  },
+  "localAcceptance": {
+    "staleOnlyPriority": 0.35,
+    "tracePositivePriority": 0.7,
+    "negativeSuppressionFactor": 0.5,
+    "positiveSuppressionFactor": 1,
+    "negativeWorthReflecting": false,
+    "negativeCandidates": 0,
+    "positiveWorthReflecting": true,
+    "positiveCandidates": 1
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 27
+  },
+  "limits": [
+    "success_pattern reflection is the existing lightweight assessor, not an LLM call",
+    "no matching skill_load trace means no suppression evidence",
+    "suppression factor is 0.5, not a veto",
+    "trace lookup is tenant-scoped and read-only",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

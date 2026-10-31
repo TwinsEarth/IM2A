@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.6.6",
+  "version": "2.6.7",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.6.6 goal buffer persistence and restart recovery",
+  "description": "IM2A v2.6.7 joint drive propose and reflection",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",

@@ -66,3 +66,24 @@ test("semantically overlapping intents merge source_signals and keep the higher 
     assert.equal(buffer.db.prepare("SELECT COUNT(*) AS n FROM goal_merges").get().n, 1);
   });
 });
+
+test("similar summaries for disjoint skills do not merge", async () => {
+  await withBuffer(8, async (buffer) => {
+    const first = buffer.admit({
+      driveId: "drive-a",
+      intentSummary: "patch skill because the stale reference is unpatched",
+      sourceSignals: signals("skill-a"),
+      priorityScore: 0.5,
+    });
+    const second = buffer.admit({
+      driveId: "drive-b",
+      intentSummary: "patch skill because the stale reference is unpatched",
+      sourceSignals: signals("skill-b"),
+      priorityScore: 0.7,
+    });
+    assert.equal(second.merged, false);
+    assert.notEqual(second.goal.goal_id, first.goal.goal_id);
+    assert.equal(buffer.activeGoals().length, 2);
+    assert.equal(buffer.db.prepare("SELECT COUNT(*) AS n FROM goal_merges").get().n, 0);
+  });
+});

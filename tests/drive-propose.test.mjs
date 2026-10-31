@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { drivePropose, parseDrivePredicate, matchesDrive } from "../packages/im2a-http-mcp/drive-propose.mjs";
+import { normalizeTraceBatch } from "../packages/im2a-http-mcp/trace-store.mjs";
 
 const now = Date.UTC(2026, 10, 1, 0, 0, 0);
 const drive = {
@@ -54,8 +55,8 @@ test("drive description predicates parse and match curator signals", () => {
   assert.throws(() => parseDrivePredicate("evil == 1"), (error) => error.code === "DRIVE_INVALID");
 });
 
-test("curator-backed drive_propose returns a traceable proposed goal without buffer writes", () => {
-  const result = drivePropose({
+test("curator-backed drive_propose returns a traceable proposed goal without buffer writes", async () => {
+  const result = await drivePropose({
     drives: [drive],
     driveIds: ["stale_skill_caretaker"],
     agentDid: "did:im2a:propose-test",
@@ -77,7 +78,7 @@ test("curator-backed drive_propose returns a traceable proposed goal without buf
   assert.equal(result.estimated_token_cost, 2000);
 });
 
-test("memory-backed drive_propose emits a memory_item signal", () => {
+test("memory-backed drive_propose emits a memory_item signal", async () => {
   const memoryDrive = {
     drive_id: "memory_confidence_guardian",
     description: "quality_flag == low_confidence AND layer == atom",
@@ -85,7 +86,7 @@ test("memory-backed drive_propose emits a memory_item signal", () => {
     trigger_hint: "memory_recall_v2.quality_flag == low_confidence",
     scope: "self_owned_skills",
   };
-  const result = drivePropose({
+  const result = await drivePropose({
     drives: [memoryDrive],
     driveIds: [memoryDrive.drive_id],
     agentDid: "did:im2a:propose-test",
@@ -99,11 +100,42 @@ test("memory-backed drive_propose emits a memory_item signal", () => {
   assert.equal(result.proposed_goals[0].estimated_token_cost, 2000);
 });
 
-test("missing drives and invalid ids fail closed", () => {
-  assert.throws(() => drivePropose({
+test("missing drives and invalid ids fail closed", async () => {
+  await assert.rejects(drivePropose({
     drives: [drive], driveIds: ["missing"], agentDid: "did:im2a:x", skillStore: skillStore(), memoryHub, estimatedTokenCost: 2000, now,
   }), (error) => error.code === "DRIVE_NOT_FOUND");
-  assert.throws(() => drivePropose({
+  await assert.rejects(drivePropose({
     drives: [drive], driveIds: [], agentDid: "did:im2a:x", skillStore: skillStore(), memoryHub, estimatedTokenCost: 2000, now,
   }), (error) => error.code === "DRIVE_INVALID");
+});
+
+test("joint reflection suppresses a stale-only proposal when trace evidence is negative", async () => {
+  function traceRecord(skillId, calls) {
+    const events = [
+      {
+        span_type: "skill_load", name: skillId, skill_version: "1.0.0",
+        input_digest: `sha256:${"1".repeat(64)}`, output_digest: `sha256:${"2".repeat(64)}`,
+        duration_ms: 10, token_cost: 1, success: true, error_class: null,
+      },
+      ...Array.from({ length: calls }, (_, i) => ({
+        span_type: "tool_call", name: `tool-${i}`,
+        input_digest: `sha256:${"3".repeat(64)}`, output_digest: `sha256:${"4".repeat(64)}`,
+        duration_ms: 10, token_cost: 1, success: true, error_class: null,
+      })),
+    ];
+    return normalizeTraceBatch({ session_id: "hs_joint_reflect", agent_did: "did:im2a:joint", events }, { tenant: "test", clock: () => new Date(now) });
+  }
+  const negativeStore = { recentForSkill: async () => [traceRecord("windows-build", 2)] };
+  const positiveStore = { recentForSkill: async () => [traceRecord("windows-build", 5)] };
+  const negative = await drivePropose({
+    drives: [drive], driveIds: [drive.drive_id], agentDid: "did:im2a:joint",
+    skillStore: skillStore(), memoryHub, traceStore: negativeStore, estimatedTokenCost: 2000, now,
+  });
+  const positive = await drivePropose({
+    drives: [drive], driveIds: [drive.drive_id], agentDid: "did:im2a:joint",
+    skillStore: skillStore(), memoryHub, traceStore: positiveStore, estimatedTokenCost: 2000, now,
+  });
+  assert.equal(negative.proposed_goals[0].joint_reflection.suppression_factor, 0.5);
+  assert.equal(positive.proposed_goals[0].joint_reflection.suppression_factor, 1);
+  assert.ok(negative.proposed_goals[0].priority_score < positive.proposed_goals[0].priority_score);
 });

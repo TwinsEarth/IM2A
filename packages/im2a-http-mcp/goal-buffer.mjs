@@ -32,6 +32,11 @@ function nowIso(now) { return new Date(now).toISOString(); }
 
 function signalKey(signal) { return `${signal.type}:${signal.id}`; }
 
+function signalsOverlap(left, right) {
+  const keys = new Set(left.map(signalKey));
+  return right.some((signal) => keys.has(signalKey(signal)));
+}
+
 function sanitizeDraftPatch(draft) {
   if (!draft || typeof draft !== "object" || Array.isArray(draft)) return null;
   const kept = {};
@@ -314,6 +319,7 @@ export class GoalBuffer {
     let mergedGoal = null;
     let mergedScore = -1;
     for (const goal of active) {
+      if (!signalsOverlap(goal.source_signals, signals)) continue;
       const score = compare(intentSummary, goal.intent_summary);
       if (score >= dedupThreshold && score > mergedScore) {
         mergedGoal = goal;

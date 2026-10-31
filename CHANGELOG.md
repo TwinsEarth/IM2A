@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.6.7 — 2026-11-01 joint drive proposal and trace reflection
+
+- `drive_propose` now looks up up to 5 recent `skill_load` traces per candidate
+  skill and runs `success_pattern` reflection.
+- Negative trace evidence applies a 0.5 priority suppression factor; it is not
+  a veto.
+- No trace evidence produces no suppression.
+- `TraceStore.recentForSkill` added as read-only lookup.
+- Goal dedup now requires overlapping source signals, so different skills with
+  similar wording stay distinct.
+- Added joint-reflection test coverage (drive-propose 5/5; goal arbitration 3/3).
+
 ## v2.6.6 — 2026-11-01 goal buffer persistence and restart recovery
 
 - Goal buffer is persisted in Agent-local SQLite, separate from Memory Hub.

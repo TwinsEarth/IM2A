@@ -32,7 +32,7 @@ run('memory recall v2 tests', ['tests/memory-recall-v2.test.mjs']);
 run('evolution pipeline tests', ['tests/evolution-pipeline.test.mjs']);
 run('evolution freeze tests', ['tests/evolution-freeze.test.mjs']);
 run('drives and goal buffer tests', ['tests/drives-goal-buffer.test.mjs']);
-run('drive propose tests', ['tests/drive-propose.test.mjs']);
+run('drive propose and joint reflection tests', ['tests/drive-propose.test.mjs']);
 run('scheduler tests', ['tests/scheduler.test.mjs']);
 run('goal schedule tests', ['tests/goal-schedule.test.mjs']);
 run('drive calibrate tests', ['tests/drive-calibrate.test.mjs']);

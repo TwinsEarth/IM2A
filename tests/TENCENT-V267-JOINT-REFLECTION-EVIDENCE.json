@@ -1,0 +1,70 @@
+{
+  "checkedAt": "2026-10-31T23:11:07.003Z",
+  "toolCount": 27,
+  "healthy": true,
+  "traces": {
+    "negative": "2124ea735135645fa76e3b0cd2e27972",
+    "positive": "6c01deba0d273a94ecfc9ffa208e755c"
+  },
+  "reflection": {
+    "negative": {
+      "worth_reflecting": false,
+      "candidates": 0
+    },
+    "positive": {
+      "worth_reflecting": true,
+      "candidates": 1
+    }
+  },
+  "proposals": [
+    {
+      "skill_id": "stale-proven",
+      "priority_score": 0.7,
+      "joint_reflection": {
+        "available": true,
+        "trace_count": 2,
+        "trace_ids": [
+          "bb7f4030baa8f88e0c09a186f6e7d35c",
+          "6c01deba0d273a94ecfc9ffa208e755c"
+        ],
+        "worth_reflecting": true,
+        "candidate_count": 2,
+        "suppression_factor": 1,
+        "reason": "trace_evidence_supports_improvement"
+      }
+    },
+    {
+      "skill_id": "stale-silent",
+      "priority_score": 0.35,
+      "joint_reflection": {
+        "available": true,
+        "trace_count": 2,
+        "trace_ids": [
+          "e2148629e4cb83dd5aa3ddef1f5b6767",
+          "2124ea735135645fa76e3b0cd2e27972"
+        ],
+        "worth_reflecting": false,
+        "candidate_count": 0,
+        "suppression_factor": 0.5,
+        "reason": "trace_evidence_does_not_support_improvement"
+      }
+    }
+  ],
+  "negativePriority": 0.35,
+  "positivePriority": 0.7,
+  "goalOrder": {
+    "negative": 1,
+    "positive": 0,
+    "ids": [
+      "goal_4165db706a1381d47c301e9e",
+      "goal_accc24763ec8bdda27a32c15"
+    ]
+  },
+  "driveHashBefore": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+  "driveHashAfter": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+  "driveUnchanged": true,
+  "goalIds": [
+    "goal_accc24763ec8bdda27a32c15",
+    "goal_4165db706a1381d47c301e9e"
+  ]
+}

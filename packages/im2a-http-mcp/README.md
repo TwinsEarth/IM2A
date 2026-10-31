@@ -66,7 +66,10 @@ cycle budget into external_pool and reserved_pool; external demand cannot
 borrow reserved_pool. `goal_schedule` executes one goal with read-only signals
 and writes only a candidate draft under `drafts/`; it never writes a skill.
 `drive_calibrate` reads goal/execution history and returns calibration
-suggestions without modifying `drives/`.
+suggestions without modifying `drives/`. `drive_propose` also reads up to five
+recent `skill_load` traces for each candidate skill and runs a lightweight
+`success_pattern` reflection; negative trace evidence halves the proposal's
+`priority_score` (not a veto).
 
 ## Persistence
 

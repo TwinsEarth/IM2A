@@ -6,6 +6,8 @@
  * buffer and never writes skills, memory or traces.
  */
 import { randomBytes } from "node:crypto";
+import { assessTrace } from "./reflect.mjs";
+import { loadReflectConfig } from "./reflect-config.mjs";
 
 const CURATOR_FIELDS = new Set([
   "scope", "lifecycle_state", "patch_count", "ageDays", "use_count_30d",
@@ -76,6 +78,33 @@ function routeDrive(drive) {
   return "curator";
 }
 
+async function jointReflection(skillId, { traceStore, limit = 5 } = {}) {
+  if (!traceStore || typeof traceStore.recentForSkill !== "function") {
+    return { available: false, reason: "trace_store_unavailable", trace_count: 0, suppression_factor: 1 };
+  }
+  let records;
+  try { records = await traceStore.recentForSkill(skillId, { limit }); }
+  catch { return { available: false, reason: "trace_lookup_failed", trace_count: 0, suppression_factor: 1 }; }
+  if (records.length === 0) {
+    return { available: false, reason: "no_recent_traces", trace_count: 0, suppression_factor: 1 };
+  }
+  let config;
+  try { config = loadReflectConfig({ env: {} }); }
+  catch { return { available: false, reason: "reflect_config_invalid", trace_count: records.length, suppression_factor: 1 }; }
+  const assessments = records.map((record) => assessTrace(record, { config, focus: "success_pattern" }));
+  const candidates = assessments.flatMap((item) => item.distilled_candidates);
+  const positive = assessments.some((item) => item.assessment.worth_reflecting || item.distilled_candidates.length > 0);
+  return {
+    available: true,
+    trace_count: records.length,
+    trace_ids: records.map((record) => record.trace_id),
+    worth_reflecting: positive,
+    candidate_count: candidates.length,
+    suppression_factor: positive ? 1 : 0.5,
+    reason: positive ? "trace_evidence_supports_improvement" : "trace_evidence_does_not_support_improvement",
+  };
+}
+
 function confidenceFor(drive, urgencyHint, signal) {
   const urgency = String(urgencyHint ?? "").toLowerCase();
   const boost = /urgent|high|critical/.test(urgency) ? 0.08 : /low/.test(urgency) ? -0.05 : 0;
@@ -111,7 +140,7 @@ function memoryQuery(drive) {
  * @param {number|null} input.estimatedTokenCost median recall budget history
  * @param {number} [input.now]
  */
-export function drivePropose({
+export async function drivePropose({
   drives,
   driveIds,
   agentDid,
@@ -120,6 +149,7 @@ export function drivePropose({
   memoryHub,
   estimatedTokenCost,
   recentIntentCount = {},
+  traceStore = null,
   now = Date.now(),
 }) {
   if (!Array.isArray(driveIds) || driveIds.length === 0 || driveIds.some((id) => typeof id !== "string")) {
@@ -156,7 +186,9 @@ export function drivePropose({
         const sourceSignals = [{ type: "skill", id: skill.skill_id }];
         const signalStrength = Math.min(1, 0.55 + (skill.use_count_30d === 0 ? 0.35 : 0.1) + (skill.patch_count === 0 ? 0.1 : 0));
         const recencyFactor = 1 / (1 + (Number(recentIntentCount[drive.drive_id]) || 0) * 0.25);
-        const priorityScore = Math.round(drive.priority * signalStrength * recencyFactor * 1000) / 1000;
+        const joint = await jointReflection(skill.skill_id, { traceStore });
+        const basePriority = drive.priority * signalStrength * recencyFactor;
+        const priorityScore = Math.round(basePriority * joint.suppression_factor * 1000) / 1000;
         proposed.push({
           goal_id: `goal_${randomBytes(12).toString("hex")}`,
           drive_id: drive.drive_id,
@@ -167,6 +199,7 @@ export function drivePropose({
           priority_score: priorityScore,
           signal_strength: signalStrength,
           recency_factor: recencyFactor,
+          joint_reflection: joint,
         });
         evaluated[evaluated.length - 1].matched += 1;
       }
