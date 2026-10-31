@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "version": "0.3.0",
+  "tools": 13,
+  "who": {
+    "agent": "win-smoke",
+    "gateway": "http://127.0.0.1:18086",
+    "harness": "deepseek-harness",
+    "last_stream_error": "",
+    "session": {
+      "id": "hs_test",
+      "harness": "deepseek-harness",
+      "agent": "dsh"
+    }
+  },
+  "checkedAt": "2026-10-31T02:42:39.616Z"
+}
