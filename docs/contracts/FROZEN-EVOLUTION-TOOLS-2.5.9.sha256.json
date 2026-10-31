@@ -4,7 +4,7 @@
   "freeze_file": "docs/contracts/frozen-evolution-tools-2.5.9.json",
   "freeze_sha256": "c0569ca7c9e2b9857a4143dba4a4f75f14c7c5f6c46cd1b53c0083e144bdea39",
   "pipeline_report_schema": "docs/contracts/evolution-pipeline-1.0.schema.json",
-  "pipeline_report_schema_sha256": "8f74a6c1eca9384d06fa665f031a17f9073118bec5d52296ae6da3c9b68b68b8",
+  "pipeline_report_schema_sha256": "7713da05159c52634a4f6dd7515f25a819a15fa99dcea1f4d0b420b164535620",
   "tools": {
     "trace_ingest": {
       "input_schema_sha256": "2647c2d122c1b3b90eb1bf583820418ee705ab018a9796dd59b4ca173f3d4c3d",

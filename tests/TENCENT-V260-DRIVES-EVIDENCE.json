@@ -1,0 +1,76 @@
+{
+  "checkedAt": "2026-10-31T19:25:41.381Z",
+  "toolCount": 22,
+  "publicWrite": {
+    "isError": true,
+    "deniedReason": "insufficient_scope",
+    "auditEventId": "evt_38d8972bbe5be5b6fecb5693"
+  },
+  "allowedWrite": {
+    "isError": false,
+    "driveId": "stale_skill_caretaker",
+    "auditEventId": "evt_25868b4177328d8ffcf0b70a"
+  },
+  "drives": {
+    "drives": [
+      {
+        "schema_version": "1.0",
+        "drive_id": "stale_skill_caretaker",
+        "description": "scope == self_owned_skills AND lifecycle_state == stale AND patch_count == 0",
+        "priority": 0.7,
+        "trigger_hint": "curator_audit.lifecycle_state == stale",
+        "scope": "self_owned_skills",
+        "body": "# stale_skill_caretaker\n\nscope == self_owned_skills AND lifecycle_state == stale AND patch_count == 0",
+        "file": "stale_skill_caretaker.md"
+      }
+    ],
+    "count": 1,
+    "dir": "/opt/im2a/v2.6.0/data/drives"
+  },
+  "driveFiles": [
+    "stale_skill_caretaker.md"
+  ],
+  "publicDriveAbsent": true,
+  "goal": {
+    "goalId": "goal_6fb6075a7bc536d8dae0430d",
+    "putStatus": "pending",
+    "queryCount": 1,
+    "auditCount": 4,
+    "auditToStatuses": [
+      "pending",
+      "scheduled",
+      "executing",
+      "completed"
+    ]
+  },
+  "memory": {
+    "before": 0,
+    "after": 0,
+    "separated": true
+  },
+  "goalDb": {
+    "exists": true,
+    "tables": [
+      "goals",
+      "goal_events"
+    ]
+  },
+  "memoryTables": [
+    "memory",
+    "memory_fts",
+    "memory_fts_data",
+    "memory_fts_idx",
+    "memory_fts_content",
+    "memory_fts_docsize",
+    "memory_fts_config",
+    "memory_proposals"
+  ],
+  "auditChain": {
+    "ok": true,
+    "count": 7,
+    "last_hash": "b5aa4f2059fac78d29a377b9d4cdd715fdb02477c0e487be13e202d91770683e",
+    "errors": []
+  },
+  "auditMentionsPublicBlocked": true,
+  "auditMentionsAllowedDrive": true
+}

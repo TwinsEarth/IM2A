@@ -19,8 +19,7 @@ test("v2.5.9 freezes exactly five interfaces and hashes match", () => {
   assert.equal(freeze.frozen, true);
   assert.deepEqual(freeze.tools.map((tool) => tool.name), names);
   assert.equal(hash(freeze), manifest.freeze_sha256);
-  const schemaHash = createHash("sha256").update(read("docs/contracts/evolution-pipeline-1.0.schema.json")).digest("hex");
-  assert.equal(schemaHash, manifest.pipeline_report_schema_sha256);
+  assert.equal(hash(reportSchema), manifest.pipeline_report_schema_sha256);
   for (const tool of freeze.tools) {
     assert.equal(hash(tool.input_schema), manifest.tools[tool.name].input_schema_sha256);
     assert.equal(hash(tool.output_schema), manifest.tools[tool.name].output_schema_sha256);

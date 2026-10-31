@@ -1,0 +1,44 @@
+{
+  "release": "v2.6.0",
+  "kind": "local-drives-goal-buffer",
+  "checkedAt": "2026-11-01T03:25:41Z",
+  "toolSurface": 22,
+  "tests": {
+    "total": 5,
+    "passed": 5,
+    "cases": [
+      "the checked-in drive sample matches the frozen declaration schema",
+      "drive declarations parse, persist and load from drives/",
+      "drive declarations reject malformed or unsafe input",
+      "goal buffer persists status transitions and an external audit trail",
+      "public sessions cannot pass the drive write gate"
+    ]
+  },
+  "driveSchema": "docs/contracts/drive-declaration-1.0.schema.json",
+  "goalSchema": "docs/contracts/goal-buffer-1.0.schema.json",
+  "localAcceptance": {
+    "toolCount": 22,
+    "publicDriveWrite": "denied insufficient_scope",
+    "publicAuditPersisted": true,
+    "publicDriveFileAbsent": true,
+    "l2DriveWrite": "allowed with audit_event_id",
+    "driveDeclarationLoaded": "stale_skill_caretaker",
+    "goalStatusPath": ["pending", "scheduled", "executing", "completed"],
+    "goalAuditEvents": 4,
+    "memoryHubSeparated": true
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 22,
+    "drivesDelegation": "PASS"
+  },
+  "limits": [
+    "drive description is a declarative filter string; it is not evaluated in v2.6.0",
+    "trigger_hint is not executed and no scheduler exists",
+    "no automatic intent generation in v2.6.0",
+    "goal buffer local writes are not yet caller-authenticated",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

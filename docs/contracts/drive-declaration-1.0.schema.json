@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/drive-declaration-1.0.schema.json",
+  "title": "IM2A v2.6.0 durable drive declaration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["drive_id", "description", "priority", "trigger_hint", "scope"],
+  "properties": {
+    "drive_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Filter expression over curator_audit / memory_recall_v2 output, not a slogan."
+    },
+    "priority": { "type": "number", "minimum": 0, "maximum": 1 },
+    "trigger_hint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Signal hint for future scheduling, never an execution instruction."
+    },
+    "scope": { "const": "self_owned_skills" }
+  }
+}

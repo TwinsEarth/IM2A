@@ -19,7 +19,8 @@ const EXPECTED_TOOLS = [
   "im2a_harness_list", "im2a_send", "im2a_recv", "im2a_presence", "im2a_whoami",
   "im2a_history", "skills_list", "skill_view", "skill_manage", "curator",
   "memory_search", "memory_get", "memory_propose", "trace_ingest", "reflect_trigger",
-  "curator_audit", "skill_guard_check", "memory_recall_v2", "evolution_pipeline_dryrun"
+  "curator_audit", "skill_guard_check", "memory_recall_v2", "evolution_pipeline_dryrun",
+  "drive_list", "drive_manage", "goal_buffer"
 ];
 
 /**
@@ -46,7 +47,10 @@ const SCOPE_BY_TOOL = {
   curator_audit: ["curator:read"],
   skill_guard_check: ["skill:guard"],
   memory_recall_v2: ["memory:read"],
-  evolution_pipeline_dryrun: ["trace:read", "skill:guard", "curator:read", "memory:read"]
+  evolution_pipeline_dryrun: ["trace:read", "skill:guard", "curator:read", "memory:read"],
+  drive_list: ["drive:read"],
+  drive_manage: ["drive:write", "skill:guard"],
+  goal_buffer: ["goal:read", "goal:write"]
 };
 
 async function readJson(root, rel) {

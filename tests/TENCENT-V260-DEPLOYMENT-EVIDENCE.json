@@ -1,0 +1,103 @@
+{
+  "release": "v2.6.0",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T03:30:30Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T03:24:23+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.0",
+    "httpMcpVersion": "0.10.0",
+    "nodeServerSha256": "848153b7cd0c52459113ad36a7949c3ebc5c11add8f96654080c552342c185ba",
+    "drivesSha256": "a2a5f3febaa745eb55f0fec1a9fc8deac15bf556aa52a8f80a4eda0c20d2db83",
+    "goalBufferSha256": "ba783a57bbda7db1deaefcd244d0a7d23e9dfc1bbbf9d60370c8fb92a7fa4a3f",
+    "goMcpVersion": "0.10.0",
+    "goMcpSha256": "472cf49316bd90eb6be2396250dd56e1171e01f9958ad34dcb9c0aa1e23a72d8",
+    "goMcpWindowsSha256": "6ea6e4d2f3aa8ef26c594a0670d5b3d2cfb2ff582c7b8d0ae4437f1648d70e18",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.0/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "drivesDir": "/opt/im2a/v2.6.0/data/drives",
+    "goalBufferDb": "/opt/im2a/v2.6.0/data/goal-buffer.db",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 22,
+    "publicDriveWrite": {
+      "isError": true,
+      "denied_reason": "insufficient_scope",
+      "audit_event_id": "evt_38d8972bbe5be5b6fecb5693"
+    },
+    "l2DriveWrite": {
+      "isError": false,
+      "drive_id": "stale_skill_caretaker",
+      "audit_event_id": "evt_25868b4177328d8ffcf0b70a"
+    },
+    "driveDeclarationLoaded": "stale_skill_caretaker",
+    "publicBlockedDriveFileAbsent": true,
+    "goal": {
+      "goal_id": "goal_6fb6075a7bc536d8dae0430d",
+      "putStatus": "pending",
+      "statusPath": ["pending", "scheduled", "executing", "completed"],
+      "queryCompletedCount": 1,
+      "auditEvents": 4
+    },
+    "memoryHub": {
+      "rowsBefore": 0,
+      "rowsAfter": 0,
+      "separated": true,
+      "tables": ["memory", "memory_fts", "memory_fts_data", "memory_fts_idx", "memory_fts_content", "memory_fts_docsize", "memory_fts_config", "memory_proposals"]
+    },
+    "goalBuffer": {
+      "tables": ["goals", "goal_events"],
+      "separateDb": true
+    },
+    "auditChain": {
+      "ok": true,
+      "count": 7,
+      "lastHash": "b5aa4f2059fac78d29a377b9d4cdd715fdb02477c0e487be13e202d91770683e",
+      "errors": []
+    },
+    "goMcpTools": 22,
+    "goDrivesAndGoals": "PASS"
+  },
+  "leftInPlace": {
+    "drive": "stale_skill_caretaker.md",
+    "goal": "goal_6fb6075a7bc536d8dae0430d",
+    "reason": "v2.6.0 acceptance requires a loaded drive and an externally auditable goal status history; these are local state, not Memory Hub rows"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V260-DRIVES-EVIDENCE.json",
+    "tests/V260-DRIVES-UNIT-EVIDENCE.json",
+    "tests/V260-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.0-DRIVES-AND-GOAL-BUFFER.md",
+    "docs/contracts/drive-declaration-1.0.schema.json",
+    "docs/contracts/goal-buffer-1.0.schema.json"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.0-20261101032423",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.5.9 tree and data are untouched",
+  "notClaimed": [
+    "production readiness",
+    "automatic intent generation",
+    "drive filter evaluation",
+    "trigger_hint scheduling",
+    "TLS or multi-tenant authorization",
+    "caller authentication for local goal-buffer writes",
+    "v2.6.x drive_propose"
+  ],
+  "openP0": [
+    "goal-buffer writes are local and not yet caller-authenticated",
+    "curator remains on the shared main-Agent identity",
+    "per-conversation seq domain is not yet the harness ordering contract",
+    "guard session is a local trusted-session seam, not full code-registry auth"
+  ]
+}

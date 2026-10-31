@@ -1,7 +1,7 @@
 {
   "profileVersion": "2.0",
   "name": "im2a-fleet-control",
-  "version": "2.5.9",
+  "version": "2.6.0",
   "description": "IM2A Agent Plugins 2.0: fleet control, skill proposals, memory and evolution contracts.",
   "license": "MIT",
   "skills": [
@@ -77,7 +77,11 @@
         "trace:ingest",
         "trace:read",
         "skill:guard",
-        "curator:read"
+        "curator:read",
+        "drive:read",
+        "drive:write",
+        "goal:read",
+        "goal:write"
       ],
       "tools": [
         "skills_list",
@@ -87,7 +91,10 @@
         "im2a_send",
         "trace_ingest",
         "reflect_trigger",
-        "evolution_pipeline_dryrun"
+        "evolution_pipeline_dryrun",
+        "drive_list",
+        "drive_manage",
+        "goal_buffer"
       ],
       "maxDepth": 2,
       "budget": {

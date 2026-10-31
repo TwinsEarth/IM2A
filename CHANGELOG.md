@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.6.0 — 2026-11-01 durable drives and local goal buffer
+
+- Added `drive_list`, `drive_manage` and `goal_buffer`; tool surface is 22.
+- Added optional `drives/*.md` durable concern declarations with a strict
+  YAML frontmatter schema and a checked-in sample.
+- `drive_manage` calls `skill_guard_check` with operation=patch and
+  target_skill_id=drive_id before writing; public sessions are denied and
+  audited.
+- Added a local goal buffer in a separate SQLite database, never Memory Hub.
+- Goal status machine: pending -> scheduled -> executing -> completed/expired;
+  every transition is append-only auditable.
+- Added drive and goal-buffer JSON Schemas plus 5 tests.
+
 ## v2.5.9 — 2026-10-31 evolution pipeline dry run and interface freeze
 
 - Added `evolution_pipeline_dryrun`; tool surface is now 19.

@@ -19,6 +19,8 @@ import { TraceStore } from "./trace-store.mjs";
 import { reflectOnTrace } from "./reflect.mjs";
 import { PUBLIC_SESSION, SkillGuard, verifySession } from "./skill-guard.mjs";
 import { runEvolutionPipelineDryRun } from "./evolution-pipeline.mjs";
+import { loadDrives, writeDrive } from "./drives.mjs";
+import { GoalBuffer } from "./goal-buffer.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -42,6 +44,10 @@ const traceStore = new TraceStore({ dir: TRACE_DIR, tenant: TRACE_TENANT });
 const SKILL_GUARD_KEY = process.env.IM2A_SKILL_GUARD_KEY ?? "";
 const skillGuard = new SkillGuard({
   auditPath: process.env.IM2A_SKILL_GUARD_AUDIT ?? join(DB_DIR, "skill-guard", "audit.jsonl"),
+});
+const DRIVES_DIR = process.env.IM2A_DRIVES_DIR ?? join(DB_DIR, "drives");
+const goalBuffer = new GoalBuffer({
+  path: process.env.IM2A_GOAL_BUFFER_DB ?? join(DB_DIR, "goal-buffer.db"),
 });
 
 let gatewaySession = null;
@@ -299,6 +305,61 @@ const TOOLS = [
     description: "Run the fixed trace_ingest -> reflect_trigger -> curator_audit -> skill_guard_check -> memory_recall_v2 evolution dry run. No durable writes; returns per-step timings, schema checks and cross-step ID traceability.",
     inputSchema: { type: "object", additionalProperties: false, properties: {} },
   },
+  {
+    name: "drive_list",
+    description: "Load the durable drive declarations from the agent drives/ directory. Read-only; missing directory returns an empty list.",
+    inputSchema: { type: "object", additionalProperties: false, properties: {} },
+  },
+  {
+    name: "drive_manage",
+    description: "Create or patch one drives/<drive_id>.md declaration. The MCP handler calls skill_guard_check with operation=patch and target_skill_id=drive_id; public or read-only sessions are denied.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        drive_id: { type: "string", pattern: "^[a-z][a-z0-9_]{2,63}$" },
+        description: { type: "string", minLength: 1, maxLength: 500 },
+        priority: { type: "number", minimum: 0, maximum: 1 },
+        trigger_hint: { type: "string", minLength: 1, maxLength: 500 },
+        scope: { enum: ["self_owned_skills"] },
+        body: { type: "string", maxLength: 2000 },
+      },
+      required: ["drive_id", "description", "priority", "trigger_hint", "scope"],
+    },
+  },
+  {
+    name: "goal_buffer",
+    description: "Read or write the local goal buffer. Actions: put, transition, query, audit. The buffer is separate from Memory Hub and enforces pending->scheduled->executing->completed/expired transitions.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        action: { enum: ["put", "transition", "query", "audit"] },
+        goal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
+        drive_id: { type: "string", minLength: 1, maxLength: 64 },
+        intent_summary: { type: "string", minLength: 1, maxLength: 2000 },
+        source_signals: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              type: { enum: ["skill", "memory_item"] },
+              id: { type: "string", minLength: 1, maxLength: 200 },
+            },
+            required: ["type", "id"],
+          },
+        },
+        priority_score: { type: "number", minimum: 0, maximum: 1 },
+        status: { enum: ["pending", "scheduled", "executing", "completed", "expired"] },
+        actor: { type: "string", minLength: 1, maxLength: 200 },
+        reason: { type: "string", maxLength: 500 },
+        limit: { type: "integer", minimum: 1, maximum: 500 },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -401,10 +462,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.9.0",
+            version: "0.10.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: nineteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-two tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -418,8 +479,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.9.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: nineteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.10.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-two tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer).",
       },
     };
   }
@@ -627,6 +688,66 @@ async function handleRpc(message, context = {}) {
       }
       if (name === "evolution_pipeline_dryrun") {
         return { jsonrpc: "2.0", id, result: resultText(runEvolutionPipelineDryRun()) };
+      }
+      if (name === "drive_list") {
+        const drives = await loadDrives(DRIVES_DIR);
+        return { jsonrpc: "2.0", id, result: resultText({ drives, count: drives.length, dir: DRIVES_DIR }) };
+      }
+      if (name === "drive_manage") {
+        const driveId = String(args.drive_id);
+        const guard = await skillGuard.check({
+          session: guardSession,
+          agentDid: guardSession.agent_did ?? "did:im2a:public",
+          operation: "patch",
+          targetSkillId: driveId,
+          targetOwnerDid: null,
+        });
+        if (!guard.allowed) {
+          return { jsonrpc: "2.0", id, result: resultText(guardDeniedText(guard), true) };
+        }
+        const drive = await writeDrive(DRIVES_DIR, {
+          drive_id: driveId,
+          description: String(args.description),
+          priority: Number(args.priority),
+          trigger_hint: String(args.trigger_hint),
+          scope: String(args.scope),
+          body: args.body === undefined ? "" : String(args.body),
+        });
+        return { jsonrpc: "2.0", id, result: resultText({ ...drive, audit_event_id: guard.audit_event_id }) };
+      }
+      if (name === "goal_buffer") {
+        const action = String(args.action);
+        if (action === "put") {
+          const goal = goalBuffer.put({
+            goalId: args.goal_id ? String(args.goal_id) : null,
+            driveId: String(args.drive_id),
+            intentSummary: String(args.intent_summary),
+            sourceSignals: args.source_signals,
+            priorityScore: Number(args.priority_score),
+          });
+          return { jsonrpc: "2.0", id, result: resultText({ goal }) };
+        }
+        if (action === "transition") {
+          const goal = goalBuffer.transition(String(args.goal_id), String(args.status), {
+            actor: args.actor ? String(args.actor) : "operator",
+            reason: args.reason ? String(args.reason) : null,
+          });
+          return { jsonrpc: "2.0", id, result: resultText({ goal }) };
+        }
+        if (action === "query") {
+          return {
+            jsonrpc: "2.0", id,
+            result: resultText(goalBuffer.query({
+              status: args.status ? String(args.status) : null,
+              driveId: args.drive_id ? String(args.drive_id) : null,
+              limit: args.limit ? Number(args.limit) : 100,
+            })),
+          };
+        }
+        if (action === "audit") {
+          return { jsonrpc: "2.0", id, result: resultText(goalBuffer.audit(args.goal_id ? String(args.goal_id) : null)) };
+        }
+        return { jsonrpc: "2.0", id, result: resultText(`unknown goal_buffer action: ${action}`, true) };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {
