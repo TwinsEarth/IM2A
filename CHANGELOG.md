@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.5.3 — 2026-10-31 security patch
+
+- Fixed SSE cross-session event fanout: stream now requires a valid session capability and filters every event.
+- Added per-session capability tokens for stream/history/send/presence/unregister; unbound registrations create a new session instead of reusing an existing one.
+- Scoped /v1/harness/sessions to the caller's own session.
+- Added Go and Node MCP session-capability handling and regression tests.
+- Verified v2.4.6 tag target and source; its GitHub asset SHA256SUMS does not match the published dsh plugin asset, so it is a rollback candidate pending asset repair, not a fully verified safe baseline.
+- Residual risk: HTTP TLS/multi-tenant auth and agent-plugins draft are still not production claims.
 ## v2.5.2 — 2026-10-31
 
 Six-party release with the real MCP skill/memory surface.

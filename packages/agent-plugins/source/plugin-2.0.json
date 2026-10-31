@@ -1,7 +1,7 @@
 {
   "profileVersion": "2.0",
   "name": "im2a-fleet-control",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "description": "IM2A Agent Plugins 2.0: fleet control, skill proposals, memory and evolution contracts.",
   "license": "MIT",
   "skills": [

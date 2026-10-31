@@ -34,6 +34,7 @@ const memoryHub = new MemoryHub({
 });
 
 let gatewaySession = null;
+let gatewaySessionToken = "";
 let lastSeen = 0;
 
 const TOOLS = [
@@ -199,6 +200,7 @@ async function gatewayRequest(pathname, { method = "GET", body } = {}) {
     method,
     headers: {
       authorization: `Bearer ${TOKEN}`,
+      ...(gatewaySessionToken ? { "x-im2a-session-token": gatewaySessionToken } : {}),
       ...(body === undefined ? {} : { "content-type": "application/json" }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -217,7 +219,9 @@ async function ensureSession() {
   });
   const parsed = JSON.parse(text);
   gatewaySession = parsed.session ?? parsed;
+  gatewaySessionToken = String(parsed.token ?? "");
   if (!gatewaySession?.id) throw new Error("gateway did not return a harness session id");
+  if (!gatewaySessionToken) throw new Error("gateway did not return a session capability token");
   return gatewaySession;
 }
 
@@ -290,7 +294,9 @@ async function handleRpc(message) {
         return { jsonrpc: "2.0", id, result: resultText(await gatewayJson("/v1/harness/registry")) };
       }
       if (name === "im2a_presence") {
-        return { jsonrpc: "2.0", id, result: resultText(await gatewayJson("/v1/harness/sessions")) };
+        const session = await ensureSession();
+        const text = await gatewayRequest(`/v1/harness/sessions?session=${encodeURIComponent(session.id)}`);
+        return { jsonrpc: "2.0", id, result: resultText(text) };
       }
       if (name === "im2a_whoami") {
         const session = await ensureSession();

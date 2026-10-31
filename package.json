@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.5.2 Agent Plugins 2.0 six-party release",
+  "description": "IM2A v2.5.3 security patch",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",

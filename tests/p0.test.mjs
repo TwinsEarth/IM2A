@@ -10,7 +10,7 @@ import { validateSchema } from "../scripts/schema-validator.mjs";
 test("P0 version matrix, schemas, and generated dist are consistent", async () => {
   const result = await validateP0();
   assert.equal(result.ok, true);
-  assert.equal(result.platform, "2.5.2");
+  assert.equal(result.platform, "2.5.3");
   assert.equal(result.go, "2.3.26");
   assert.equal(result.adapters, 12);
   assert.equal(result.targets, 12);

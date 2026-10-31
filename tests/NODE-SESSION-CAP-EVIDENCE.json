@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "toolCount": 13,
+  "whoami": {
+    "harness": "deepseek-harness",
+    "agent": "dsh",
+    "session": {
+      "id": "hs_test",
+      "harness": "deepseek-harness",
+      "agent": "dsh"
+    },
+    "transport": "streamable-http"
+  },
+  "send": {
+    "message": {
+      "id": 1,
+      "from": "hs_test",
+      "to": "broadcast",
+      "text": "capability works"
+    }
+  },
+  "recv": {
+    "messages": [],
+    "count": 0
+  },
+  "presence": {
+    "sessions": [
+      {
+        "id": "hs_test",
+        "harness": "deepseek-harness",
+        "agent": "dsh"
+      }
+    ],
+    "count": 1
+  },
+  "checkedAt": "2026-10-31T02:30:24.254Z"
+}
