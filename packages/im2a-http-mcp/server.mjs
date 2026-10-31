@@ -241,6 +241,19 @@ const TOOLS = [
       required: ["trace_id", "agent_did"],
     },
   },
+  {
+    name: "curator_audit",
+    description: "Read-only lifecycle audit of the skill library. Returns stale/archived states and advisory recommended_action values; never archives, merges, deletes or writes.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        scope: { enum: ["agent_owned", "network"] },
+        since: { type: "string", format: "date-time" },
+      },
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -313,10 +326,10 @@ async function handleRpc(message) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.5.0",
+            version: "0.6.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: fifteen tools (IM2A bus, skills, memory, trace, reflection).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: sixteen tools (IM2A bus, skills, memory, trace, reflection, curator audit).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -330,8 +343,8 @@ async function handleRpc(message) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.5.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: fifteen tools (IM2A bus, skills, memory, trace, reflection).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.6.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: sixteen tools (IM2A bus, skills, memory, trace, reflection, curator audit).",
       },
     };
   }
@@ -421,6 +434,13 @@ async function handleRpc(message) {
           limit: Math.min(Math.max(Number(args.limit ?? 65536), 1), 65536),
           sessionId: args.sessionId ? String(args.sessionId) : undefined,
         });
+        try {
+          skillStore.recordUsage(String(args.id), {
+            agentRef: AGENT_NAME,
+            sessionId: args.sessionId ? String(args.sessionId) : null,
+            source: "skill_view",
+          });
+        } catch { /* usage telemetry must not break the read path */ }
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "skill_manage") {
@@ -473,6 +493,14 @@ async function handleRpc(message) {
           traceId: args.trace_id,
           agentDid: args.agent_did,
           focus: args.focus,
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "curator_audit") {
+        const result = skillStore.curatorAudit({
+          agentDid: args.agent_did,
+          scope: args.scope ?? "network",
+          since: args.since,
         });
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }

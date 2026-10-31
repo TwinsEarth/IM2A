@@ -1,0 +1,91 @@
+{
+  "release": "v2.5.6",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-10-31T11:18:12Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-10-31T19:15:56+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.5.6",
+    "httpMcpVersion": "0.6.0",
+    "nodeServerSha256": "f4f231c6e75562cc50cb953cf57bdb55533e1249d0661cfba06866f23b22aaca",
+    "skillStoreSha256": "de14246388aac6fa088d8266015836884d711e95666cb5524c311cdb7f9e1e31",
+    "goMcpVersion": "0.6.0",
+    "goMcpSha256": "600681d3d39d4b4043367d6ef930fc73203fda22abc1f451ed26b899005c9c48",
+    "goMcpWindowsSha256": "6daeda7a91405b01bc97de1dfcfa17531fc338c470138e1705a97b3538b306d9",
+    "goMcpPaths": [
+      "/opt/im2a/v2.5.6/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 16,
+    "hasCuratorAudit": true,
+    "librarySkills": 6,
+    "stateCounts": {
+      "active": 3,
+      "stale": 2,
+      "archived": 1
+    },
+    "recommendedActions": {
+      "keep": 2,
+      "flag_for_review": 1,
+      "merge_candidate": 2,
+      "archive_candidate": 1
+    },
+    "l0CostDeviationMax": 0,
+    "agentOwnedScope": ["v256-active"],
+    "sinceScope": ["v256-active"],
+    "dbCountsBefore": {
+      "active": 6,
+      "proposals": 2,
+      "ledger": 7,
+      "skill_usage": 2,
+      "skill_owners": 1
+    },
+    "dbCountsAfter": {
+      "active": 6,
+      "proposals": 2,
+      "ledger": 7,
+      "skill_usage": 2,
+      "skill_owners": 1
+    },
+    "auditWrites": 0,
+    "goMcpTools": 16,
+    "goCuratorAudit": "PASS"
+  },
+  "testFixtureCleanup": {
+    "performed": true,
+    "method": "stopped service, deleted only skill_id LIKE 'v256-%' rows, restarted service",
+    "remainingActiveCount": 0
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V256-CURATOR-EVIDENCE.json",
+    "tests/V256-CURATOR-UNIT-EVIDENCE.json",
+    "tests/V256-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.5.6-CURATOR-AUDIT.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.5.6-20261031191556",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.5.5 tree and data are untouched",
+  "notClaimed": [
+    "production readiness",
+    "TLS or multi-tenant authorization",
+    "full v2.9.x Skill Node ownership",
+    "automatic archive/merge/delete execution",
+    "curator_execute tool",
+    "cryptographic binding of agent_did"
+  ],
+  "openP0": [
+    "curator remains on the shared main-Agent identity; curator/operator separation is deferred",
+    "per-conversation seq domain is not yet the harness ordering contract"
+  ]
+}

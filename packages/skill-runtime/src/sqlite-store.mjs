@@ -6,6 +6,24 @@ const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const hashFiles = (files) => sha256(JSON.stringify(Object.keys(files).sort().map((key) => [key, sha256(files[key])])));
 const safePath = (path) => typeof path === 'string' && /^[A-Za-z0-9._/-]+$/.test(path) && !path.startsWith('/') && !path.split('/').includes('..');
 
+function descriptionTokens(text) {
+  return new Set(String(text ?? '').toLowerCase().match(/[a-z0-9\u4e00-\u9fff]+/g) ?? []);
+}
+
+function jaccard(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const token of a) if (b.has(token)) intersection += 1;
+  return intersection / new Set([...a, ...b]).size;
+}
+
+function parseSince(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = typeof value === 'number' ? value : Date.parse(String(value));
+  if (!Number.isFinite(parsed)) throw new SkillError('INVALID_SINCE');
+  return parsed;
+}
+
 export class SqliteSkillStore {
   constructor({ path, evalFloor = EVAL_FLOOR, now = () => Date.now() } = {}) {
     if (!path) throw new SkillError('DB_PATH_REQUIRED');
@@ -58,6 +76,20 @@ export class SqliteSkillStore {
         session_id TEXT PRIMARY KEY,
         skill_id TEXT NOT NULL,
         package_sha TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS skill_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        skill_id TEXT NOT NULL,
+        used_at INTEGER NOT NULL,
+        agent_ref TEXT,
+        session_id TEXT,
+        source TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_skill_usage_skill_time ON skill_usage(skill_id, used_at);
+      CREATE TABLE IF NOT EXISTS skill_owners (
+        skill_id TEXT PRIMARY KEY,
+        owner_agent_did TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
       );
     `);
   }
@@ -182,6 +214,131 @@ export class SqliteSkillStore {
   curator({ action = 'status' } = {}) {
     if (!['status', 'scan', 'report'].includes(action)) throw new SkillError('FORBIDDEN');
     return { action, active: this.list(), proposals: this.db.prepare('SELECT proposal_id, skill_id, status FROM proposals ORDER BY created_at').all() };
+  }
+
+  recordUsage(id, { agentRef = null, sessionId = null, source = 'skill_view', at = this.now() } = {}) {
+    assertId(id);
+    const usedAt = Number(at);
+    if (!Number.isInteger(usedAt)) throw new SkillError('INVALID_USAGE_TIME');
+    this.db.prepare('INSERT INTO skill_usage (skill_id, used_at, agent_ref, session_id, source) VALUES (?, ?, ?, ?, ?)')
+      .run(id, usedAt, agentRef === null ? null : String(agentRef).slice(0, 200), sessionId === null ? null : String(sessionId).slice(0, 200), String(source).slice(0, 32));
+  }
+
+  setOwner(id, agentDid) {
+    assertId(id);
+    if (typeof agentDid !== 'string' || agentDid.trim() === '') throw new SkillError('INVALID_AGENT_DID');
+    this.db.prepare(`INSERT INTO skill_owners (skill_id, owner_agent_did, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(skill_id) DO UPDATE SET owner_agent_did = excluded.owner_agent_did, updated_at = excluded.updated_at`)
+      .run(id, agentDid.trim(), this.now());
+  }
+
+  /**
+   * Read-only lifecycle audit. It performs SELECTs only; recommended_action is
+   * never executed here.
+   */
+  curatorAudit({
+    agentDid = null,
+    scope = 'network',
+    since,
+    now = this.now(),
+    staleDays = 30,
+    archiveDays = 90,
+    mergeSimilarity = 0.8,
+  } = {}) {
+    if (!['network', 'agent_owned'].includes(scope)) throw new SkillError('INVALID_SCOPE');
+    if (scope === 'agent_owned' && (typeof agentDid !== 'string' || agentDid.trim() === '')) {
+      throw new SkillError('AGENT_DID_REQUIRED');
+    }
+    if (!Number.isFinite(staleDays) || staleDays <= 0 || !Number.isFinite(archiveDays) || archiveDays <= staleDays) {
+      throw new SkillError('INVALID_LIFECYCLE_THRESHOLDS');
+    }
+    if (!Number.isFinite(mergeSimilarity) || mergeSimilarity < 0 || mergeSimilarity > 1) {
+      throw new SkillError('INVALID_MERGE_SIMILARITY');
+    }
+    const sinceMs = parseSince(since);
+    const nowMs = Number(now);
+    if (!Number.isFinite(nowMs)) throw new SkillError('INVALID_AUDIT_TIME');
+    const usageCutoff = nowMs - 30 * 24 * 60 * 60 * 1000;
+    const rows = this.db.prepare(`
+      SELECT p.skill_id AS id, p.description, p.version, p.package_sha AS packageSha,
+             p.tags_json, a.updated_at AS updatedAt,
+             (SELECT MAX(used_at) FROM skill_usage su WHERE su.skill_id = p.skill_id) AS lastUsedAt,
+             (SELECT COUNT(*) FROM skill_usage su WHERE su.skill_id = p.skill_id AND su.used_at >= ?) AS useCount30d,
+             (SELECT COUNT(*) FROM proposals pr WHERE pr.skill_id = p.skill_id AND pr.action = 'patch') AS patchCount,
+             (SELECT COUNT(*) FROM proposals pr WHERE pr.skill_id = p.skill_id AND pr.action = 'archive' AND pr.status = 'promoted') AS archivePromoted,
+             (SELECT owner_agent_did FROM skill_owners so WHERE so.skill_id = p.skill_id) AS ownerAgentDid,
+             (SELECT pr.proposer FROM proposals pr WHERE pr.skill_id = p.skill_id ORDER BY pr.created_at DESC LIMIT 1) AS lastProposer
+      FROM active a JOIN packages p ON p.package_sha = a.package_sha
+      ORDER BY p.skill_id
+    `).all(usageCutoff).map((row) => {
+      const lastUsedMs = Number(row.lastUsedAt ?? row.updatedAt);
+      const effectiveMs = Math.max(lastUsedMs, Number(row.updatedAt));
+      if (sinceMs !== null && effectiveMs < sinceMs) return null;
+      if (scope === 'agent_owned' && row.ownerAgentDid !== agentDid && row.lastProposer !== agentDid) return null;
+      const ageDays = Math.max(0, (nowMs - lastUsedMs) / (24 * 60 * 60 * 1000));
+      const archived = Number(row.archivePromoted) > 0;
+      const description = String(row.description ?? '');
+      const l0 = {
+        id: row.id,
+        description,
+        version: row.version,
+        packageSha: row.packageSha,
+        tags: JSON.parse(row.tags_json),
+      };
+      return {
+        id: row.id,
+        description,
+        tags: l0.tags,
+        ageDays,
+        archived,
+        lastUsedAt: lastUsedMs,
+        useCount30d: Number(row.useCount30d),
+        patchCount: Number(row.patchCount),
+        estimatedTokens: Math.ceil(Buffer.byteLength(JSON.stringify(l0), 'utf8') / 4),
+      };
+    }).filter(Boolean);
+
+    for (const row of rows) {
+      row.recommendedAction = row.archived
+        ? 'keep'
+        : row.ageDays >= archiveDays
+          ? 'archive_candidate'
+          : row.ageDays >= staleDays
+            ? 'flag_for_review'
+            : 'keep';
+    }
+    for (let i = 0; i < rows.length; i += 1) {
+      for (let j = i + 1; j < rows.length; j += 1) {
+        const a = rows[i];
+        const b = rows[j];
+        if (a.archived || b.archived || a.recommendedAction === 'archive_candidate' || b.recommendedAction === 'archive_candidate') continue;
+        if (jaccard(descriptionTokens(a.description), descriptionTokens(b.description)) >= mergeSimilarity) {
+          a.recommendedAction = 'merge_candidate';
+          b.recommendedAction = 'merge_candidate';
+        }
+      }
+    }
+
+    const skills = rows.map((row) => ({
+      skill_id: row.id,
+      name: row.id,
+      lifecycle_state: row.archived ? 'archived' : row.ageDays >= staleDays ? 'stale' : 'active',
+      last_used_at: new Date(row.lastUsedAt).toISOString(),
+      use_count_30d: row.useCount30d,
+      patch_count: row.patchCount,
+      estimated_context_cost_tokens: row.estimatedTokens,
+      recommended_action: row.recommendedAction,
+    }));
+    return {
+      skills,
+      audit: {
+        generated_at: new Date(nowMs).toISOString(),
+        scope,
+        agent_did: agentDid,
+        since: sinceMs === null ? null : new Date(sinceMs).toISOString(),
+        thresholds: { staleDays, archiveDays, mergeSimilarity },
+      },
+    };
   }
 
   activeSha(id) {

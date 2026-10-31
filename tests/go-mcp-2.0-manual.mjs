@@ -47,7 +47,7 @@ try {
   const view = await rpc('tools/call', { name: 'skill_view', arguments: { id: 'demo-skill', path: 'references/a.md' } });
   const memory = await rpc('tools/call', { name: 'memory_search', arguments: { query: 'evolution' } });
   const evidence = {
-    ok: names.length === 15 && !skills.result.isError && !view.result.isError && !memory.result.isError,
+    ok: names.length === 16 && !skills.result.isError && !view.result.isError && !memory.result.isError,
     serverInfo: init.result.serverInfo,
     toolCount: names.length,
     tools: names,

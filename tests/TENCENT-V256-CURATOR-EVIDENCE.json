@@ -1,0 +1,103 @@
+{
+  "checkedAt": "2026-10-31T11:18:12.268Z",
+  "toolCount": 16,
+  "hasCuratorAudit": true,
+  "stateCounts": {
+    "active": 3,
+    "stale": 2,
+    "archived": 1
+  },
+  "recommended": {
+    "v256-active": "keep",
+    "v256-archive": "archive_candidate",
+    "v256-archived": "keep",
+    "v256-merge-a": "merge_candidate",
+    "v256-merge-b": "merge_candidate",
+    "v256-stale": "flag_for_review"
+  },
+  "usage": {
+    "v256-active": {
+      "use_count_30d": 1,
+      "patch_count": 1
+    },
+    "v256-archive": {
+      "use_count_30d": 0,
+      "patch_count": 0
+    },
+    "v256-archived": {
+      "use_count_30d": 0,
+      "patch_count": 0
+    },
+    "v256-merge-a": {
+      "use_count_30d": 0,
+      "patch_count": 0
+    },
+    "v256-merge-b": {
+      "use_count_30d": 0,
+      "patch_count": 0
+    },
+    "v256-stale": {
+      "use_count_30d": 0,
+      "patch_count": 0
+    }
+  },
+  "ownedSkills": [
+    "v256-active"
+  ],
+  "recentSkills": [
+    "v256-active"
+  ],
+  "l0Costs": [
+    {
+      "id": "v256-active",
+      "estimated": 49,
+      "actual": 49,
+      "deviation": 0
+    },
+    {
+      "id": "v256-archive",
+      "estimated": 50,
+      "actual": 50,
+      "deviation": 0
+    },
+    {
+      "id": "v256-archived",
+      "estimated": 43,
+      "actual": 43,
+      "deviation": 0
+    },
+    {
+      "id": "v256-merge-a",
+      "estimated": 53,
+      "actual": 53,
+      "deviation": 0
+    },
+    {
+      "id": "v256-merge-b",
+      "estimated": 53,
+      "actual": 53,
+      "deviation": 0
+    },
+    {
+      "id": "v256-stale",
+      "estimated": 48,
+      "actual": 48,
+      "deviation": 0
+    }
+  ],
+  "dbCountsBefore": {
+    "active": 6,
+    "proposals": 2,
+    "ledger": 7,
+    "skill_usage": 2,
+    "skill_owners": 1
+  },
+  "dbCountsAfter": {
+    "active": 6,
+    "proposals": 2,
+    "ledger": 7,
+    "skill_usage": 2,
+    "skill_owners": 1
+  },
+  "noAuditWrites": true
+}

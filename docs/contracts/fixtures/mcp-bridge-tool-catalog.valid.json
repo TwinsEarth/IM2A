@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.5.5",
+  "toolCatalogVersion": "2.5.6",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -452,6 +452,33 @@
         "required": ["assessment", "distilled_candidates"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "TRACE_NOT_FOUND", "TRACE_AGENT_MISMATCH", "REFLECT_CONFIG_INVALID", "INVALID_FOCUS", "INTERNAL"]
+    },
+    {
+      "name": "curator_audit",
+      "title": "Audit skill lifecycle",
+      "description": "Read-only audit of active skills. Returns lifecycle state, usage, patch count, L0 context estimate and advisory action; never archives, merges or deletes.",
+      "scope": ["curator:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_did": { "type": "string", "description": "Owner filter for agent_owned scope" },
+          "scope": { "enum": ["agent_owned", "network"], "description": "Defaults to network" },
+          "since": { "type": "string", "format": "date-time", "description": "Only include skills used/updated at or after this time" }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "skills": { "type": "array", "items": { "type": "object" } },
+          "audit": { "type": "object" }
+        },
+        "required": ["skills"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INVALID_SCOPE", "AGENT_DID_REQUIRED", "INVALID_SINCE", "INVALID_LIFECYCLE_THRESHOLDS", "INVALID_MERGE_SIMILARITY", "INTERNAL"]
     }
   ]
 }

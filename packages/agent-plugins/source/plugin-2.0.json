@@ -1,7 +1,7 @@
 {
   "profileVersion": "2.0",
   "name": "im2a-fleet-control",
-  "version": "2.5.5",
+  "version": "2.5.6",
   "description": "IM2A Agent Plugins 2.0: fleet control, skill proposals, memory and evolution contracts.",
   "license": "MIT",
   "skills": [
@@ -103,13 +103,15 @@
       "role": "Propose skill candidates; never mutate active skills.",
       "scope": [
         "skill:read",
-        "skill:propose"
+        "skill:propose",
+        "curator:read"
       ],
       "tools": [
         "skills_list",
         "skill_view",
         "skill_manage",
-        "curator"
+        "curator",
+        "curator_audit"
       ],
       "maxDepth": 0,
       "budget": {

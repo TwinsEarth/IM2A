@@ -16,7 +16,7 @@ async function rpc(method, params = {}) {
 const init = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'v250-test', version: '1.0.0' } });
 const list = await rpc('tools/list');
 const names = list.tools.map((tool) => tool.name);
-const expected = ['im2a_harness_list','im2a_send','im2a_recv','im2a_presence','im2a_whoami','im2a_history','skills_list','skill_view','skill_manage','curator','memory_search','memory_get','memory_propose','trace_ingest','reflect_trigger'];
+const expected = ['im2a_harness_list','im2a_send','im2a_recv','im2a_presence','im2a_whoami','im2a_history','skills_list','skill_view','skill_manage','curator','memory_search','memory_get','memory_propose','trace_ingest','reflect_trigger','curator_audit'];
 const missing = expected.filter((name) => !names.includes(name));
 const extra = names.filter((name) => !expected.includes(name));
 const skills = await rpc('tools/call', { name: 'skills_list', arguments: { query: 'demo', limit: 10 } });
@@ -44,8 +44,9 @@ const reflection = await rpc('tools/call', {
   name: 'reflect_trigger',
   arguments: { trace_id: traceResult.trace_id, agent_did: 'did:im2a:agent-manual', focus: 'success_pattern' },
 });
+const audit = await rpc('tools/call', { name: 'curator_audit', arguments: { scope: 'network' } });
 const evidence = {
-  ok: missing.length === 0 && extra.length === 0 && !skills.isError && !view.isError && !proposal.isError && !trace.isError && !reflection.isError,
+  ok: missing.length === 0 && extra.length === 0 && !skills.isError && !view.isError && !proposal.isError && !trace.isError && !reflection.isError && !audit.isError,
   tools: names,
   count: names.length,
   missing,
@@ -59,6 +60,7 @@ const evidence = {
   memoryProposal: JSON.parse(memoryProposal.content[0].text),
   trace: traceResult,
   reflection: JSON.parse(reflection.content[0].text),
+  curatorAudit: JSON.parse(audit.content[0].text),
   checkedAt: new Date().toISOString(),
 };
 writeFileSync('E:/GPT/im2a-v2.3.45/tests/HTTP-MCP-2.0-EVIDENCE.json', JSON.stringify(evidence, null, 2) + '\n');

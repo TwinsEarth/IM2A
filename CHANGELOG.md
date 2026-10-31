@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.5.6 — 2026-10-31 read-only curator lifecycle audit
+
+- Added `curator_audit` to the HTTP MCP and Go stdio MCP; tool surface is now
+  16.
+- Audits active skills by network or agent ownership, with optional `since`
+  filtering: lifecycle state, last use, 30-day use count, patch count, L0 token
+  estimate and advisory recommended action.
+- Lifecycle rules: 30 days unused -> stale; 90 days unused -> archive candidate;
+  promoted archive -> archived. No hard delete; no automatic archive, merge or
+  delete path.
+- Added `skill_usage` and `skill_owners` tables; `skill_view` records usage
+  telemetry. Audit itself performs SELECTs only.
+- Added tests for 6-skill distribution, L0 estimate within 10%, read-only
+  no-write proof, agent-owned scope, since filter and invalid inputs.
+- Deferred: automatic curator execution remains a v3.0.x governance action or
+  a v2.9.x Skill Node owner action.
+
 ## v2.5.5 — 2026-10-31 read-only reflection trigger
 
 - Added `reflect_trigger` to the HTTP MCP and Go stdio MCP; tool surface is now

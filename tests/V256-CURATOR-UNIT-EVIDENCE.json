@@ -1,0 +1,46 @@
+{
+  "release": "v2.5.6",
+  "kind": "local-unit",
+  "checkedAt": "2026-10-31T11:18:12Z",
+  "toolSurface": 16,
+  "localTests": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "cases": [
+      "curator_audit reports the 5+ skill lifecycle distribution and L0 cost",
+      "curator_audit fails closed on invalid scope/since"
+    ]
+  },
+  "verified": {
+    "skillCount": 6,
+    "active": 3,
+    "stale": 2,
+    "archived": 1,
+    "recommendedActions": {
+      "keep": 2,
+      "flag_for_review": 1,
+      "merge_candidate": 2,
+      "archive_candidate": 1
+    },
+    "l0CostDeviationMax": 0,
+    "auditWrites": 0
+  },
+  "contractChecks": {
+    "mcpBridgeToolCatalog": "PASS (16 tools)",
+    "agentPluginContract": "PASS",
+    "platformValidate": "PASS (2.5.6)",
+    "generatorCheck": "PASS"
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "test": "PASS, 0 failing packages",
+    "curatorAuditDelegationTest": "PASS"
+  },
+  "limits": [
+    "owner scope is partial: skill_owners plus last proposal proposer",
+    "recommended_action is advisory only; no curator_execute tool exists",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}
