@@ -1,6 +1,6 @@
 {
     "schemaVersion":  "1.0",
-    "checkedAt":  "2026-10-31T08:12:28.1649111+08:00",
+    "checkedAt":  "2026-10-31T08:31:04.4836379+08:00",
     "liveProfileModified":  true,
     "hostVersion":  "0.2.0",
     "overlayVersion":  "0.2.0",
@@ -16,5 +16,11 @@
     "bundleOrder":  [
                         "@twinsearth/im2a-dsh-plugin",
                         "@twinsearth/im2a-dsh-plugin-live"
-                    ]
+                    ],
+    "npmPublished":  true,
+    "npmVersion":  "0.3.0",
+    "bundleCount":  24,
+    "dshMainProcessStarted":  "2026-10-31T08:22:54+08:00",
+    "bundleRestoredAt":  "2026-10-31T08:29:09+08:00",
+    "fullProcessRestartRequired":  true
 }

@@ -1,32 +1,38 @@
 # DSH live HTTP overlay upgrade
 
-Date: 2026-10-31
-
-## Root cause
-
-Two separate problems:
-
-1. The live profile was still on host 0.1.1 / overlay 0.1.1.
-2. After installing 0.2.0, `@twinsearth/im2a-dsh-plugin-live` was missing from
-   `dsh.profile.bundles`. The package was installed but never composed, so the
-   host stdio row remained and failed with missing `command`.
-
-## Applied
+## Published package
 
 ```text
-host:     @twinsearth/im2a-dsh-plugin 0.2.0
-overlay:  @twinsearth/im2a-dsh-plugin-live 0.2.0
-transport: streamable-http
-url:      http://127.0.0.1:18082/mcp
-bundle order: host, live
+@twinsearth/im2a-dsh-plugin-live@0.3.0
+private: false
+registry: latest
 ```
 
-HTTP MCP service: 13 tools, health 200, loopback-only.
+## Runtime state
 
-## Required action
+```text
+host: @twinsearth/im2a-dsh-plugin 0.2.0
+overlay: @twinsearth/im2a-dsh-plugin-live 0.3.0
+transport: streamable-http
+url: http://127.0.0.1:18082/mcp
+HTTP MCP: 13 tools, health 200
+live bundles: 24
+```
 
-Restart desktop DSH again. The running process still contains the old failed
-stdio row; only a restart recomposes the bundle list.
+## Installer incident
+
+On this DSH build, `dsh plugin add @twinsearth/im2a-dsh-plugin-live@0.3.0`
+rewrote the live profile bundle list down to three entries. The full list was
+restored from the pre-upgrade backup and now contains both host and live.
+
+Do not run another plugin add on the live profile without checking
+`dsh.profile.bundles` before restart.
+
+## Restart requirement
+
+The DSH main process was started at 08:22, before the bundle restore at 08:29.
+Reloading the window/renderer is insufficient. Fully quit DeepSeek Harness
+(including tray processes) and reopen it.
 
 After restart verify:
 
@@ -39,9 +45,9 @@ mcp__im2a__memory_search
 
 ```text
 .im2a-http-upgrade-20261031073924/package.json
-.im2a-bundles-fix-<timestamp>/package.json
+.im2a-broken-bundles-20261031082909/package.json
 ```
 
 ## Security
 
-18082 is loopback-only; no inbound TLS/auth. Do not expose publicly.
+18082 is loopback-only; no inbound TLS/auth. Do not expose it publicly.

@@ -1,6 +1,6 @@
 # IM2A DSH live HTTP overlay
 
-This bundle only overrides the `im2a-mcp` row for a live DSH profile:
+This public bundle overrides the `im2a-mcp` row for a live DSH profile:
 
 ```text
 transport: streamable-http
@@ -28,14 +28,21 @@ Verify:
 curl.exe http://127.0.0.1:18082/healthz
 ```
 
-## Install after the host bundle
+## Install
+
+Install the host bridge first, then this public overlay:
 
 ```powershell
-dsh plugin --profile desktop add file:E:/GPT/im2a-v2.3.45/packages/im2a-dsh-plugin-live
+dsh plugin --profile desktop add @twinsearth/im2a-dsh-plugin@0.2.0
+dsh plugin --profile desktop add @twinsearth/im2a-dsh-plugin-live@0.3.0
 ```
 
 The loader target `im2a-mcp` must already exist from
 `@twinsearth/im2a-dsh-plugin`.
+
+If the plugin manager on your build does not auto-select the bundle, append
+this package to `dsh.profile.bundles` immediately after the host package via
+the plugin manager UI; do not hand-edit an unrelated profile patch.
 
 ## Security
 

@@ -1,7 +1,7 @@
 {
   "name": "@twinsearth/im2a-dsh-plugin-live",
-  "version": "0.2.0",
-  "private": true,
+  "version": "0.3.0",
+  "private": false,
   "type": "module",
   "description": "Live overlay for IM2A DSH: streamable-http MCP to the local Agent Plugins 2.0 service.",
   "engines": { "dsh": "0.2.1-rc.5" },
@@ -9,5 +9,6 @@
     "manifestVersion": 1,
     "bundle": { "patch": "./cordis.patch.yml" }
   },
-  "files": ["cordis.patch.yml", "README.md"]
+  "files": ["cordis.patch.yml", "README.md"],
+  "publishConfig": { "access": "public" }
 }
