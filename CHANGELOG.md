@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.5.7 — 2026-10-31 skill-write guard and audit chain
+
+- Added `skill_guard_check` to the HTTP MCP and Go stdio MCP; tool surface is
+  now 17.
+- The guard runs at the MCP handler boundary: `skill_manage` and
+  `curator.stage` call it before any write.
+- Requested scope is derived from the verified server session, never accepted
+  from the caller. Public/read-only sessions are denied; `skill:write` plus
+  authorization level L2 is required.
+- Denials: `insufficient_scope`, `scope_ceiling_exceeded`,
+  `cross_agent_write_blocked`.
+- Every check appends a hash-chained JSONL audit event with
+  `request -> decision -> approval -> result` and returns `audit_event_id`.
+- Sessions are HMAC-signed tokens in `x-im2a-skill-session`; Go MCP forwards
+  `IM2A_SKILL_GUARD_SESSION_TOKEN`.
+- Added unit tests for public denial, L2 allow, read-only denial, level
+  ceiling, cross-agent denial, audit chain verification and tamper detection.
+
 ## v2.5.6 — 2026-10-31 read-only curator lifecycle audit
 
 - Added `curator_audit` to the HTTP MCP and Go stdio MCP; tool surface is now

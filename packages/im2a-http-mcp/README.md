@@ -3,7 +3,7 @@
 Streamable HTTP MCP bridge used by DSH and by the Go stdio MCP for the
 skill/memory surface.
 
-## Tools (16)
+## Tools (17)
 
 ```text
 IM2A bus (6):
@@ -21,6 +21,9 @@ Trace / reflection (2):
 
 Curator audit (1):
   curator_audit
+
+Skill write guard (1):
+  skill_guard_check
 ```
 
 `skill_manage` only writes proposals. `curator` can stage but cannot promote
@@ -29,7 +32,10 @@ promotion. `trace_ingest` appends one immutable execution-trace batch; it
 accepts span metadata and SHA-256 digests only. `reflect_trigger` reads a trace
 and returns an assessment plus abstract candidates; it never writes a skill,
 memory, proposal or trace. `curator_audit` is a read-only lifecycle audit; its
-`recommended_action` values are advisory and never executed.
+`recommended_action` values are advisory and never executed. `skill_guard_check`
+is a server-side gate: `skill_manage` and `curator.stage` call it before any
+write, and it appends a hash-chained audit event. A public or read-only session
+is always denied.
 
 ## Persistence
 
@@ -48,7 +54,14 @@ $env:IM2A_TENANT_ID = 'tenant-a'
 $env:IM2A_TRACE_DIR = 'C:\path\to\im2a-traces'
 # optional reflection thresholds, inline JSON or a JSON file path
 $env:IM2A_REFLECT_CONFIG = 'C:\path\to\reflect-config.json'
+# optional skill-write guard key and audit path
+$env:IM2A_SKILL_GUARD_KEY = '<32+ byte HMAC key>'
+$env:IM2A_SKILL_GUARD_AUDIT = 'C:\path\to\skill-guard\audit.jsonl'
 ```
+
+The guard session is sent as `x-im2a-skill-session`, an HMAC-signed,
+short-lived token containing the agent DID, authorization level and scopes.
+A request without a valid token gets the public session and cannot write.
 
 ## Run
 
@@ -61,9 +74,10 @@ node packages/im2a-http-mcp/server.mjs
 
 Endpoint: `http://127.0.0.1:18082/mcp`.
 
-The Go stdio MCP registers the same 16 tools and forwards the 10
-skill/memory/trace/reflection/curator-audit tools to this server via
-`IM2A_MCP_HTTP_URL`.
+The Go stdio MCP registers the same 17 tools and forwards the 11
+skill/memory/trace/reflection/curator-audit/guard tools to this server via
+`IM2A_MCP_HTTP_URL`. It forwards `IM2A_SKILL_GUARD_SESSION_TOKEN` as the
+`x-im2a-skill-session` header when configured.
 
 ```powershell
 $env:IM2A_MCP_HTTP_URL = 'http://127.0.0.1:18082/mcp'
@@ -81,3 +95,6 @@ $env:IM2A_MCP_HTTP_URL = 'http://127.0.0.1:18082/mcp'
   automatic skill/memory writes.
 - `curator_audit` never archives, merges or deletes. It reads usage/telemetry
   and returns keep/flag/merge/archive recommendations only.
+- `skill_guard_check` requires `skill:write` and authorization level L2.
+  `skill:read` and public sessions are denied; audit events are append-only
+  and hash-chained. The guard is in the MCP handler, not in Hermes.

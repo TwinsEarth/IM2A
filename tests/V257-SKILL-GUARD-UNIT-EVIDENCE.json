@@ -1,0 +1,45 @@
+{
+  "release": "v2.5.7",
+  "kind": "local-unit-and-contract",
+  "checkedAt": "2026-10-31T12:09:57Z",
+  "toolSurface": 17,
+  "localTests": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "cases": [
+      "public code is denied insufficient_scope and the audit chain verifies",
+      "L2 skill:write is allowed and returns a traceable audit event",
+      "read-only, level ceiling and cross-agent rules fail closed",
+      "signed sessions cannot be forged or used after expiry",
+      "audit chain detects tampering and preserves two-event ordering",
+      "invalid operations are rejected before audit append"
+    ]
+  },
+  "localAcceptance": {
+    "publicGuard": { "allowed": false, "denied_reason": "insufficient_scope", "audit_event_id": "evt_814ddb285f144b74443f0ea7" },
+    "l2Guard": { "allowed": true, "denied_reason": null, "audit_event_id": "evt_a84bc35917d0f408952a1645" },
+    "deniedSkillManage": "isError=true",
+    "allowedSkillManage": "proposal written once",
+    "auditChain": { "ok": true, "count": 4, "errors": [] }
+  },
+  "contractChecks": {
+    "mcpBridgeToolCatalog": "PASS (17 tools)",
+    "agentPluginContract": "PASS",
+    "platformValidate": "PASS (2.5.7)",
+    "generatorCheck": "PASS"
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testFirstRun": "FAIL: pre-existing flaky TestRemoteBatchSplit in internal/connapi (timeout)",
+    "testRerun": "PASS, 0 failing packages",
+    "guardDelegationTest": "PASS"
+  },
+  "limits": [
+    "guard session is a signed local session token; full gateway/code-registry auth exchange is not implemented",
+    "public-code path is represented by the no-session/public session",
+    "skill_crystallize and skill_claim do not exist yet; this is their preflight seam",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

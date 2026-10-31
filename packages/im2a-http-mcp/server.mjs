@@ -17,6 +17,7 @@ import { SqliteSkillStore } from "../skill-runtime/src/sqlite-store.mjs";
 import { MemoryHub } from "../memory-hub/src/index.mjs";
 import { TraceStore } from "./trace-store.mjs";
 import { reflectOnTrace } from "./reflect.mjs";
+import { PUBLIC_SESSION, SkillGuard, verifySession } from "./skill-guard.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -37,6 +38,10 @@ const memoryHub = new MemoryHub({
 const TRACE_DIR = process.env.IM2A_TRACE_DIR ?? join(DB_DIR, "traces");
 const TRACE_TENANT = process.env.IM2A_TENANT_ID ?? "local";
 const traceStore = new TraceStore({ dir: TRACE_DIR, tenant: TRACE_TENANT });
+const SKILL_GUARD_KEY = process.env.IM2A_SKILL_GUARD_KEY ?? "";
+const skillGuard = new SkillGuard({
+  auditPath: process.env.IM2A_SKILL_GUARD_AUDIT ?? join(DB_DIR, "skill-guard", "audit.jsonl"),
+});
 
 let gatewaySession = null;
 let gatewaySessionToken = "";
@@ -254,6 +259,20 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: "skill_guard_check",
+    description: "Gate a skill write at the MCP boundary. Derives requested scope from the verified session, writes a hash-chained audit event, and returns allowed/denied plus audit_event_id. Public or read-only sessions never pass.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        operation: { enum: ["create", "patch", "archive"] },
+        target_skill_id: { type: "string", minLength: 1, maxLength: 64 },
+      },
+      required: ["agent_did", "operation", "target_skill_id"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -313,8 +332,38 @@ function resultText(text, isError = false) {
   };
 }
 
-async function handleRpc(message) {
+function guardDeniedText(result) {
+  return JSON.stringify({
+    error: "skill_write_denied",
+    allowed: false,
+    denied_reason: result.denied_reason,
+    audit_event_id: result.audit_event_id,
+  });
+}
+
+function resolveGuardSession(req) {
+  const token = req.headers["x-im2a-skill-session"];
+  if (token) {
+    try {
+      if (!SKILL_GUARD_KEY) return PUBLIC_SESSION;
+      return verifySession(String(token), SKILL_GUARD_KEY);
+    } catch {
+      return PUBLIC_SESSION;
+    }
+  }
+  const configured = process.env.IM2A_SKILL_GUARD_SESSION;
+  if (configured) {
+    try {
+      const parsed = JSON.parse(configured);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch { /* malformed trusted config fails closed to public */ }
+  }
+  return PUBLIC_SESSION;
+}
+
+async function handleRpc(message, context = {}) {
   const { id, method, params } = message;
+  const guardSession = context.guardSession ?? PUBLIC_SESSION;
   if (method === "server/discover") {
     return {
       jsonrpc: "2.0",
@@ -326,10 +375,10 @@ async function handleRpc(message) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.6.0",
+            version: "0.7.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: sixteen tools (IM2A bus, skills, memory, trace, reflection, curator audit).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: seventeen tools (IM2A bus, skills, memory, trace, reflection, curator audit, skill guard).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -343,8 +392,8 @@ async function handleRpc(message) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.6.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: sixteen tools (IM2A bus, skills, memory, trace, reflection, curator audit).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.7.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: seventeen tools (IM2A bus, skills, memory, trace, reflection, curator audit, skill guard).",
       },
     };
   }
@@ -443,26 +492,62 @@ async function handleRpc(message) {
         } catch { /* usage telemetry must not break the read path */ }
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
+      if (name === "skill_guard_check") {
+        const result = await skillGuard.check({
+          session: guardSession,
+          agentDid: String(args.agent_did),
+          operation: String(args.operation),
+          targetSkillId: String(args.target_skill_id),
+          targetOwnerDid: skillStore.ownerOf(String(args.target_skill_id)),
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
       if (name === "skill_manage") {
+        const action = String(args.action);
+        const targetId = String(args.id);
+        const guard = await skillGuard.check({
+          session: guardSession,
+          agentDid: guardSession.agent_did ?? (args.agent_did ? String(args.agent_did) : "did:im2a:public"),
+          operation: action,
+          targetSkillId: targetId,
+          targetOwnerDid: skillStore.ownerOf(targetId),
+        });
+        if (!guard.allowed) {
+          return { jsonrpc: "2.0", id, result: resultText(guardDeniedText(guard), true) };
+        }
         const result = skillStore.manage({
-          action: String(args.action),
-          id: String(args.id),
+          action,
+          id: targetId,
           baseSha: args.baseSha ? String(args.baseSha) : undefined,
           content: args.content === undefined ? undefined : String(args.content),
           files: args.files && typeof args.files === 'object' ? args.files : undefined,
           proposer: AGENT_NAME,
         });
-        return { jsonrpc: "2.0", id, result: resultText(result) };
+        return { jsonrpc: "2.0", id, result: resultText({ ...result, audit_event_id: guard.audit_event_id }) };
       }
       if (name === "curator") {
         const action = String(args.action);
-        const result = action === 'stage'
-          ? skillStore.stage(String(args.proposalId), {
-              evidence: Array.isArray(args.evidence) ? args.evidence.map(String) : [],
-              evalCases: Array.isArray(args.evalCases) ? args.evalCases.map(String) : [],
-              stagedBy: AGENT_NAME,
-            })
-          : skillStore.curator({ action });
+        if (action === 'stage') {
+          const proposal = skillStore.getProposal(String(args.proposalId));
+          const operation = ["create", "patch", "archive"].includes(proposal.action) ? proposal.action : "patch";
+          const guard = await skillGuard.check({
+            session: guardSession,
+            agentDid: guardSession.agent_did ?? "did:im2a:public",
+            operation,
+            targetSkillId: proposal.skill_id,
+            targetOwnerDid: skillStore.ownerOf(proposal.skill_id),
+          });
+          if (!guard.allowed) {
+            return { jsonrpc: "2.0", id, result: resultText(guardDeniedText(guard), true) };
+          }
+          const result = skillStore.stage(String(args.proposalId), {
+            evidence: Array.isArray(args.evidence) ? args.evidence.map(String) : [],
+            evalCases: Array.isArray(args.evalCases) ? args.evalCases.map(String) : [],
+            stagedBy: AGENT_NAME,
+          });
+          return { jsonrpc: "2.0", id, result: resultText({ ...result, audit_event_id: guard.audit_event_id }) };
+        }
+        const result = skillStore.curator({ action });
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "memory_search") {
@@ -547,8 +632,9 @@ const server = createServer(async (req, res) => {
     console.log(JSON.stringify({ event: "rpc", method: message.method ?? null, id: message.id ?? null }));
   }
   const responses = [];
+  const guardSession = resolveGuardSession(req);
   for (const message of messages) {
-    const response = await handleRpc(message);
+    const response = await handleRpc(message, { guardSession });
     if (response) responses.push(response);
   }
   if (responses.length === 0) {

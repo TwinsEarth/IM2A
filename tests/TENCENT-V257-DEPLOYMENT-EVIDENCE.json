@@ -1,0 +1,87 @@
+{
+  "release": "v2.5.7",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-10-31T12:21:30Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-10-31T20:16:10+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.5.7",
+    "httpMcpVersion": "0.7.0",
+    "nodeServerSha256": "a592f4359cb3ea02509edc32199ff26b812740cb0c4acfe52e614bb37d522c62",
+    "skillGuardSha256": "1edf4b871bbc29cacb709de8db8faedac3b06577bf6e223074cb49b79cf5a34c",
+    "goMcpVersion": "0.7.0",
+    "goMcpSha256": "8bb758aaf8f7f2676b828318f4c0a62c6d8742a4152a8622466385a3eccc5a42",
+    "goMcpWindowsSha256": "8c803fecb8622e2965713e9eb0b43c1e5d89de0e2beeaaee1db328b5b337042e",
+    "goMcpPaths": [
+      "/opt/im2a/v2.5.7/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "guardAuditPath": "/opt/im2a/v2.5.7/data/skill-guard/audit.jsonl",
+    "guardAuditMode": "0640 ubuntu:ubuntu",
+    "guardAuditDirMode": "0750",
+    "guardKeyPresent": true,
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 17,
+    "hasSkillGuardCheck": true,
+    "publicGuard": {
+      "allowed": false,
+      "denied_reason": "insufficient_scope",
+      "audit_event_id": "evt_2f4624e25475f42c12057ddb"
+    },
+    "l2Guard": {
+      "allowed": true,
+      "denied_reason": null,
+      "audit_event_id": "evt_ef331ca9e0e72a0c14b12604"
+    },
+    "deniedSkillManage": {
+      "isError": true,
+      "blockedProposalCount": 0
+    },
+    "allowedSkillManage": {
+      "isError": false,
+      "proposalCount": 1,
+      "auditEventId": "evt_f802a4356fc3f83f8d2bf5db"
+    },
+    "auditChain": {
+      "ok": true,
+      "count": 5,
+      "lastHash": "6ef64238c5d4153779f88f70603a73af2d7ea68998656ec59de9d2dc1e6a9822",
+      "errors": []
+    },
+    "goMcpTools": 17,
+    "goGuardAllowed": true,
+    "goGuardAuditEventId": "evt_14ba8a270cb8db3569cc7599"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V257-GUARD-EVIDENCE.json",
+    "tests/V257-SKILL-GUARD-UNIT-EVIDENCE.json",
+    "tests/V257-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.5.7-SKILL-GUARD.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.5.7-20261031201610",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.5.6 tree and data are untouched",
+  "notClaimed": [
+    "production readiness",
+    "TLS or multi-tenant authorization",
+    "full gateway/code-registry authorization exchange",
+    "single-use auth-code semantics for the local signed session",
+    "skill_crystallize or skill_claim implementation",
+    "production high availability"
+  ],
+  "openP0": [
+    "curator remains on the shared main-Agent identity; curator/operator separation is deferred",
+    "per-conversation seq domain is not yet the harness ordering contract",
+    "the signed guard session is a local trusted-session seam, not a full caller identity proof"
+  ]
+}

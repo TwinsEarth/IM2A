@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-31T12:17:12.364Z",
+  "toolCount": 17,
+  "hasGuard": true,
+  "publicGuard": {
+    "allowed": false,
+    "denied_reason": "insufficient_scope",
+    "audit_event_id": "evt_2f4624e25475f42c12057ddb"
+  },
+  "publicGuardIsError": false,
+  "l2Guard": {
+    "allowed": true,
+    "denied_reason": null,
+    "audit_event_id": "evt_ef331ca9e0e72a0c14b12604"
+  },
+  "l2GuardIsError": false,
+  "deniedWriteIsError": true,
+  "allowedWriteIsError": false,
+  "allowedWriteAuditId": "evt_f802a4356fc3f83f8d2bf5db",
+  "blockedProposalCount": 0,
+  "allowedProposalCount": 1,
+  "auditChain": {
+    "ok": true,
+    "count": 4,
+    "last_hash": "e6173253e17dcabef5fda5b9f84d04e1c31d15a7084204881fc584184b6e7751",
+    "errors": []
+  }
+}

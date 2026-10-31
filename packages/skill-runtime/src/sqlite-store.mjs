@@ -224,6 +224,13 @@ export class SqliteSkillStore {
       .run(id, usedAt, agentRef === null ? null : String(agentRef).slice(0, 200), sessionId === null ? null : String(sessionId).slice(0, 200), String(source).slice(0, 32));
   }
 
+  ownerOf(id) {
+    assertId(id);
+    const owner = this.db.prepare('SELECT owner_agent_did FROM skill_owners WHERE skill_id = ?').get(id)?.owner_agent_did;
+    if (owner) return owner;
+    return this.db.prepare('SELECT proposer FROM proposals WHERE skill_id = ? ORDER BY created_at DESC LIMIT 1').get(id)?.proposer ?? null;
+  }
+
   setOwner(id, agentDid) {
     assertId(id);
     if (typeof agentDid !== 'string' || agentDid.trim() === '') throw new SkillError('INVALID_AGENT_DID');

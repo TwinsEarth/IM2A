@@ -67,7 +67,7 @@
       }
     },
     "scope": {
-      "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "curator:read", "memory:read", "memory:propose", "trace:ingest", "trace:read"],
+      "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "skill:guard", "curator:read", "memory:read", "memory:propose", "trace:ingest", "trace:read"],
       "description": "Closed set. skill:curate mounts only for the curator identity; promotion scopes (memory:promote, skill:promote) are deliberately absent: promotion is an L6 governance action, never a tool."
     },
     "errorCode": {
@@ -112,7 +112,13 @@
         "AGENT_DID_REQUIRED",
         "INVALID_SINCE",
         "INVALID_LIFECYCLE_THRESHOLDS",
-        "INVALID_MERGE_SIMILARITY"
+        "INVALID_MERGE_SIMILARITY",
+        "GUARD_AUDIT_FAILED",
+        "INVALID_OPERATION",
+        "SESSION_INVALID",
+        "SESSION_EXPIRED",
+        "INVALID_AGENT_DID",
+        "INVALID_TARGET_SKILL"
       ],
       "description": "IM2A namespace codes in UPPER_SNAKE, matching SKILL-RUNTIME-MVP-v2.5.0 §4. The bridge does not paraphrase subsystem codes."
     },

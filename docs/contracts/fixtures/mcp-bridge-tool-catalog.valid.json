@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.5.6",
+  "toolCatalogVersion": "2.5.7",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -479,6 +479,35 @@
         "required": ["skills"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INVALID_SCOPE", "AGENT_DID_REQUIRED", "INVALID_SINCE", "INVALID_LIFECYCLE_THRESHOLDS", "INVALID_MERGE_SIMILARITY", "INTERNAL"]
+    },
+    {
+      "name": "skill_guard_check",
+      "title": "Gate skill write",
+      "description": "Gate one skill write at the MCP boundary using a server-verified session, append a hash-chained audit event, and return allowed/denied plus audit_event_id.",
+      "scope": ["skill:guard"],
+      "sideEffect": "append",
+      "idempotency": "at-most-once",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_did": { "type": "string", "description": "Caller subject; must match the verified session" },
+          "operation": { "enum": ["create", "patch", "archive"] },
+          "target_skill_id": { "type": "string", "description": "Skill id whose owner must match for non-create writes" }
+        },
+        "required": ["agent_did", "operation", "target_skill_id"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "allowed": { "type": "boolean" },
+          "denied_reason": { "enum": ["insufficient_scope", "scope_ceiling_exceeded", "cross_agent_write_blocked", null] },
+          "audit_event_id": { "type": "string" }
+        },
+        "required": ["allowed", "audit_event_id"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "GUARD_AUDIT_FAILED", "INVALID_OPERATION", "SESSION_INVALID", "SESSION_EXPIRED", "INVALID_AGENT_DID", "INVALID_TARGET_SKILL", "INTERNAL"]
     }
   ]
 }
