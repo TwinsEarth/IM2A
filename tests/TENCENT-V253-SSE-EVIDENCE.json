@@ -1,0 +1,117 @@
+{
+  "checkedAt": "2026-10-31T07:14:35.288Z",
+  "host": "tencent",
+  "base": "http://127.0.0.1:18080",
+  "checks": [
+    {
+      "name": "register A 201",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "register A token",
+      "ok": true,
+      "detail": "id=hs_e5989b494838 token=present"
+    },
+    {
+      "name": "register B 201",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "register B token",
+      "ok": true,
+      "detail": "id=hs_bfdedc65ce19 token=present"
+    },
+    {
+      "name": "B -> A send 201",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "B -> B send 201",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "A SSE opened",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "A presence is session-scoped",
+      "ok": true,
+      "detail": "sessions=1"
+    },
+    {
+      "name": "A receives B -> A",
+      "ok": true,
+      "detail": "messages=[\"v253-direct-to-A\"]"
+    },
+    {
+      "name": "A does not receive B -> B",
+      "ok": true,
+      "detail": "messages=[\"v253-direct-to-A\"]"
+    },
+    {
+      "name": "A sessions endpoint 200",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "A sessions endpoint returns only A",
+      "ok": true,
+      "detail": "count=1"
+    },
+    {
+      "name": "A cannot read B session metadata",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "name": "B cannot read A history",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "name": "stream without capability 401",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "name": "unregister A 204",
+      "ok": true,
+      "detail": "status=204"
+    },
+    {
+      "name": "unregister B 204",
+      "ok": true,
+      "detail": "status=204"
+    }
+  ],
+  "events": [
+    {
+      "sessions": [
+        {
+          "id": "hs_e5989b494838",
+          "harness": "deepseek-harness",
+          "agent": "v253-A-0",
+          "display": "v253-A",
+          "connected_at": "2026-10-31T07:14:33.66241916Z"
+        }
+      ],
+      "type": "presence"
+    },
+    {
+      "type": "message",
+      "message": {
+        "id": 3,
+        "from": "hs_bfdedc65ce19",
+        "to": "hs_e5989b494838",
+        "text": "v253-direct-to-A",
+        "at": "2026-10-31T07:14:34.074357949Z"
+      },
+      "at": "2026-10-31T07:14:34.074357949Z"
+    }
+  ]
+}

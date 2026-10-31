@@ -1,0 +1,151 @@
+{
+  "release": "v2.5.3",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-10-31T07:26:36Z",
+  "scope": "Tencent Cloud dev host only; not production, not TLS, not multi-tenant",
+  "access": {
+    "deployKey": "w2m-fleet-deploy.retired-20261030",
+    "rotatedKeyAccepted": false,
+    "hostKey": "SHA256:VXhDf20kNbLcBmhPioVecFc+Z4cqp6066ESNlq4r6Nw",
+    "hostKeyTrust": "TOFU on first connection in this session"
+  },
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5",
+    "os": "Ubuntu Server 24.04 LTS"
+  },
+  "gateway": {
+    "service": "im2a-gateway",
+    "before": {
+      "version": "v2.3.25",
+      "sha256": "c212196edb34f9c4c47ab76d7c90e1b4a7e5bcd5a629533a1b6d0f98781a20c3",
+      "health": 200
+    },
+    "after": {
+      "version": "v2.5.3",
+      "commit": "dev",
+      "sha256": "8e13aa48f6a6e4c135dc5af43f01a9bb23a9f6d8efae969191d1c11daf00adf1",
+      "health": 200,
+      "state": "active",
+      "nrestarts": 0,
+      "activeEnterTimestamp": "Sat 2026-10-31 14:53:41 CST",
+      "selftest": "SELF-TEST PASS",
+      "plugins": {
+        "count": 12,
+        "ok": 7,
+        "disabled": 5
+      },
+      "listeners": {
+        "gateway": "*:18080",
+        "httpMcp": "127.0.0.1:18082"
+      },
+      "publicProbeFromWindows": {
+        "18080": "closed",
+        "18082": "closed"
+      }
+    },
+    "backup": "/opt/backups/im2a-gateway-pre-v2.5.3-20261031145338"
+  },
+  "httpMcp": {
+    "service": "im2a-http-mcp.service",
+    "before": {
+      "root": "/opt/im2a/v2.5.2",
+      "serverSha256": "2061cfc718e6c707a1c67764ca215f9c5b0e7685a433a24026cfbc8ce9199aec",
+      "goMcpSha256": "d37570e0f609a15bb0b26b78d3fa6a972683bea3964869d58fcc035f6ba58ac9",
+      "harnessId": "tencent-dev",
+      "harnessTokenMatchedGateway": false,
+      "observedFailure": "session-scoped tools returned gateway HTTP 401"
+    },
+    "after": {
+      "root": "/opt/im2a/v2.5.3",
+      "serverSha256": "2321877eefeacaeedf020c26b951f85bbd72d7ad7dac2a04e2c5d9b0c2103fec",
+      "goMcpSha256": "a49f24a59dad6e4336cf8d61aa4f346595adad1f8a7f06fc2da7f041c70729fd",
+      "harnessId": "deepseek-harness",
+      "harnessTokenMatchedGateway": true,
+      "envMode": "600 root:root",
+      "health": 200,
+      "state": "active",
+      "nrestarts": 0,
+      "activeEnterTimestamp": "Sat 2026-10-31 15:10:03 CST",
+      "tools": 13,
+      "toolChecks": {
+        "initialize": "PASS",
+        "tools/list": "PASS",
+        "im2a_whoami": "PASS",
+        "im2a_presence": "PASS",
+        "skills_list": "PASS",
+        "memory_search": "PASS"
+      },
+      "busChecks": {
+        "checkedAt": "2026-10-31T07:26:36Z",
+        "marker": "v253-node-bus-1793431596662",
+        "im2a_send": "PASS",
+        "im2a_recv": "PASS",
+        "im2a_history": "PASS"
+      }
+    },
+    "backup": "/opt/backups/im2a-mcp-pre-v2.5.3-20261031151002"
+  },
+  "goMcp": {
+    "serverVersion": "0.3.0",
+    "installedAt": [
+      "/opt/im2a/v2.5.3/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "sha256": "a49f24a59dad6e4336cf8d61aa4f346595adad1f8a7f06fc2da7f041c70729fd",
+    "tools": 13,
+    "checks": {
+      "initialize": "PASS",
+      "tools/list": "PASS",
+      "im2a_whoami": "PASS",
+      "im2a_presence": "PASS"
+    }
+  },
+  "sseIsolation": {
+    "evidenceFile": "tests/TENCENT-V253-SSE-EVIDENCE.json",
+    "checkedAt": "2026-10-31T07:14:35Z",
+    "checks": 17,
+    "passed": 17,
+    "failed": 0,
+    "verified": [
+      "registration returns a session capability token",
+      "A receives B -> A direct message",
+      "A does not receive B -> B direct message",
+      "A SSE presence snapshot contains only A",
+      "A cannot read B session metadata",
+      "B cannot read A history",
+      "stream without capability returns 401",
+      "A and B unregister with their own capability"
+    ]
+  },
+  "breakingWindow": {
+    "from": "2026-10-31T14:53:46+08:00",
+    "to": "2026-10-31T15:10:03+08:00",
+    "impact": "Pre-v2.5.3 MCP clients had no per-session capability and received 401 on session-scoped tools until the client cutover.",
+    "mitigation": "The old HTTP MCP service was replaced in the same maintenance window; no active TCP clients were observed before the gateway restart."
+  },
+  "rollback": {
+    "gateway": "install /opt/backups/im2a-gateway-pre-v2.5.3-20261031145338/im2a-gateway /opt/im2a/bin/im2a-gateway; systemctl restart im2a-gateway",
+    "httpMcp": "restore /opt/backups/im2a-mcp-pre-v2.5.3-20261031151002/{im2a-http-mcp.service,http-mcp.env,im2a-mcp}; systemctl daemon-reload; systemctl start im2a-http-mcp.service"
+  },
+  "notClaimed": [
+    "production readiness",
+    "TLS termination",
+    "per-user or per-tenant authorization",
+    "public endpoint",
+    "multi-instance SSE bus"
+  ],
+  "residualRisks": [
+    "Gateway bearer identity is not per-user or per-tenant.",
+    "Session capability is still a bearer token.",
+    "The session_token query fallback can leak through URLs and logs.",
+    "Gateway listens on all interfaces at :18080; public exposure depends on the cloud firewall and was not changed.",
+    "The Tencent host still authorized the retired SSH deploy key and rejected the rotated key; this deployment used the retired key. SSH key rotation on this host is pending.",
+    "The gateway health reports commit=dev; the release asset SHA-256 was verified, but the build commit is not embedded in the binary.",
+    "Agent Plugins 2.0 remains a draft protocol.",
+    "v2.5.2 remains NO-GO for production because of the SSE leak.",
+    "v2.4.6 remains only a rollback candidate until its published plugin asset checksum is repaired."
+  ]
+}

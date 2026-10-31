@@ -1,7 +1,8 @@
 # SSE session isolation, capability binding, and v2.5.3 security status
 
 Date: 2026-10-31
-Status: security patch source, not deployed
+Status: security patch source; deployed to the Tencent dev host on 2026-10-31;
+not production
 
 ## Finding
 
@@ -79,6 +80,32 @@ go build ./...    PASS
 go vet ./...      PASS
 ```
 
+## Tencent dev live verification
+
+The v2.5.3 gateway and MCP 0.3.0 clients were deployed to the Tencent dev host
+on 2026-10-31. The real two-session test used two distinct capability tokens
+and verified 17 checks with 0 failures:
+
+```text
+A receives B -> A                          PASS
+A does not receive B -> B                  PASS
+A presence snapshot contains only A        PASS
+A cannot read B session metadata           PASS
+B cannot read A history                    PASS
+stream without capability -> 401           PASS
+```
+
+Evidence:
+
+```text
+tests/TENCENT-V253-DEPLOYMENT-EVIDENCE.json
+tests/TENCENT-V253-SSE-EVIDENCE.json
+docs/design/TENCENT-V2.5.3-DEPLOYMENT.md
+```
+
+This remains a dev deployment. It does not prove production TLS, per-tenant
+authorization, or a distributed SSE bus.
+
 ## v2.4.6 rollback verification
 
 Verified:
@@ -117,7 +144,7 @@ This is not a complete tenant authorization boundary:
 ```text
 v2.5.2: NO-GO for production
 v2.4.6: rollback candidate only after asset integrity repair
-v2.5.3: security patch candidate; not deployed, not production-ready
+v2.5.3: security patch candidate; deployed to Tencent dev; not production-ready
 ```
 
 Do not describe v2.5.3 as complete SSE authorization until sessions are bound

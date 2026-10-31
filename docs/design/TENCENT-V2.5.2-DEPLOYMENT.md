@@ -1,5 +1,8 @@
 # Tencent Cloud v2.5.2 Deployment
 
+> Historical record. Superseded on 2026-10-31 by
+> [TENCENT-V2.5.3-DEPLOYMENT.md](TENCENT-V2.5.3-DEPLOYMENT.md).
+
 Date: 2026-10-31
 Resource: `ins-j3ou8dmy`
 Host: `134.175.243.146` (public) / `192.168.0.5` (internal)
