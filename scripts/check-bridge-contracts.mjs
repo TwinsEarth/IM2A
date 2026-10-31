@@ -19,7 +19,7 @@ const EXPECTED_TOOLS = [
   "im2a_harness_list", "im2a_send", "im2a_recv", "im2a_presence", "im2a_whoami",
   "im2a_history", "skills_list", "skill_view", "skill_manage", "curator",
   "memory_search", "memory_get", "memory_propose", "trace_ingest", "reflect_trigger",
-  "curator_audit", "skill_guard_check"
+  "curator_audit", "skill_guard_check", "memory_recall_v2"
 ];
 
 /**
@@ -44,7 +44,8 @@ const SCOPE_BY_TOOL = {
   trace_ingest: ["trace:ingest"],
   reflect_trigger: ["trace:read"],
   curator_audit: ["curator:read"],
-  skill_guard_check: ["skill:guard"]
+  skill_guard_check: ["skill:guard"],
+  memory_recall_v2: ["memory:read"]
 };
 
 async function readJson(root, rel) {

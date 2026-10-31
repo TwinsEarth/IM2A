@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.5.7",
+  "version": "2.5.8",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.5.7 skill-write guard and audit chain",
+  "description": "IM2A v2.5.8 layered memory recall",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -30,7 +30,8 @@
     "trace:test": "node tests/trace-ingest.test.mjs",
     "reflect:test": "node tests/reflect-trigger.test.mjs",
     "curator:test": "node tests/curator-audit.test.mjs",
-    "guard:test": "node tests/skill-guard.test.mjs"
+    "guard:test": "node tests/skill-guard.test.mjs",
+    "memory:recall-test": "node tests/memory-recall-v2.test.mjs"
   },
   "engines": {
     "node": ">=22"

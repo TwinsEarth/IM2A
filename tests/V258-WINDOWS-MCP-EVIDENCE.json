@@ -1,0 +1,18 @@
+{
+  "release": "v2.5.8",
+  "kind": "windows-stdio-mcp-smoke",
+  "checkedAt": "2026-10-31T13:20:30Z",
+  "binary": "release/im2a-v2.5.8/im2a-mcp-windows-amd64.exe",
+  "sha256": "a4a9fd2538cb03f3c7dde03816ce7cfae91d486c1a74cebd53205368262faf18",
+  "serverInfo": {
+    "name": "im2a-harness-bridge",
+    "version": "0.8.0"
+  },
+  "toolCount": 18,
+  "hasMemoryRecallV2": true,
+  "method": "cmd.exe stdin/stdout redirection with initialize + tools/list",
+  "limits": [
+    "tools/list smoke only; no gateway or memory namespace was created on the Windows host",
+    "Windows binary is not deployed by this Tencent-only change"
+  ]
+}

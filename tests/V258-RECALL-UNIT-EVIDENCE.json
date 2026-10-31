@@ -1,0 +1,45 @@
+{
+  "release": "v2.5.8",
+  "kind": "local-unit-and-contract",
+  "checkedAt": "2026-10-31T13:14:32Z",
+  "toolSurface": 18,
+  "localTests": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "cases": [
+      "50+ memory namespace obeys budget and suppresses stale atoms",
+      "include_stale exposes stale quality flags; layer routing is honored",
+      "invalid budget/layers fail closed"
+    ]
+  },
+  "localAcceptance": {
+    "memoryCount": 61,
+    "budgetTokens": 2000,
+    "budgetUsed": 1938,
+    "suppressedCount": 43,
+    "staleInTop3": false,
+    "qualityFlags": ["fresh", "stale", "conflicted", "low_confidence"],
+    "layerFilter": "skill_description only",
+    "memoryRowsUnchanged": true
+  },
+  "contractChecks": {
+    "mcpBridgeToolCatalog": "PASS (18 tools)",
+    "agentPluginContract": "PASS",
+    "platformValidate": "PASS (2.5.8)",
+    "generatorCheck": "PASS"
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testParallel": "FAIL: pre-existing timing flakes (conn-gateway UDS timeout; API SSE 3s timeout)",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "recallDelegationTest": "PASS"
+  },
+  "limits": [
+    "token count is a deterministic UTF-8 byte/4 estimate, not a model tokenizer",
+    "conflicted quality requires an explicit conflict_key",
+    "agent_did is context/audit data; rows remain tenant-scoped",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

@@ -273,6 +273,26 @@ const TOOLS = [
       required: ["agent_did", "operation", "target_skill_id"],
     },
   },
+  {
+    name: "memory_recall_v2",
+    description: "Layered, quality-gated memory recall with a hard token budget. Routes across raw_event, atom, skill_description and entity_page, suppresses stale and low-priority results, and returns quality flags.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        query: { type: "string", minLength: 1, maxLength: 2000 },
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        budget_tokens: { type: "integer", minimum: 1, maximum: 200000 },
+        layers: {
+          type: "array",
+          uniqueItems: true,
+          items: { enum: ["raw_event", "atom", "skill_description", "entity_page"] },
+        },
+        include_stale: { type: "boolean" },
+      },
+      required: ["query", "agent_did", "budget_tokens"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -375,10 +395,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.7.0",
+            version: "0.8.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: seventeen tools (IM2A bus, skills, memory, trace, reflection, curator audit, skill guard).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: eighteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -392,8 +412,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.7.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: seventeen tools (IM2A bus, skills, memory, trace, reflection, curator audit, skill guard).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.8.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: eighteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard).",
       },
     };
   }
@@ -554,6 +574,16 @@ async function handleRpc(message, context = {}) {
         if (typeof args.query !== 'string') throw new Error('query is required');
         const items = memoryHub.search(args.query, { limit: Math.min(Math.max(Number(args.limit ?? 20), 1), 100) });
         return { jsonrpc: "2.0", id, result: resultText({ items, count: items.length }) };
+      }
+      if (name === "memory_recall_v2") {
+        const result = memoryHub.recall({
+          query: String(args.query),
+          agentDid: String(args.agent_did),
+          budgetTokens: Number(args.budget_tokens),
+          layers: args.layers,
+          includeStale: args.include_stale === true,
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "memory_get") {
         const item = memoryHub.get(String(args.id));

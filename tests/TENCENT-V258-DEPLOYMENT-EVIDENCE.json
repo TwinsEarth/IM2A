@@ -1,0 +1,82 @@
+{
+  "release": "v2.5.8",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-10-31T13:20:30Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-10-31T21:08:43+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.5.8",
+    "httpMcpVersion": "0.8.0",
+    "nodeServerSha256": "fa24be10b8ec0f35b8c591c7d0cb7fff8e068f092de6baac97255e7ec0f9acc6",
+    "memoryHubSha256": "e6668b06da69a9a2436c6476e4555644d45589e33ece30424f0995b1d8d5ba18",
+    "goMcpVersion": "0.8.0",
+    "goMcpSha256": "f47605110e298c96bd12aaa8ac15d52ec89fa5f6c342d8bb740d4e39ae0b3bd9",
+    "goMcpWindowsSha256": "a4a9fd2538cb03f3c7dde03816ce7cfae91d486c1a74cebd53205368262faf18",
+    "goMcpPaths": [
+      "/opt/im2a/v2.5.8/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "memoryDb": "/opt/im2a/v2.5.8/data/memory.db",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 18,
+    "hasMemoryRecallV2": true,
+    "namespaceMemories": 61,
+    "budgetTokens": 2000,
+    "budgetUsed": 1938,
+    "recomputedTokens": 1938,
+    "suppressedCount": 43,
+    "itemCount": 18,
+    "top3QualityFlags": ["fresh", "fresh", "fresh"],
+    "staleInTop3": false,
+    "layersReturned": ["skill_description", "atom"],
+    "allQualityFlags": {
+      "fresh": 58,
+      "stale": 1,
+      "conflicted": 1,
+      "low_confidence": 1
+    },
+    "skillLayerFilter": "skill_description only",
+    "memoryCountBefore": 61,
+    "memoryCountAfter": 61,
+    "readOnly": true,
+    "goMcpTools": 18,
+    "goRecallShape": "PASS"
+  },
+  "testFixtureCleanup": {
+    "performed": true,
+    "method": "stopped service, deleted memory/fts rows with id LIKE 'v258-%', restarted service",
+    "remainingMemories": 0
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V258-RECALL-EVIDENCE.json",
+    "tests/V258-RECALL-UNIT-EVIDENCE.json",
+    "tests/V258-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.5.8-MEMORY-RECALL.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.5.8-20261031210843",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.5.7 tree and data are untouched",
+  "notClaimed": [
+    "production readiness",
+    "TLS or multi-tenant authorization",
+    "model tokenizer-accurate budget accounting",
+    "agent-scoped memory partitioning",
+    "v2.7.x origin-credit or patch-depth ranking",
+    "production high availability"
+  ],
+  "openP0": [
+    "curator remains on the shared main-Agent identity; curator/operator separation is deferred",
+    "per-conversation seq domain is not yet the harness ordering contract",
+    "guard session is a local trusted-session seam, not full code-registry auth"
+  ]
+}

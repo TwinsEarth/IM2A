@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-31T13:14:32.303Z",
+  "toolCount": 18,
+  "hasRecall": true,
+  "totalMemories": 61,
+  "budgetUsed": 1938,
+  "recomputedTokens": 1938,
+  "itemCount": 18,
+  "suppressedCount": 43,
+  "top3": [
+    {
+      "content": "release skill 0\nrelease memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail  skill principle 0",
+      "layer": "skill_description",
+      "score": 0.957,
+      "quality_flag": "fresh",
+      "source_trace_id": "trc_v258_skill_0"
+    },
+    {
+      "content": "release skill 1\nrelease memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail  skill principle 1",
+      "layer": "skill_description",
+      "score": 0.954,
+      "quality_flag": "fresh",
+      "source_trace_id": "trc_v258_skill_1"
+    },
+    {
+      "content": "release skill 2\nrelease memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail release memory detail  skill principle 2",
+      "layer": "skill_description",
+      "score": 0.95,
+      "quality_flag": "fresh",
+      "source_trace_id": "trc_v258_skill_2"
+    }
+  ],
+  "staleInTop3": false,
+  "layerSet": [
+    "skill_description",
+    "atom"
+  ],
+  "sourceTraceIdsPresent": true,
+  "sourceTraceIdsLinked": true,
+  "allQualityFlags": {
+    "fresh": 58,
+    "stale": 1,
+    "low_confidence": 1,
+    "conflicted": 1
+  },
+  "skillOnlyLayers": [
+    "skill_description"
+  ],
+  "memoryCountBefore": 61,
+  "memoryCountAfter": 61,
+  "readOnly": true
+}

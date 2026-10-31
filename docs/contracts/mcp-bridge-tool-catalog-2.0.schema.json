@@ -118,7 +118,11 @@
         "SESSION_INVALID",
         "SESSION_EXPIRED",
         "INVALID_AGENT_DID",
-        "INVALID_TARGET_SKILL"
+        "INVALID_TARGET_SKILL",
+        "INVALID_BUDGET_TOKENS",
+        "INVALID_LAYERS",
+        "INVALID_LAYER",
+        "INVALID_CONFIDENCE"
       ],
       "description": "IM2A namespace codes in UPPER_SNAKE, matching SKILL-RUNTIME-MVP-v2.5.0 §4. The bridge does not paraphrase subsystem codes."
     },

@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.5.7",
+  "toolCatalogVersion": "2.5.8",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -508,6 +508,37 @@
         "required": ["allowed", "audit_event_id"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "GUARD_AUDIT_FAILED", "INVALID_OPERATION", "SESSION_INVALID", "SESSION_EXPIRED", "INVALID_AGENT_DID", "INVALID_TARGET_SKILL", "INTERNAL"]
+    },
+    {
+      "name": "memory_recall_v2",
+      "title": "Layered memory recall",
+      "description": "Recall memory across raw_event, atom, skill_description and entity_page with quality flags and a hard token budget. Suppresses stale results unless explicitly requested.",
+      "scope": ["memory:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Recall query; 1..2000 chars" },
+          "agent_did": { "type": "string", "description": "Calling subject; used for audit/context" },
+          "budget_tokens": { "type": "integer", "minimum": 1, "maximum": 200000, "description": "Hard token ceiling" },
+          "layers": { "type": "array", "items": { "enum": ["raw_event", "atom", "skill_description", "entity_page"] } },
+          "include_stale": { "type": "boolean", "description": "Explicitly include stale atoms; defaults false" }
+        },
+        "required": ["query", "agent_did", "budget_tokens"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "type": "object" } },
+          "budget_used": { "type": "integer" },
+          "suppressed_count": { "type": "integer" }
+        },
+        "required": ["items", "budget_used", "suppressed_count"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INVALID_BUDGET_TOKENS", "INVALID_LAYERS", "INTERNAL"]
     }
   ]
 }

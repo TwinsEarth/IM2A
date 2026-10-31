@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.5.8 — 2026-10-31 layered memory recall
+
+- Added `memory_recall_v2` to the HTTP MCP and Go stdio MCP; tool surface is
+  now 18.
+- Memory rows now carry layer/updated_at/source_trace_id/confidence/
+  conflict_key; existing databases migrate in place.
+- Recall pipeline: parse -> route -> gather -> rerank -> diversify -> suppress
+  -> budget. `budget_tokens` is a hard ceiling.
+- Layer priority: skill_description > atom > entity_page > raw_event; raw
+  events are capped to a small share and dropped first under pressure.
+- Quality flags: stale atom (updated >30 days ago), conflicted (lower
+  confidence than a same-conflict-key source), low_confidence, fresh.
+- Stale atoms are suppressed unless `include_stale: true`.
+- Added a 50+ namespace test proving budget compliance, stale suppression and
+  nonzero suppressed_count.
+
 ## v2.5.7 — 2026-10-31 skill-write guard and audit chain
 
 - Added `skill_guard_check` to the HTTP MCP and Go stdio MCP; tool surface is

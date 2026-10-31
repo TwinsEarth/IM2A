@@ -3,7 +3,7 @@
 Streamable HTTP MCP bridge used by DSH and by the Go stdio MCP for the
 skill/memory surface.
 
-## Tools (17)
+## Tools (18)
 
 ```text
 IM2A bus (6):
@@ -13,8 +13,8 @@ IM2A bus (6):
 Skills (4):
   skills_list, skill_view, skill_manage, curator
 
-Memory (3):
-  memory_search, memory_get, memory_propose
+Memory (4):
+  memory_search, memory_recall_v2, memory_get, memory_propose
 
 Trace / reflection (2):
   trace_ingest, reflect_trigger
@@ -35,7 +35,8 @@ memory, proposal or trace. `curator_audit` is a read-only lifecycle audit; its
 `recommended_action` values are advisory and never executed. `skill_guard_check`
 is a server-side gate: `skill_manage` and `curator.stage` call it before any
 write, and it appends a hash-chained audit event. A public or read-only session
-is always denied.
+is always denied. `memory_recall_v2` is a layered, quality-gated recall with a
+hard token budget; it suppresses stale atoms unless `include_stale` is true.
 
 ## Persistence
 
@@ -74,7 +75,7 @@ node packages/im2a-http-mcp/server.mjs
 
 Endpoint: `http://127.0.0.1:18082/mcp`.
 
-The Go stdio MCP registers the same 17 tools and forwards the 11
+The Go stdio MCP registers the same 18 tools and forwards the 12
 skill/memory/trace/reflection/curator-audit/guard tools to this server via
 `IM2A_MCP_HTTP_URL`. It forwards `IM2A_SKILL_GUARD_SESSION_TOKEN` as the
 `x-im2a-skill-session` header when configured.
@@ -95,6 +96,8 @@ $env:IM2A_MCP_HTTP_URL = 'http://127.0.0.1:18082/mcp'
   automatic skill/memory writes.
 - `curator_audit` never archives, merges or deletes. It reads usage/telemetry
   and returns keep/flag/merge/archive recommendations only.
+- `memory_recall_v2` enforces a hard token budget and suppresses stale atoms
+  unless explicitly requested; it never writes memory.
 - `skill_guard_check` requires `skill:write` and authorization level L2.
   `skill:read` and public sessions are denied; audit events are append-only
   and hash-chained. The guard is in the MCP handler, not in Hermes.
