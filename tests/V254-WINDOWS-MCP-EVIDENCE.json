@@ -1,0 +1,18 @@
+{
+  "release": "v2.5.4",
+  "kind": "windows-stdio-mcp-smoke",
+  "checkedAt": "2026-10-31T10:31:00Z",
+  "binary": "release/im2a-v2.5.4/im2a-mcp-windows-amd64.exe",
+  "sha256": "097dbabf526088bb58358efdf5dc678152af627493b18a0f1aa2dbe8cff3afc0",
+  "serverInfo": {
+    "name": "im2a-harness-bridge",
+    "version": "0.4.0"
+  },
+  "toolCount": 14,
+  "hasTraceIngest": true,
+  "method": "cmd.exe stdin/stdout redirection with initialize + tools/list",
+  "limits": [
+    "tools/list smoke only; no gateway session was created on the Windows host",
+    "Windows binary is not deployed by this Tencent-only change"
+  ]
+}

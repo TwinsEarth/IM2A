@@ -17,6 +17,7 @@
     "traceStoreSha256": "9f315301819e4fb25bcc68e9f47854248d0149d94cdc193cba2bcd812439f5b4",
     "goMcpVersion": "0.4.0",
     "goMcpSha256": "9b941ee86fda91acf78f48be83cd70f41a61b5bffc1f2838fa39d86a623d4739",
+    "goMcpWindowsSha256": "097dbabf526088bb58358efdf5dc678152af627493b18a0f1aa2dbe8cff3afc0",
     "goMcpPaths": [
       "/opt/im2a/v2.5.4/bin/im2a-mcp",
       "/opt/im2a/v2.5.2/bin/im2a-mcp"
@@ -48,6 +49,7 @@
   "evidenceFiles": [
     "tests/TENCENT-V254-TRACE-EVIDENCE.json",
     "tests/V254-TRACE-UNIT-EVIDENCE.json",
+    "tests/V254-WINDOWS-MCP-EVIDENCE.json",
     "docs/design/IM2A-v2.5.4-TRACE-INGEST.md"
   ],
   "backup": "/opt/backups/im2a-mcp-pre-v2.5.4-20261031181246",

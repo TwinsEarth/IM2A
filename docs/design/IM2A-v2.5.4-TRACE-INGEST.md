@@ -123,6 +123,7 @@ raw-content negative control did not append PASS
 second ingest appends, does not overwrite   PASS
 Go MCP 0.4.0 tools/list                     14
 Go MCP trace_ingest                         PASS
+Windows Go MCP tools/list                   14, trace_ingest present
 ```
 
 Evidence:
@@ -131,6 +132,7 @@ Evidence:
 tests/V254-TRACE-UNIT-EVIDENCE.json
 tests/TENCENT-V254-TRACE-EVIDENCE.json
 tests/TENCENT-V254-DEPLOYMENT-EVIDENCE.json
+tests/V254-WINDOWS-MCP-EVIDENCE.json
 ```
 
 ## Deployment
