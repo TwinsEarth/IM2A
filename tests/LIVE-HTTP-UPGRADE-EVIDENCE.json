@@ -1,6 +1,6 @@
 {
     "schemaVersion":  "1.0",
-    "checkedAt":  "2026-10-31T08:11:57.7141352+08:00",
+    "checkedAt":  "2026-10-31T08:12:28.1649111+08:00",
     "liveProfileModified":  true,
     "hostVersion":  "0.2.0",
     "overlayVersion":  "0.2.0",
@@ -11,5 +11,10 @@
     "startup":  "HKCU Run + wrapper",
     "restartRequired":  true,
     "backup":  "C:\\Users\\fangw\\.dsh\\profiles\\desktop\\.im2a-http-upgrade-20261031073924",
-    "note":  "Old stdio row remains in the running DSH process until desktop restart."
+    "note":  "Old stdio row remains in the running DSH process until desktop restart.",
+    "bundleSelected":  true,
+    "bundleOrder":  [
+                        "@twinsearth/im2a-dsh-plugin",
+                        "@twinsearth/im2a-dsh-plugin-live"
+                    ]
 }
