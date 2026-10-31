@@ -12,7 +12,7 @@ export const GOAL_STATUSES = Object.freeze(["pending", "scheduled", "executing",
 export const GOAL_TRANSITIONS = Object.freeze({
   pending: ["scheduled", "expired"],
   scheduled: ["executing", "expired"],
-  executing: ["completed", "expired"],
+  executing: ["completed", "expired", "pending"],
   completed: [],
   expired: [],
 });
@@ -31,6 +31,15 @@ const ID_RE = /^[A-Za-z0-9_.:-]{1,200}$/;
 function nowIso(now) { return new Date(now).toISOString(); }
 
 function signalKey(signal) { return `${signal.type}:${signal.id}`; }
+
+function sanitizeDraftPatch(draft) {
+  if (!draft || typeof draft !== "object" || Array.isArray(draft)) return null;
+  const kept = {};
+  for (const key of ["draft_id", "target_skill_id", "path", "sha256", "bytes", "applied"]) {
+    if (draft[key] !== undefined) kept[key] = draft[key];
+  }
+  return Object.keys(kept).length ? kept : null;
+}
 
 function localSimilarity(left, right) {
   const tokenize = (text) => String(text ?? "").toLowerCase().match(/[\p{L}\p{N}_:-]+/gu) ?? [];
@@ -127,6 +136,7 @@ export class GoalBuffer {
     `);
     const eventColumns = new Set(this.db.prepare("PRAGMA table_info(goal_events)").all().map((row) => row.name));
     if (!eventColumns.has("details_json")) this.db.exec("ALTER TABLE goal_events ADD COLUMN details_json TEXT");
+    this.lastRecovery = this.recover();
   }
 
   put({
@@ -173,6 +183,31 @@ export class GoalBuffer {
   get(goalId) {
     const row = this.db.prepare("SELECT * FROM goals WHERE goal_id = ?").get(goalId);
     return row ? this.#goal(row) : null;
+  }
+
+  recover() {
+    const executing = this.db.prepare("SELECT * FROM goals WHERE status = 'executing' ORDER BY proposed_at ASC").all().map((row) => this.#goal(row));
+    const downgraded = [];
+    for (const goal of executing) {
+      this.transition(goal.goal_id, "pending", {
+        actor: "startup_recovery",
+        reason: "execution_context_lost",
+        details: { source_signals: goal.source_signals, previous_status: "executing" },
+      });
+      downgraded.push(goal.goal_id);
+    }
+    const count = (status) => this.db.prepare("SELECT COUNT(*) AS n FROM goals WHERE status = ?").get(status).n;
+    return {
+      schema_version: "1.0",
+      at: nowIso(this.now()),
+      downgraded_goal_ids: downgraded,
+      pending_count: count("pending"),
+      scheduled_count: count("scheduled"),
+      completed_count: count("completed"),
+      expired_count: count("expired"),
+      executing_count: count("executing"),
+      completed_or_expired_restored: false,
+    };
   }
 
   transition(goalId, toStatus, { actor = "operator", reason = null, details = null } = {}) {
@@ -360,7 +395,7 @@ export class GoalBuffer {
         at ?? nowIso(this.now()),
         status,
         confidenceDelta,
-        draftPatch ? JSON.stringify(draftPatch) : null,
+        draftPatch ? JSON.stringify(sanitizeDraftPatch(draftPatch)) : null,
         reflectionNotes ? String(reflectionNotes).slice(0, 4000) : null,
         recommendedNext ? String(recommendedNext) : null,
         yieldValue,

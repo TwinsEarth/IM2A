@@ -1,0 +1,83 @@
+{
+  "release": "v2.6.6",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T06:42:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T06:36:59+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.6",
+    "httpMcpVersion": "0.16.0",
+    "nodeServerSha256": "1b327693c38a261e8c2746e563f80d35bda93b67d1d73e299b601af52212112d",
+    "goalBufferSha256": "9fdab6c4c9e8feb7fa37c449892bf326fb460fa7f072de809a73d38ba5ed34e8",
+    "goMcpVersion": "0.16.0",
+    "goMcpSha256": "d7499959e1ae182c0fb69486a736fce1b93389c292c8fe2624a137b4542f6cd3",
+    "goMcpWindowsSha256": "0ff1be937ba096497a9217ce42832525a1c61b9b21a71d659e78c264a0ac8dbd",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.6/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "goalBufferDb": "/opt/im2a/v2.6.6/data/goal-buffer.db",
+    "draftsDir": "/opt/im2a/v2.6.6/data/drafts",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 27,
+    "beforeRestart": { "pending": 3, "executing": 1 },
+    "afterRestart": { "pending": 4, "executing": 0 },
+    "recovery": {
+      "downgradedGoalIds": ["goal_39b33e07da466f9aad12bbab"],
+      "pendingCount": 4,
+      "scheduledCount": 0,
+      "completedCount": 3,
+      "expiredCount": 0,
+      "executingCount": 0,
+      "completedOrExpiredRestored": false
+    },
+    "draft": {
+      "path": "/opt/im2a/v2.6.6/data/drafts/goal_39b33e07da466f9aad12bbab/marker.patch.md",
+      "exists": true,
+      "markerInFile": true,
+      "markerInDbBefore": false,
+      "markerInDbAfter": false
+    },
+    "dbHashBefore": "5f1e47300e6c9eac2100da7da0aea192994399094760529caee9e07764f502f6",
+    "dbHashAfter": "5522e84d94bd79129f7da1bf1d06477b5523b3bfc9bcc1b26260b727604676f0",
+    "goMcpTools": 27,
+    "goGoalBuffer": "PASS"
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingGoals": 3,
+    "activeGoals": 0,
+    "byStatus": [{ "status": "completed", "n": 3 }],
+    "note": "test goals and draft directory removed; historical completed goals remain"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V266-PERSISTENCE-EVIDENCE.json",
+    "tests/V266-PERSISTENCE-UNIT-EVIDENCE.json",
+    "tests/V266-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.6-GOAL-PERSISTENCE.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.6-20261101063659",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.5 tree and data are untouched",
+  "notClaimed": [
+    "draft body encryption at rest",
+    "durable scheduler external queue",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "goal-buffer local writes are not yet caller-authenticated",
+    "scheduled goals survive restart but the scheduler's in-memory external queue does not",
+    "draft body remains a filesystem artifact outside SQLite protection",
+    "curator/operator separation and per-conversation seq remain open"
+  ]
+}

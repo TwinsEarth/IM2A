@@ -1,0 +1,34 @@
+{
+  "release": "v2.6.6",
+  "kind": "local-goal-persistence-recovery",
+  "checkedAt": "2026-11-01T06:37:57Z",
+  "toolSurface": 27,
+  "tests": {
+    "total": 1,
+    "passed": 1,
+    "cases": [
+      "restart restores pending, downgrades executing, and never stores draft body in SQLite"
+    ]
+  },
+  "localAcceptance": {
+    "before": { "pending": 3, "executing": 1 },
+    "after": { "pending": 4, "executing": 0 },
+    "downgradedGoalIds": 1,
+    "completedOrExpiredRestored": false,
+    "draftMarkerInSqlite": false,
+    "draftMarkerInDraftFile": true
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 27,
+    "goalBufferDelegation": "PASS"
+  },
+  "limits": [
+    "goal buffer persistence is local SQLite, separate from Memory Hub",
+    "scheduled goals survive restart; scheduler's external queue does not",
+    "draft bodies remain filesystem artifacts and are stripped from execution telemetry",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

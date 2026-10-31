@@ -349,7 +349,7 @@ const TOOLS = [
       type: "object",
       additionalProperties: false,
       properties: {
-        action: { enum: ["put", "transition", "query", "audit"] },
+        action: { enum: ["put", "transition", "query", "audit", "recover"] },
         proposal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
         goal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
         drive_id: { type: "string", minLength: 1, maxLength: 64 },
@@ -554,10 +554,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.15.0",
+            version: "0.16.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity and deduplicates).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -571,8 +571,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.15.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity and deduplicates).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.16.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart).",
       },
     };
   }
@@ -858,6 +858,9 @@ async function handleRpc(message, context = {}) {
         }
         if (action === "audit") {
           return { jsonrpc: "2.0", id, result: resultText(goalBuffer.audit(args.goal_id ? String(args.goal_id) : null)) };
+        }
+        if (action === "recover") {
+          return { jsonrpc: "2.0", id, result: resultText({ recovery: goalBuffer.lastRecovery }) };
         }
         return { jsonrpc: "2.0", id, result: resultText(`unknown goal_buffer action: ${action}`, true) };
       }

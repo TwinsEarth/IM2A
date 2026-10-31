@@ -57,7 +57,10 @@ durable writes and returns per-step timings, schema checks and ID traceability.
 `drive_list` reads optional `drives/*.md` declarations; `drive_manage` writes
 one through `skill_guard_check`; `goal_buffer` is a local SQLite intent buffer,
 never Memory Hub. Its `put` admission enforces capacity (default 8) and merges
-highly similar intents at the 0.85 similarity threshold. `drive_propose` reads drives and current signals to return
+highly similar intents at the 0.85 similarity threshold. The buffer persists
+intent metadata only; startup downgrades `executing` goals to `pending` and
+keeps `scheduled` goals. `goal_buffer action=recover` exposes the recovery
+report. Draft bodies stay in `drafts/`, never in SQLite. `drive_propose` reads drives and current signals to return
 proposed goals; it does not write the goal buffer. `scheduler_cycle` splits the
 cycle budget into external_pool and reserved_pool; external demand cannot
 borrow reserved_pool. `goal_schedule` executes one goal with read-only signals

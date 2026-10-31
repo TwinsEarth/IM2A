@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.6.6 — 2026-11-01 goal buffer persistence and restart recovery
+
+- Goal buffer is persisted in Agent-local SQLite, separate from Memory Hub.
+- Startup recovery: executing -> pending, scheduled stays, pending stays;
+  completed/expired remain audited but are not active.
+- `goal_buffer action=recover` exposes the recovery report.
+- Draft patch bodies remain in drafts/ and are stripped from SQLite execution
+  telemetry.
+- Added 1 persistence/recovery test.
+
 ## v2.6.5 — 2026-11-01 goal priority arbitration and dedup
 
 - `goal_buffer put` now admits through capacity and deduplication.

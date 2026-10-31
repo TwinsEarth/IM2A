@@ -1,0 +1,47 @@
+{
+  "checkedAt": "2026-10-31T22:37:57.894Z",
+  "toolCount": 27,
+  "healthy": true,
+  "goalIds": [
+    "goal_6724fad8418ebdd1bf4860ed",
+    "goal_ec1140cfb03f5261505997b9",
+    "goal_39bf9ce107c99f5d698e1ba9",
+    "goal_39b33e07da466f9aad12bbab"
+  ],
+  "before": {
+    "pending": 3,
+    "executing": 1
+  },
+  "after": {
+    "pending": 4,
+    "executing": 0
+  },
+  "dbCounts": {
+    "pending": 4,
+    "executing": 0,
+    "completed": 3,
+    "expired": 0
+  },
+  "recovery": {
+    "schema_version": "1.0",
+    "at": "2026-10-31T22:37:56.949Z",
+    "downgraded_goal_ids": [
+      "goal_39b33e07da466f9aad12bbab"
+    ],
+    "pending_count": 4,
+    "scheduled_count": 0,
+    "completed_count": 3,
+    "expired_count": 0,
+    "executing_count": 0,
+    "completed_or_expired_restored": false
+  },
+  "draft": {
+    "path": "/opt/im2a/v2.6.6/data/drafts/goal_39b33e07da466f9aad12bbab/marker.patch.md",
+    "exists": true,
+    "markerInFile": true,
+    "markerInDbBefore": false,
+    "markerInDbAfter": false
+  },
+  "dbHashBefore": "5f1e47300e6c9eac2100da7da0aea192994399094760529caee9e07764f502f6",
+  "dbHashAfter": "5522e84d94bd79129f7da1bf1d06477b5523b3bfc9bcc1b26260b727604676f0"
+}

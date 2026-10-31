@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.6.5",
+  "version": "2.6.6",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.6.5 goal priority arbitration and dedup",
+  "description": "IM2A v2.6.6 goal buffer persistence and restart recovery",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -38,7 +38,8 @@
     "scheduler:test": "node tests/scheduler.test.mjs",
     "goal-schedule:test": "node tests/goal-schedule.test.mjs",
     "calibrate:test": "node tests/drive-calibrate.test.mjs",
-    "arbitration:test": "node tests/goal-arbitration.test.mjs"
+    "arbitration:test": "node tests/goal-arbitration.test.mjs",
+    "persistence:test": "node tests/goal-persistence.test.mjs"
   },
   "engines": {
     "node": ">=22"
