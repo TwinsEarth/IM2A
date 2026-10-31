@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "checkedAt": "2026-10-31T10:00:00+08:00",
+  "finding": "SSE broadcast fanout exposed other-session events",
+  "fix": "require session; isolated presence; EventVisibleTo filter",
+  "tests": {
+    "TestEventVisibleToIsSessionScoped": "pass",
+    "TestHarnessStreamFiltersOtherSessions": "pass",
+    "goBuild": "pass",
+    "goVet": "pass",
+    "goTest": "73 packages ok / 0 fail"
+  },
+  "residualRisk": [
+    "session id remains bearer-like",
+    "session enumeration endpoint remains global",
+    "no per-session token binding",
+    "no production TLS/multi-tenant auth"
+  ],
+  "releaseDecision": "v2.5.2 NO-GO for production; next patch v2.5.3; v2.4.6 only as verified rollback baseline"
+}
