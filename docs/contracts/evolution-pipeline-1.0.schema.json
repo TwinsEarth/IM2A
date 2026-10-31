@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/evolution-pipeline-1.0.schema.json",
+  "title": "IM2A v2.5.9 evolution pipeline dry-run report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "mode", "status", "started_at", "completed_at",
+    "duration_ms", "dry_run", "writes", "would_write_count", "steps",
+    "schema_checks", "schema_valid", "id_traceability", "id_traceability_checks", "recall"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "pattern": "^dryrun_[0-9a-f]{24}$" },
+    "mode": { "const": "dryrun" },
+    "status": { "enum": ["pass", "fail"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": "string", "format": "date-time" },
+    "duration_ms": { "type": "number", "minimum": 0, "maximum": 30000 },
+    "dry_run": { "const": true },
+    "writes": { "const": 0 },
+    "would_write_count": { "type": "integer", "minimum": 0 },
+    "steps": {
+      "type": "array", "minItems": 5, "maxItems": 5,
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "schema_checks": {
+      "type": "array", "minItems": 5, "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "ok", "errors"],
+        "properties": {
+          "step": { "enum": ["trace_ingest", "reflect_trigger", "curator_audit", "skill_guard_check", "memory_recall_v2"] },
+          "ok": { "type": "boolean" },
+          "errors": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "schema_valid": { "type": "boolean" },
+    "id_traceability": { "enum": ["full", "partial"] },
+    "id_traceability_checks": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "ok", "id"],
+        "properties": {
+          "from": { "enum": ["trace_ingest", "reflect_trigger", "curator_audit", "skill_guard_check"] },
+          "to": { "enum": ["reflect_trigger", "memory_recall_v2", "skill_guard_check", "pipeline_report"] },
+          "ok": { "type": "boolean" },
+          "id": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "recall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["budget_tokens", "budget_used", "suppressed_count"],
+      "properties": {
+        "budget_tokens": { "type": "integer", "minimum": 1 },
+        "budget_used": { "type": "integer", "minimum": 0 },
+        "suppressed_count": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step", "index", "status", "duration_ms", "schema_valid", "schema_errors",
+        "input_from", "output", "would_write", "ids"
+      ],
+      "properties": {
+        "step": { "enum": ["trace_ingest", "reflect_trigger", "curator_audit", "skill_guard_check", "memory_recall_v2"] },
+        "index": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "status": { "enum": ["pass", "fail"] },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "schema_valid": { "type": "boolean" },
+        "schema_errors": { "type": "array", "items": { "type": "string" } },
+        "input_from": { "type": "string" },
+        "output": { "type": "object" },
+        "would_write": { "oneOf": [{ "type": "object" }, { "type": "null" }] },
+        "ids": { "type": "object" }
+      }
+    }
+  }
+}

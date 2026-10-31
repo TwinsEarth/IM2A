@@ -1,0 +1,53 @@
+{
+  "release": "v2.5.9",
+  "kind": "local-pipeline-freeze",
+  "checkedAt": "2026-10-31T14:56:10Z",
+  "toolSurface": 19,
+  "pipelineTests": {
+    "total": 1,
+    "passed": 1,
+    "cases": [
+      "evolution pipeline dry run covers five steps, zero writes and full ID traceability"
+    ]
+  },
+  "freezeTests": {
+    "total": 3,
+    "passed": 3,
+    "cases": [
+      "v2.5.9 freezes exactly five interfaces and hashes match",
+      "dry-run outputs validate against every frozen output schema",
+      "freeze file is additive-only and rejects a forged schema hash"
+    ]
+  },
+  "localDryRun": {
+    "status": "pass",
+    "duration_ms": 24.75,
+    "schema_valid": true,
+    "id_traceability": "full",
+    "writes": 0,
+    "would_write_count": 2,
+    "steps": 5,
+    "schema_checks_passed": 5,
+    "id_traceability_checks_passed": 4
+  },
+  "frozenArtifacts": {
+    "tools": "docs/contracts/frozen-evolution-tools-2.5.9.json",
+    "hashes": "docs/contracts/FROZEN-EVOLUTION-TOOLS-2.5.9.sha256.json",
+    "report_schema": "docs/contracts/evolution-pipeline-1.0.schema.json",
+    "freeze_sha256": "c0569ca7c9e2b9857a4143dba4a4f75f14c7c5f6c46cd1b53c0083e144bdea39"
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 19,
+    "pipelineDelegation": "PASS"
+  },
+  "limits": [
+    "dry-run uses deterministic synthetic fixtures, not production data",
+    "error envelopes are not frozen; only success output schemas are",
+    "trace content_sha256 includes the generated trace_id and is not an idempotency key",
+    "skill_manage -> curator.stage owner identity remains open",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

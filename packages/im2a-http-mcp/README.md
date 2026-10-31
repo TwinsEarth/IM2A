@@ -3,7 +3,7 @@
 Streamable HTTP MCP bridge used by DSH and by the Go stdio MCP for the
 skill/memory surface.
 
-## Tools (18)
+## Tools (19)
 
 ```text
 IM2A bus (6):
@@ -24,6 +24,9 @@ Curator audit (1):
 
 Skill write guard (1):
   skill_guard_check
+
+Evolution dry run (1):
+  evolution_pipeline_dryrun
 ```
 
 `skill_manage` only writes proposals. `curator` can stage but cannot promote
@@ -37,6 +40,8 @@ is a server-side gate: `skill_manage` and `curator.stage` call it before any
 write, and it appends a hash-chained audit event. A public or read-only session
 is always denied. `memory_recall_v2` is a layered, quality-gated recall with a
 hard token budget; it suppresses stale atoms unless `include_stale` is true.
+`evolution_pipeline_dryrun` composes the five evolution interfaces without
+durable writes and returns per-step timings, schema checks and ID traceability.
 
 ## Persistence
 
@@ -75,8 +80,8 @@ node packages/im2a-http-mcp/server.mjs
 
 Endpoint: `http://127.0.0.1:18082/mcp`.
 
-The Go stdio MCP registers the same 18 tools and forwards the 12
-skill/memory/trace/reflection/curator-audit/guard tools to this server via
+The Go stdio MCP registers the same 19 tools and forwards the 13
+skill/memory/trace/reflection/curator-audit/guard/evolution tools to this server via
 `IM2A_MCP_HTTP_URL`. It forwards `IM2A_SKILL_GUARD_SESSION_TOKEN` as the
 `x-im2a-skill-session` header when configured.
 

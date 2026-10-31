@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "release": "2.5.9",
+  "freeze_file": "docs/contracts/frozen-evolution-tools-2.5.9.json",
+  "freeze_sha256": "c0569ca7c9e2b9857a4143dba4a4f75f14c7c5f6c46cd1b53c0083e144bdea39",
+  "pipeline_report_schema": "docs/contracts/evolution-pipeline-1.0.schema.json",
+  "pipeline_report_schema_sha256": "8f74a6c1eca9384d06fa665f031a17f9073118bec5d52296ae6da3c9b68b68b8",
+  "tools": {
+    "trace_ingest": {
+      "input_schema_sha256": "2647c2d122c1b3b90eb1bf583820418ee705ab018a9796dd59b4ca173f3d4c3d",
+      "output_schema_sha256": "16b7b5700aef28864773fce86b16ee72c86d1a3b7dc2a6c93273c3e80c27cb41"
+    },
+    "reflect_trigger": {
+      "input_schema_sha256": "59ba3653c54f78cbe7954d9654ed74e18f1398f86ea8e6aee6aa97e911a07382",
+      "output_schema_sha256": "86a4a93036dc24846c2df3abdd406fe826d0ada0d7ca74f67839d5ff7645752b"
+    },
+    "curator_audit": {
+      "input_schema_sha256": "85ce39301b7739f9c3e8de0edce581f8d93347224756a840154c685e0ad1ec08",
+      "output_schema_sha256": "c547a2a5b1a70dba9c639d7e263554b7fd56d1db2d5af7723aafb7216e2e5ba1"
+    },
+    "skill_guard_check": {
+      "input_schema_sha256": "4fe32f3f30f9d51d794c2a09946d4d518a567bf2badeb8e84fa3796e93715961",
+      "output_schema_sha256": "35a413b5c74bc7f6e4ffbf1fb37afc0482bd0dc7955f6103b0d499a65b4a0123"
+    },
+    "memory_recall_v2": {
+      "input_schema_sha256": "fa20de6818b1abb0e86769f44c2f222649a3549d459572b9476e1a6f615fec50",
+      "output_schema_sha256": "b6ae006448ce6f30c62bba64a854660516cb0bacbdd8c8b283d06f8357e3c87e"
+    }
+  }
+}

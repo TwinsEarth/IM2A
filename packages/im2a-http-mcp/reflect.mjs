@@ -6,6 +6,7 @@
  * abstract: source traces provide evidence, not steps to copy.
  */
 import { loadReflectConfig } from "./reflect-config.mjs";
+import { canonicalJson, sha256Hex } from "./trace-store.mjs";
 
 export const FOCUS_VALUES = Object.freeze([
   "failure_pattern",
@@ -115,6 +116,11 @@ export function assessTrace(record, { config, focus } = {}) {
   const add = (candidateType, summary) => {
     if (candidates.some((candidate) => candidate.summary === summary)) return;
     candidates.push({
+      candidate_id: `cand_${sha256Hex(canonicalJson({
+        trace_id: record.trace_id,
+        candidate_type: candidateType,
+        summary,
+      })).slice(0, 24)}`,
       candidate_type: candidateType,
       summary,
       source_trace_ids: [record.trace_id],
@@ -142,6 +148,7 @@ export function assessTrace(record, { config, focus } = {}) {
 
   return {
     assessment: {
+      trace_id: record.trace_id,
       worth_reflecting: worthReflecting,
       reason_codes: [...new Set(reasons)],
       complexity_score: complexityScore,

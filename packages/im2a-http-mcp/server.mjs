@@ -18,6 +18,7 @@ import { MemoryHub } from "../memory-hub/src/index.mjs";
 import { TraceStore } from "./trace-store.mjs";
 import { reflectOnTrace } from "./reflect.mjs";
 import { PUBLIC_SESSION, SkillGuard, verifySession } from "./skill-guard.mjs";
+import { runEvolutionPipelineDryRun } from "./evolution-pipeline.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -293,6 +294,11 @@ const TOOLS = [
       required: ["query", "agent_did", "budget_tokens"],
     },
   },
+  {
+    name: "evolution_pipeline_dryrun",
+    description: "Run the fixed trace_ingest -> reflect_trigger -> curator_audit -> skill_guard_check -> memory_recall_v2 evolution dry run. No durable writes; returns per-step timings, schema checks and cross-step ID traceability.",
+    inputSchema: { type: "object", additionalProperties: false, properties: {} },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -395,10 +401,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.8.0",
+            version: "0.9.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: eighteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: nineteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -412,8 +418,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.8.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: eighteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.9.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: nineteen tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run).",
       },
     };
   }
@@ -618,6 +624,9 @@ async function handleRpc(message, context = {}) {
           since: args.since,
         });
         return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "evolution_pipeline_dryrun") {
+        return { jsonrpc: "2.0", id, result: resultText(runEvolutionPipelineDryRun()) };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {

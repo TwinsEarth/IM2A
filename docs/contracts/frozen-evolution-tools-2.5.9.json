@@ -1,0 +1,445 @@
+{
+  "schema_version": "1.0",
+  "release": "2.5.9",
+  "frozen": true,
+  "frozen_at": "2026-10-31T22:30:00Z",
+  "policy": "v2.6.x consumes these input/output schemas; additive-only changes require a new freeze version.",
+  "tools": [
+    {
+      "name": "trace_ingest",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "description": "Session that produced the trace"
+          },
+          "agent_did": {
+            "type": "string",
+            "description": "Stable did:im2a subject identifier"
+          },
+          "events": {
+            "type": "array",
+            "description": "Ordered span events; 1..2000"
+          }
+        },
+        "required": [
+          "session_id",
+          "agent_did",
+          "events"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trace_id",
+          "ingested_count",
+          "content_sha256"
+        ],
+        "properties": {
+          "trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "ingested_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "content_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "name": "reflect_trigger",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "trace_id": {
+            "type": "string",
+            "description": "32 lowercase hex trace id"
+          },
+          "agent_did": {
+            "type": "string",
+            "description": "Subject that must own the trace"
+          },
+          "focus": {
+            "enum": [
+              "failure_pattern",
+              "success_pattern",
+              "bottleneck",
+              "coordination"
+            ]
+          }
+        },
+        "required": [
+          "trace_id",
+          "agent_did"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assessment",
+          "distilled_candidates"
+        ],
+        "properties": {
+          "assessment": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "trace_id",
+              "worth_reflecting",
+              "reason_codes",
+              "complexity_score"
+            ],
+            "properties": {
+              "trace_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "worth_reflecting": {
+                "type": "boolean"
+              },
+              "reason_codes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "complexity_score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "distilled_candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "candidate_id",
+                "candidate_type",
+                "summary",
+                "source_trace_ids",
+                "confidence"
+              ],
+              "properties": {
+                "candidate_id": {
+                  "type": "string",
+                  "pattern": "^cand_[0-9a-f]{24}$"
+                },
+                "candidate_type": {
+                  "enum": [
+                    "skill_create",
+                    "skill_patch",
+                    "principle_extract"
+                  ]
+                },
+                "summary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_trace_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{32}$"
+                  }
+                },
+                "confidence": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "curator_audit",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "agent_did": {
+            "type": "string",
+            "description": "Owner filter for agent_owned scope"
+          },
+          "scope": {
+            "enum": [
+              "agent_owned",
+              "network"
+            ],
+            "description": "Defaults to network"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Only include skills used/updated at or after this time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "skills",
+          "audit"
+        ],
+        "properties": {
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "skill_id",
+                "name",
+                "lifecycle_state",
+                "last_used_at",
+                "use_count_30d",
+                "patch_count",
+                "estimated_context_cost_tokens",
+                "recommended_action"
+              ],
+              "properties": {
+                "skill_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                },
+                "lifecycle_state": {
+                  "enum": [
+                    "active",
+                    "stale",
+                    "archived"
+                  ]
+                },
+                "last_used_at": {
+                  "type": "string"
+                },
+                "use_count_30d": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "patch_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "estimated_context_cost_tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "recommended_action": {
+                  "enum": [
+                    "keep",
+                    "flag_for_review",
+                    "merge_candidate",
+                    "archive_candidate"
+                  ]
+                }
+              }
+            }
+          },
+          "audit": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "name": "skill_guard_check",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "agent_did": {
+            "type": "string",
+            "description": "Caller subject; must match the verified session"
+          },
+          "operation": {
+            "enum": [
+              "create",
+              "patch",
+              "archive"
+            ]
+          },
+          "target_skill_id": {
+            "type": "string",
+            "description": "Skill id whose owner must match for non-create writes"
+          }
+        },
+        "required": [
+          "agent_did",
+          "operation",
+          "target_skill_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allowed",
+          "denied_reason",
+          "audit_event_id"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "denied_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "insufficient_scope",
+              "scope_ceiling_exceeded",
+              "cross_agent_write_blocked",
+              null
+            ]
+          },
+          "audit_event_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "memory_recall_v2",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Recall query; 1..2000 chars"
+          },
+          "agent_did": {
+            "type": "string",
+            "description": "Calling subject; used for audit/context"
+          },
+          "budget_tokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200000,
+            "description": "Hard token ceiling"
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "raw_event",
+                "atom",
+                "skill_description",
+                "entity_page"
+              ]
+            }
+          },
+          "include_stale": {
+            "type": "boolean",
+            "description": "Explicitly include stale atoms; defaults false"
+          }
+        },
+        "required": [
+          "query",
+          "agent_did",
+          "budget_tokens"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "budget_used",
+          "suppressed_count",
+          "namespace",
+          "agent_did"
+        ],
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "minLength": 1
+          },
+          "agent_did": {
+            "type": "string",
+            "minLength": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "content",
+                "layer",
+                "score",
+                "quality_flag",
+                "source_trace_id"
+              ],
+              "properties": {
+                "content": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "layer": {
+                  "enum": [
+                    "raw_event",
+                    "atom",
+                    "skill_description",
+                    "entity_page"
+                  ]
+                },
+                "score": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "quality_flag": {
+                  "enum": [
+                    "fresh",
+                    "stale",
+                    "conflicted",
+                    "low_confidence"
+                  ]
+                },
+                "source_trace_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[0-9a-f]{32}$"
+                }
+              }
+            }
+          },
+          "budget_used": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "suppressed_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  ],
+  "pipeline_report_schema": "docs/contracts/evolution-pipeline-1.0.schema.json"
+}

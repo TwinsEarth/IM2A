@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.5.9 — 2026-10-31 evolution pipeline dry run and interface freeze
+
+- Added `evolution_pipeline_dryrun`; tool surface is now 19.
+- Runs trace_ingest -> reflect_trigger -> curator_audit -> skill_guard_check
+  (simulated) -> memory_recall_v2 with zero durable writes.
+- Returns per-step timings, schema checks, `would_write` summaries and
+  `id_traceability`.
+- Added explicit `trace_id` to reflect assessment and stable `candidate_id` to
+  distilled candidates.
+- Froze the five tool input/output schemas in
+  `docs/contracts/frozen-evolution-tools-2.5.9.json` with SHA-256 manifest and
+  `evolution-pipeline-1.0.schema.json`.
+- Added tests for report schema, frozen output schemas, freezes hashes and
+  forged-schema rejection.
+
 ## v2.5.8 — 2026-10-31 layered memory recall
 
 - Added `memory_recall_v2` to the HTTP MCP and Go stdio MCP; tool surface is

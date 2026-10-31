@@ -1,0 +1,178 @@
+{
+  "checkedAt": "2026-10-31T14:54:45.539Z",
+  "toolCount": 19,
+  "hasPipeline": true,
+  "runs": [
+    {
+      "run_id": "dryrun_55d618a9583babbd3b913902",
+      "status": "pass",
+      "duration_ms": 7.486,
+      "schema_valid": true,
+      "id_traceability": "full",
+      "writes": 0,
+      "would_write_count": 2,
+      "step_count": 5,
+      "schema_checks": [
+        {
+          "step": "trace_ingest",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "reflect_trigger",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "curator_audit",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "skill_guard_check",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "memory_recall_v2",
+          "ok": true,
+          "errors": []
+        }
+      ],
+      "id_traceability_checks": [
+        {
+          "from": "trace_ingest",
+          "to": "reflect_trigger",
+          "ok": true,
+          "id": "a2858ff995bce0df522bb035f2f41291"
+        },
+        {
+          "from": "reflect_trigger",
+          "to": "memory_recall_v2",
+          "ok": true,
+          "id": "cand_5db6c1d29d6441df36559856"
+        },
+        {
+          "from": "curator_audit",
+          "to": "skill_guard_check",
+          "ok": true,
+          "id": "dryrun-skill-a"
+        },
+        {
+          "from": "skill_guard_check",
+          "to": "pipeline_report",
+          "ok": true,
+          "id": "evt_dryrun_067c0430f1624220e79f1bce"
+        }
+      ],
+      "recall": {
+        "budget_tokens": 2000,
+        "budget_used": 44,
+        "suppressed_count": 0
+      }
+    },
+    {
+      "run_id": "dryrun_22ed860610b49a2c6c0683f0",
+      "status": "pass",
+      "duration_ms": 2.867,
+      "schema_valid": true,
+      "id_traceability": "full",
+      "writes": 0,
+      "would_write_count": 2,
+      "step_count": 5,
+      "schema_checks": [
+        {
+          "step": "trace_ingest",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "reflect_trigger",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "curator_audit",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "skill_guard_check",
+          "ok": true,
+          "errors": []
+        },
+        {
+          "step": "memory_recall_v2",
+          "ok": true,
+          "errors": []
+        }
+      ],
+      "id_traceability_checks": [
+        {
+          "from": "trace_ingest",
+          "to": "reflect_trigger",
+          "ok": true,
+          "id": "d19d2cf5ef28632ec6890f83f79dfef7"
+        },
+        {
+          "from": "reflect_trigger",
+          "to": "memory_recall_v2",
+          "ok": true,
+          "id": "cand_d042ecd918d0812e025300f6"
+        },
+        {
+          "from": "curator_audit",
+          "to": "skill_guard_check",
+          "ok": true,
+          "id": "dryrun-skill-a"
+        },
+        {
+          "from": "skill_guard_check",
+          "to": "pipeline_report",
+          "ok": true,
+          "id": "evt_dryrun_3f5a86dcf77a20fd8fd88871"
+        }
+      ],
+      "recall": {
+        "budget_tokens": 2000,
+        "budget_used": 44,
+        "suppressed_count": 0
+      }
+    }
+  ],
+  "candidateId": "cand_5db6c1d29d6441df36559856",
+  "traceId": "a2858ff995bce0df522bb035f2f41291",
+  "candidateRecallLinked": true,
+  "before": {
+    "skillPackages": 0,
+    "skillProposals": 0,
+    "memories": 0,
+    "trace": {
+      "exists": true,
+      "bytes": 38730,
+      "lines": 12
+    },
+    "guardAudit": {
+      "exists": true,
+      "bytes": 3199,
+      "lines": 5
+    }
+  },
+  "after": {
+    "skillPackages": 0,
+    "skillProposals": 0,
+    "memories": 0,
+    "trace": {
+      "exists": true,
+      "bytes": 38730,
+      "lines": 12
+    },
+    "guardAudit": {
+      "exists": true,
+      "bytes": 3199,
+      "lines": 5
+    }
+  },
+  "durableUnchanged": true,
+  "dryrunAuditLeak": false
+}

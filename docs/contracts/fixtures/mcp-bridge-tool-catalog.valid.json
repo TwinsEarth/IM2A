@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.5.8",
+  "toolCatalogVersion": "2.5.9",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -539,6 +539,34 @@
         "required": ["items", "budget_used", "suppressed_count"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INVALID_BUDGET_TOKENS", "INVALID_LAYERS", "INTERNAL"]
+    },
+    {
+      "name": "evolution_pipeline_dryrun",
+      "title": "Evolution pipeline dry run",
+      "description": "Run the five-step evolution pipeline without durable writes, returning per-step timings, schema checks and cross-step ID traceability.",
+      "scope": ["trace:read", "skill:guard", "curator:read", "memory:read"],
+      "sideEffect": "read",
+      "idempotency": "at-most-once",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "schema_version": { "const": "1.0" },
+          "run_id": { "type": "string" },
+          "status": { "enum": ["pass", "fail"] },
+          "duration_ms": { "type": "number" },
+          "writes": { "const": 0 },
+          "would_write_count": { "type": "integer" },
+          "steps": { "type": "array" },
+          "schema_checks": { "type": "array" },
+          "schema_valid": { "type": "boolean" },
+          "id_traceability": { "enum": ["full", "partial"] },
+          "id_traceability_checks": { "type": "array" }
+        },
+        "required": ["schema_version", "status", "duration_ms", "writes", "would_write_count", "steps", "schema_checks", "schema_valid", "id_traceability"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "PIPELINE_STEP_FAILED", "INTERNAL"]
     }
   ]
 }

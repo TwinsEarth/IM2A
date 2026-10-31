@@ -96,6 +96,19 @@ function requiredOperation(value) {
   return value;
 }
 
+export function evaluateGuard(session, { agentDid, operation, targetOwnerDid } = {}) {
+  const normalized = normalizeSession(session);
+  const op = requiredOperation(operation);
+  const decision = decide(normalized, { agentDid, operation: op, targetOwnerDid });
+  return {
+    allowed: decision.allowed,
+    denied_reason: decision.denied_reason,
+    policy_version: SKILL_GUARD_POLICY_VERSION,
+    authorization_level: normalized.authorization_level,
+    subject_kind: normalized.subject_kind,
+  };
+}
+
 function decide(session, { agentDid, operation, targetOwnerDid }) {
   if (session.subject_kind === "public_code" || session.authorization_level === "L0" || session.scopes.length === 0) {
     return { allowed: false, denied_reason: "insufficient_scope" };

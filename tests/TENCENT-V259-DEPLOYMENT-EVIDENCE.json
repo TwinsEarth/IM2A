@@ -1,0 +1,104 @@
+{
+  "release": "v2.5.9",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-10-31T14:58:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-10-31T22:52:45+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.5.9",
+    "httpMcpVersion": "0.9.0",
+    "nodeServerSha256": "03d8d51389e90d2df5e3dc5c72bb997064861952c6ec73ce928f7c8a88ce782d",
+    "evolutionPipelineSha256": "c7d5233c05686c427cc84b3b5e5552fec62d56c476f360325747ea1da7f726a1",
+    "goMcpVersion": "0.9.0",
+    "goMcpSha256": "788ca2c1f1416dec00a7e63ff106f8e6b194e2db58e3b85db93b18c6467d4333",
+    "goMcpWindowsSha256": "0bf6ae0970ad2600554821e23b5bd182d45ebd42bc2770ec5d6d74ae662de74c",
+    "goMcpPaths": [
+      "/opt/im2a/v2.5.9/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 19,
+    "hasEvolutionPipelineDryRun": true,
+    "runs": 2,
+    "run1": {
+      "duration_ms": 7.486,
+      "status": "pass",
+      "schema_valid": true,
+      "id_traceability": "full",
+      "writes": 0,
+      "would_write_count": 2,
+      "schema_checks_passed": 5,
+      "id_traceability_checks_passed": 4
+    },
+    "run2": {
+      "duration_ms": 2.867,
+      "status": "pass",
+      "schema_valid": true,
+      "id_traceability": "full",
+      "writes": 0,
+      "would_write_count": 2,
+      "schema_checks_passed": 5,
+      "id_traceability_checks_passed": 4
+    },
+    "candidateRecallLinked": true,
+    "durableStateBefore": {
+      "skillPackages": 0,
+      "skillProposals": 0,
+      "memories": 0,
+      "trajectoryLines": 12,
+      "trajectoryBytes": 38730,
+      "guardAuditLines": 5,
+      "guardAuditBytes": 3199
+    },
+    "durableStateAfter": {
+      "skillPackages": 0,
+      "skillProposals": 0,
+      "memories": 0,
+      "trajectoryLines": 12,
+      "trajectoryBytes": 38730,
+      "guardAuditLines": 5,
+      "guardAuditBytes": 3199
+    },
+    "durableStateUnchanged": true,
+    "dryrunAuditLeak": false,
+    "goMcpTools": 19,
+    "goPipeline": "PASS"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V259-PIPELINE-EVIDENCE.json",
+    "tests/V259-FREEZE-UNIT-EVIDENCE.json",
+    "tests/V259-WINDOWS-MCP-EVIDENCE.json",
+    "docs/contracts/frozen-evolution-tools-2.5.9.json",
+    "docs/contracts/FROZEN-EVOLUTION-TOOLS-2.5.9.sha256.json",
+    "docs/contracts/evolution-pipeline-1.0.schema.json",
+    "docs/design/IM2A-v2.5.9-EVOLUTION-PIPELINE-FREEZE.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.5.9-20261031225245",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.5.8 tree and data are untouched",
+  "notClaimed": [
+    "production readiness",
+    "TLS or multi-tenant authorization",
+    "real production data quality",
+    "machine-readable error envelope",
+    "stable idempotency key for trace_ingest",
+    "skill_manage -> curator.stage owner identity",
+    "v2.6.x drive_propose implementation"
+  ],
+  "openP0": [
+    "curator remains on the shared main-Agent identity; curator/operator separation is deferred",
+    "per-conversation seq domain is not yet the harness ordering contract",
+    "guard session is a local trusted-session seam, not full code-registry auth",
+    "error envelopes and conditional-required input schemas are not frozen"
+  ]
+}
