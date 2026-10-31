@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "skills": [
+    {
+      "id": "release-gate",
+      "description": "Release gate rules for the IM2A demo mystery",
+      "version": "1.0.0",
+      "packageSha": "2d959e41e45a3223168f1508b8b12adffc93273af88668eae8bd34069a160839",
+      "tags": [
+        "demo",
+        "release",
+        "gate"
+      ]
+    }
+  ],
+  "hit": "rc2 tag mismatch",
+  "checkedAt": "2026-10-31T02:41:27.971Z"
+}
