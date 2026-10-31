@@ -1,0 +1,83 @@
+{
+  "release": "v2.6.1",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T04:02:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T03:58:00+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.1",
+    "httpMcpVersion": "0.11.0",
+    "nodeServerSha256": "cc917c62ffe597b1d9a9e4a9b127328358cc2d6fd6ec57a62d190764c4e48ef1",
+    "driveProposeSha256": "e36b9dd300f4b70767b0a272999aa7a15a2e5a9befc3cbecbff40816595054dd",
+    "goMcpVersion": "0.11.0",
+    "goMcpSha256": "3f4653c69020da9b6cdd116fa7e88e45f1b71c819f2d1fc019570800c58f0291",
+    "goMcpWindowsSha256": "ab84193a04e7cd43bd8d50215e7de5820139c7f3f16d39c2c19e51f1da3b6406",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.1/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "drivesDir": "/opt/im2a/v2.6.1/data/drives",
+    "goalBufferDb": "/opt/im2a/v2.6.1/data/goal-buffer.db",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 23,
+    "hasDrivePropose": true,
+    "proposedGoals": 1,
+    "goal": {
+      "goal_id": "goal_c5be156548b84b46ab5a4c0f",
+      "drive_id": "stale_skill_caretaker",
+      "source_signals": [{ "type": "skill", "id": "stale-skill-a" }],
+      "estimated_token_cost": 2000,
+      "confidence": 0.89,
+      "intent_summary": "patch skill:stale-skill-a because drive stale_skill_caretaker matched stale lifecycle with 0 patches and 0 uses in 30d."
+    },
+    "tokenCostBasis": "recall_history_median",
+    "recallHistory": 3,
+    "actualReferenceBudgetUsed": 1938,
+    "deviationPct": 3.2,
+    "goalsBefore": 1,
+    "goalsAfter": 1,
+    "goalBufferWrite": false,
+    "goMcpTools": 23,
+    "goDrivePropose": "PASS"
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingSkillPackages": 0,
+    "remainingRecallHistory": 0,
+    "remainingGoals": 1,
+    "note": "the seeded stale skill and recall-history rows were removed; the intentional v2.6.0 drive and completed goal remain local state"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V261-PROPOSE-EVIDENCE.json",
+    "tests/V261-PROPOSE-UNIT-EVIDENCE.json",
+    "tests/V261-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.1-DRIVE-PROPOSE.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.1-20261101035800",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.0 tree and data are untouched",
+  "notClaimed": [
+    "goal-buffer adoption",
+    "scheduler or execution",
+    "actual post-execution token consumption",
+    "memory item_id exactness",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "the measured 3.2% uses recall history as the actual reference; no executor exists to measure post-execution consumption",
+    "memory-backed source_signals cannot use a v2.5.8 item_id because the frozen recall output has none",
+    "curator/operator separation and per-conversation seq remain open",
+    "goal-buffer local writes are not yet caller-authenticated"
+  ]
+}

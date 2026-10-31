@@ -3,7 +3,7 @@
 Streamable HTTP MCP bridge used by DSH and by the Go stdio MCP for the
 skill/memory surface.
 
-## Tools (22)
+## Tools (23)
 
 ```text
 IM2A bus (6):
@@ -28,8 +28,8 @@ Skill write guard (1):
 Evolution dry run (1):
   evolution_pipeline_dryrun
 
-Drives / goal buffer (3):
-  drive_list, drive_manage, goal_buffer
+Drives / goal buffer (4):
+  drive_list, drive_manage, goal_buffer, drive_propose
 ```
 
 `skill_manage` only writes proposals. `curator` can stage but cannot promote
@@ -47,7 +47,8 @@ hard token budget; it suppresses stale atoms unless `include_stale` is true.
 durable writes and returns per-step timings, schema checks and ID traceability.
 `drive_list` reads optional `drives/*.md` declarations; `drive_manage` writes
 one through `skill_guard_check`; `goal_buffer` is a local SQLite intent buffer,
-never Memory Hub.
+never Memory Hub. `drive_propose` reads drives and current signals to return
+proposed goals; it does not write the goal buffer.
 
 ## Persistence
 
@@ -86,8 +87,8 @@ node packages/im2a-http-mcp/server.mjs
 
 Endpoint: `http://127.0.0.1:18082/mcp`.
 
-The Go stdio MCP registers the same 22 tools and forwards the 16
-skill/memory/trace/reflection/curator-audit/guard/evolution/drives/goal tools to this server via
+The Go stdio MCP registers the same 23 tools and forwards the 17
+skill/memory/trace/reflection/curator-audit/guard/evolution/drives/goal/propose tools to this server via
 `IM2A_MCP_HTTP_URL`. It forwards `IM2A_SKILL_GUARD_SESSION_TOKEN` as the
 `x-im2a-skill-session` header when configured.
 

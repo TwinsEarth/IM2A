@@ -1,0 +1,42 @@
+{
+  "release": "v2.6.1",
+  "kind": "local-drive-propose",
+  "checkedAt": "2026-11-01T04:00:05Z",
+  "toolSurface": 23,
+  "tests": {
+    "total": 4,
+    "passed": 4,
+    "cases": [
+      "drive description predicates parse and match curator signals",
+      "curator-backed drive_propose returns a traceable proposed goal without buffer writes",
+      "memory-backed drive_propose emits a memory_item signal",
+      "missing drives and invalid ids fail closed"
+    ]
+  },
+  "localAcceptance": {
+    "toolCount": 23,
+    "proposedGoals": 1,
+    "driveId": "stale_skill_caretaker",
+    "sourceSignal": { "type": "skill", "id": "stale-skill-a" },
+    "estimatedTokenCost": 2000,
+    "tokenCostBasis": "recall_history_median",
+    "recallHistory": 3,
+    "goalsBefore": 0,
+    "goalsAfter": 0,
+    "deviationPct": 3.2
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 23,
+    "driveProposeDelegation": "PASS"
+  },
+  "limits": [
+    "no goal_buffer write in drive_propose; adoption is v2.6.2",
+    "memory-backed drives use a query derived from trigger_hint",
+    "memory source signals use source_trace_id or a derived mem_ id because v2.5.8 recall does not expose item_id",
+    "estimated token cost uses the median of local recall_history budget_used; no execution has occurred yet",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

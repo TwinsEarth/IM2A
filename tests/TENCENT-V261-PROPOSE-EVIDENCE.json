@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-31T20:00:05.099Z",
+  "toolCount": 23,
+  "proposedCount": 1,
+  "goal": {
+    "goal_id": "goal_c5be156548b84b46ab5a4c0f",
+    "drive_id": "stale_skill_caretaker",
+    "intent_summary": "patch skill:stale-skill-a because drive stale_skill_caretaker matched stale lifecycle with 0 patches and 0 uses in 30d.",
+    "source_signals": [
+      {
+        "type": "skill",
+        "id": "stale-skill-a"
+      }
+    ],
+    "estimated_token_cost": 2000,
+    "confidence": 0.89
+  },
+  "tokenCostBasis": "recall_history_median",
+  "goalsBefore": 1,
+  "goalsAfter": 1,
+  "estimatedVsActualPct": 3.2,
+  "recallHistory": 3,
+  "existingGoalAuditEvents": 4
+}

@@ -64,6 +64,16 @@ export class GoalBuffer {
         actor TEXT NOT NULL,
         reason TEXT
       );
+      CREATE TABLE IF NOT EXISTS recall_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        at TEXT NOT NULL,
+        budget_used INTEGER NOT NULL,
+        budget_tokens INTEGER NOT NULL,
+        item_count INTEGER NOT NULL,
+        suppressed_count INTEGER NOT NULL,
+        agent_did TEXT,
+        query_hash TEXT
+      );
     `);
   }
 
@@ -158,6 +168,28 @@ export class GoalBuffer {
       })),
       count: rows.length,
     };
+  }
+
+  recordRecall({ budgetUsed, budgetTokens, itemCount = 0, suppressedCount = 0, agentDid = null, queryHash = null } = {}) {
+    for (const [name, value] of [["budget_used", budgetUsed], ["budget_tokens", budgetTokens], ["item_count", itemCount], ["suppressed_count", suppressedCount]]) {
+      if (!Number.isInteger(value) || value < 0) throw new GoalBufferError("GOAL_INVALID", `${name} must be a non-negative integer`);
+    }
+    this.db.prepare(`INSERT INTO recall_history
+      (at, budget_used, budget_tokens, item_count, suppressed_count, agent_did, query_hash)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(nowIso(this.now()), budgetUsed, budgetTokens, itemCount, suppressedCount, agentDid ? String(agentDid).slice(0, 200) : null, queryHash ? String(queryHash).slice(0, 128) : null);
+  }
+
+  medianRecallBudget({ limit = 50 } = {}) {
+    const rows = this.db.prepare("SELECT budget_used FROM recall_history ORDER BY id DESC LIMIT ?").all(Math.min(Math.max(Number(limit) || 50, 1), 500));
+    if (rows.length === 0) return null;
+    const values = rows.map((row) => Number(row.budget_used)).sort((a, b) => a - b);
+    const mid = Math.floor(values.length / 2);
+    return values.length % 2 ? values[mid] : Math.round((values[mid - 1] + values[mid]) / 2);
+  }
+
+  recallHistoryCount() {
+    return this.db.prepare("SELECT COUNT(*) AS n FROM recall_history").get().n;
   }
 
   #goal(row) {

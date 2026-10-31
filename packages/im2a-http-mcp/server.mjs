@@ -21,6 +21,7 @@ import { PUBLIC_SESSION, SkillGuard, verifySession } from "./skill-guard.mjs";
 import { runEvolutionPipelineDryRun } from "./evolution-pipeline.mjs";
 import { loadDrives, writeDrive } from "./drives.mjs";
 import { GoalBuffer } from "./goal-buffer.mjs";
+import { drivePropose } from "./drive-propose.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -360,6 +361,20 @@ const TOOLS = [
       required: ["action"],
     },
   },
+  {
+    name: "drive_propose",
+    description: "Generate read-only improvement intents from drives and current curator_audit or memory_recall_v2 signals. Returns proposed_goals; never writes goal_buffer or any skill/memory.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        drive_ids: { type: "array", minItems: 1, maxItems: 20, uniqueItems: true, items: { type: "string", minLength: 1 } },
+        urgency_hint: { type: "string", maxLength: 100 },
+      },
+      required: ["agent_did", "drive_ids"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -462,10 +477,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.10.0",
+            version: "0.11.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-two tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-three tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -479,8 +494,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.10.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-two tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.11.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-three tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose).",
       },
     };
   }
@@ -650,6 +665,15 @@ async function handleRpc(message, context = {}) {
           layers: args.layers,
           includeStale: args.include_stale === true,
         });
+        try {
+          goalBuffer.recordRecall({
+            budgetUsed: result.budget_used,
+            budgetTokens: Number(args.budget_tokens),
+            itemCount: result.items.length,
+            suppressedCount: result.suppressed_count,
+            agentDid: String(args.agent_did),
+          });
+        } catch { /* recall telemetry must not break the read path */ }
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "memory_get") {
@@ -748,6 +772,20 @@ async function handleRpc(message, context = {}) {
           return { jsonrpc: "2.0", id, result: resultText(goalBuffer.audit(args.goal_id ? String(args.goal_id) : null)) };
         }
         return { jsonrpc: "2.0", id, result: resultText(`unknown goal_buffer action: ${action}`, true) };
+      }
+      if (name === "drive_propose") {
+        const drives = await loadDrives(DRIVES_DIR);
+        const result = drivePropose({
+          drives,
+          driveIds: args.drive_ids,
+          agentDid: String(args.agent_did),
+          urgencyHint: args.urgency_hint ? String(args.urgency_hint) : undefined,
+          skillStore,
+          memoryHub,
+          estimatedTokenCost: goalBuffer.medianRecallBudget({ limit: 50 }),
+          now: Date.now(),
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {

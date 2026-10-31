@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.6.0",
+  "toolCatalogVersion": "2.6.1",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -658,6 +658,36 @@
         }
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "GOAL_INVALID", "GOAL_NOT_FOUND", "GOAL_EXISTS", "INVALID_STATUS_TRANSITION", "INTERNAL"]
+    },
+    {
+      "name": "drive_propose",
+      "title": "Propose drive goals",
+      "description": "Generate read-only improvement intents from drives and current curator_audit or memory_recall_v2 signals. Returns proposed_goals; never writes the goal buffer.",
+      "scope": ["drive:read", "curator:read", "memory:read"],
+      "sideEffect": "read",
+      "idempotency": "at-most-once",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_did": { "type": "string" },
+          "drive_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "urgency_hint": { "type": "string" }
+        },
+        "required": ["agent_did", "drive_ids"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "proposed_goals": { "type": "array", "items": { "type": "object" } },
+          "evaluated_drives": { "type": "array", "items": { "type": "object" } },
+          "estimated_token_cost": { "type": ["integer", "null"] },
+          "token_cost_basis": { "type": "string" }
+        },
+        "required": ["proposed_goals", "evaluated_drives", "token_cost_basis"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "DRIVE_INVALID", "DRIVE_NOT_FOUND", "AGENT_DID_REQUIRED", "INTERNAL"]
     }
   ]
 }

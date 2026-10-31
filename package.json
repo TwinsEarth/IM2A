@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.6.0 drives and local goal buffer",
+  "description": "IM2A v2.6.1 read-only drive proposal",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -33,7 +33,8 @@
     "guard:test": "node tests/skill-guard.test.mjs",
     "memory:recall-test": "node tests/memory-recall-v2.test.mjs",
     "evolution:test": "node tests/evolution-pipeline.test.mjs && node tests/evolution-freeze.test.mjs",
-    "drives:test": "node tests/drives-goal-buffer.test.mjs"
+    "drives:test": "node tests/drives-goal-buffer.test.mjs",
+    "propose:test": "node tests/drive-propose.test.mjs"
   },
   "engines": {
     "node": ">=22"

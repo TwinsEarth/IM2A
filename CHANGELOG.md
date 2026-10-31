@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.6.1 — 2026-11-01 read-only drive proposal
+
+- Added `drive_propose`; tool surface is 23.
+- Reads drives and current `curator_audit` or `memory_recall_v2` signals,
+  matches the drive description predicates, and returns `proposed_goals`.
+- Never writes the goal buffer; adoption and scheduling remain future work.
+- Added `recall_history` local telemetry and median `budget_used` token-cost
+  basis for proposals.
+- Added a safe predicate parser for drive descriptions and 4 tests.
+
 ## v2.6.0 — 2026-11-01 durable drives and local goal buffer
 
 - Added `drive_list`, `drive_manage` and `goal_buffer`; tool surface is 22.
