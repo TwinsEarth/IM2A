@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { SqliteSkillStore } from "../skill-runtime/src/sqlite-store.mjs";
 import { MemoryHub } from "../memory-hub/src/index.mjs";
 import { TraceStore } from "./trace-store.mjs";
+import { reflectOnTrace } from "./reflect.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -223,6 +224,23 @@ const TOOLS = [
       required: ["session_id", "agent_did", "events"],
     },
   },
+  {
+    name: "reflect_trigger",
+    description: "Read one execution trace and return a read-only reflection assessment plus abstract candidate suggestions. Never writes skills, memory, proposals or traces.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        trace_id: { type: "string", pattern: "^[0-9a-f]{32}$" },
+        agent_did: {
+          type: "string",
+          pattern: "^did:[a-z0-9]+:[A-Za-z0-9._:%-]{3,200}$",
+        },
+        focus: { enum: ["failure_pattern", "success_pattern", "bottleneck", "coordination"] },
+      },
+      required: ["trace_id", "agent_did"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -295,10 +313,10 @@ async function handleRpc(message) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.4.0",
+            version: "0.5.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: fourteen tools (IM2A bus, skills, memory, trace).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: fifteen tools (IM2A bus, skills, memory, trace, reflection).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -312,8 +330,8 @@ async function handleRpc(message) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.4.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: fourteen tools (IM2A bus, skills, memory, trace).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.5.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: fifteen tools (IM2A bus, skills, memory, trace, reflection).",
       },
     };
   }
@@ -447,6 +465,15 @@ async function handleRpc(message) {
       }
       if (name === "trace_ingest") {
         const result = await traceStore.ingest(args);
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "reflect_trigger") {
+        const result = await reflectOnTrace({
+          traceStore,
+          traceId: args.trace_id,
+          agentDid: args.agent_did,
+          focus: args.focus,
+        });
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };

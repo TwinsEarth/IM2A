@@ -3,7 +3,7 @@
 Streamable HTTP MCP bridge used by DSH and by the Go stdio MCP for the
 skill/memory surface.
 
-## Tools (14)
+## Tools (15)
 
 ```text
 IM2A bus (6):
@@ -16,14 +16,16 @@ Skills (4):
 Memory (3):
   memory_search, memory_get, memory_propose
 
-Trace (1):
-  trace_ingest
+Trace / reflection (2):
+  trace_ingest, reflect_trigger
 ```
 
 `skill_manage` only writes proposals. `curator` can stage but cannot promote
 or rollback. `memory_propose` does not become searchable until operator
 promotion. `trace_ingest` appends one immutable execution-trace batch; it
-accepts span metadata and SHA-256 digests only.
+accepts span metadata and SHA-256 digests only. `reflect_trigger` reads a trace
+and returns an assessment plus abstract candidates; it never writes a skill,
+memory, proposal or trace.
 
 ## Persistence
 
@@ -40,6 +42,8 @@ $env:IM2A_MCP_DB_DIR = 'C:\path\to\im2a-mcp-data'
 $env:IM2A_TENANT_ID = 'tenant-a'
 # optional; defaults to $IM2A_MCP_DB_DIR/traces
 $env:IM2A_TRACE_DIR = 'C:\path\to\im2a-traces'
+# optional reflection thresholds, inline JSON or a JSON file path
+$env:IM2A_REFLECT_CONFIG = 'C:\path\to\reflect-config.json'
 ```
 
 ## Run
@@ -53,8 +57,8 @@ node packages/im2a-http-mcp/server.mjs
 
 Endpoint: `http://127.0.0.1:18082/mcp`.
 
-The Go stdio MCP registers the same 14 tools and forwards the 8
-skill/memory/trace tools to this server via `IM2A_MCP_HTTP_URL`.
+The Go stdio MCP registers the same 15 tools and forwards the 9
+skill/memory/trace/reflection tools to this server via `IM2A_MCP_HTTP_URL`.
 
 ```powershell
 $env:IM2A_MCP_HTTP_URL = 'http://127.0.0.1:18082/mcp'
@@ -68,3 +72,5 @@ $env:IM2A_MCP_HTTP_URL = 'http://127.0.0.1:18082/mcp'
 - FTS5 snippets are returned; full bodies require `memory_get`.
 - Trace events contain digests, not raw prompts, arguments, outputs or
   credentials; `trajectory.jsonl` has no update or delete API.
+- `reflect_trigger` is read-only; its candidates are suggestions, never
+  automatic skill/memory writes.

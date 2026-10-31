@@ -1,0 +1,71 @@
+{
+  "release": "v2.5.5",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-10-31T10:54:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-10-31T18:51:41+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.5.5",
+    "httpMcpVersion": "0.5.0",
+    "nodeServerSha256": "a2657e015d0e25c6758e564381793edfd19e57c67580c716a62cc964f2cab761",
+    "reflectSha256": "bf26a576777c5090d8c9c089b9a1cb09c81858bcc6a622dfe1509ff6518ea25f",
+    "reflectConfigSha256": "048c490bc3b7ffeed4c3c0beee0b0e849626d638e2c56c9b8c9fa02ce3a92dfb",
+    "traceStoreSha256": "36a6970301b19f9874eda4f40572e37368e6fd334f439aef0baf997701c754ac",
+    "goMcpVersion": "0.5.0",
+    "goMcpSha256": "32c4dc361ff16ac10eda7df6bde5a7cd03c07bb22c8b6a63948aea43df1e758f",
+    "goMcpWindowsSha256": "0ef42b9ac40327df47541f2a4d7ed937ff36e28d64c9cdfd678aa91061100d45",
+    "goMcpPaths": [
+      "/opt/im2a/v2.5.5/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "traceDir": "/opt/im2a/v2.5.5/data/traces",
+    "traceFile": "/opt/im2a/v2.5.5/data/traces/tencent-dev/trajectory.jsonl",
+    "traceFileLinesAtCheck": 12,
+    "traceFileMode": "0640 ubuntu:ubuntu",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 15,
+    "hasReflectTrigger": true,
+    "richTraceWorthReflecting": true,
+    "richCandidateCount": 1,
+    "richCandidateType": "skill_create",
+    "richConfidence": 0.53,
+    "simpleTraceWorthReflecting": false,
+    "simpleCandidateCount": 0,
+    "traceLinesBeforeReflection": 11,
+    "traceLinesAfterReflection": 11,
+    "reflectionReadOnly": true,
+    "goMcpTools": 15,
+    "goReflectTrigger": "PASS"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V255-REFLECT-EVIDENCE.json",
+    "tests/V255-REFLECT-UNIT-EVIDENCE.json",
+    "tests/V255-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.5.5-REFLECT-TRIGGER.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.5.5-20261031185141",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.5.4 tree and data are untouched",
+  "notClaimed": [
+    "production readiness",
+    "TLS or multi-tenant authorization",
+    "cryptographic binding of agent_did/session_id to the caller",
+    "peer-agent attribution beyond bus-span heuristics",
+    "automatic skill/memory writes from reflection",
+    "a production quality claim for confidence values"
+  ],
+  "openP0": [
+    "curator remains on the shared main-Agent identity; curator/operator separation is deferred",
+    "per-conversation seq domain is not yet the harness ordering contract"
+  ]
+}

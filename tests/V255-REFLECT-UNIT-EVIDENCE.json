@@ -1,0 +1,51 @@
+{
+  "release": "v2.5.5",
+  "kind": "local-unit-and-acceptance",
+  "checkedAt": "2026-10-31T10:53:16Z",
+  "toolSurface": 15,
+  "localTraceChecks": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "cases": [
+      "5+ successful tool calls are worth reflecting and yield a candidate",
+      "a 2-step simple query is not worth reflecting and returns no candidates",
+      "failure recovery and cross-agent evidence are both reflected",
+      "thresholds come from config, not from the agent loop",
+      "reflection is read-only, tenant-scoped and refuses an agent mismatch"
+    ]
+  },
+  "localAcceptance": {
+    "richAssessment": {
+      "worth_reflecting": true,
+      "complexity_score": 0.5
+    },
+    "richCandidateCount": 1,
+    "richCandidateType": "skill_create",
+    "richConfidence": 0.53,
+    "simpleAssessment": {
+      "worth_reflecting": false,
+      "complexity_score": 0.29
+    },
+    "simpleCandidateCount": 0,
+    "traceLinesBeforeReflection": 2,
+    "traceLinesAfterReflection": 2
+  },
+  "contractChecks": {
+    "mcpBridgeToolCatalog": "PASS (15 tools)",
+    "agentPluginContract": "PASS",
+    "platformValidate": "PASS (2.5.5)",
+    "generatorCheck": "PASS"
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "test": "PASS, 0 failing packages",
+    "reflectDelegationTest": "PASS"
+  },
+  "limits": [
+    "cross-agent detection in v2.5.5 uses im2a_send/im2a_recv bus spans, not peer-agent attribution",
+    "candidates are suggestions; no skill/memory/proposal/trace writes are performed",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

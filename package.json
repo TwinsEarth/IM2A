@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.5.4",
+  "version": "2.5.5",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.5.4 execution trace foundation",
+  "description": "IM2A v2.5.5 read-only reflection trigger",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -27,7 +27,8 @@
     "skill:sqlite-test": "node --test packages/skill-runtime/test/sqlite-store.test.mjs",
     "skill:perf": "node scripts/bench-skill-runtime.mjs",
     "memory:test": "node --test packages/memory-hub/test/memory-hub.test.mjs",
-    "trace:test": "node tests/trace-ingest.test.mjs"
+    "trace:test": "node tests/trace-ingest.test.mjs",
+    "reflect:test": "node tests/reflect-trigger.test.mjs"
   },
   "engines": {
     "node": ">=22"

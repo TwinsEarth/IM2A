@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.5.4",
+  "toolCatalogVersion": "2.5.5",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -424,6 +424,34 @@
         "required": ["trace_id", "ingested_count", "content_sha256"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "TRACE_INVALID", "TRACE_TOO_LARGE", "TRACE_WRITE_FAILED", "INTERNAL"]
+    },
+    {
+      "name": "reflect_trigger",
+      "title": "Trigger reflection",
+      "description": "Read one trace and return a read-only reflection assessment plus abstract, non-executable candidates. Never writes skills, memory, proposals or traces.",
+      "scope": ["trace:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "trace_id": { "type": "string", "description": "32 lowercase hex trace id" },
+          "agent_did": { "type": "string", "description": "Subject that must own the trace" },
+          "focus": { "enum": ["failure_pattern", "success_pattern", "bottleneck", "coordination"] }
+        },
+        "required": ["trace_id", "agent_did"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "assessment": { "type": "object" },
+          "distilled_candidates": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["assessment", "distilled_candidates"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "TRACE_NOT_FOUND", "TRACE_AGENT_MISMATCH", "REFLECT_CONFIG_INVALID", "INVALID_FOCUS", "INTERNAL"]
     }
   ]
 }

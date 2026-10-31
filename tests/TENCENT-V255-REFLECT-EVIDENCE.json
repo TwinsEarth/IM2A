@@ -1,0 +1,45 @@
+{
+  "checkedAt": "2026-10-31T10:52:20.654Z",
+  "initStatus": 200,
+  "toolCount": 15,
+  "hasReflectTrigger": true,
+  "richTraceId": "80b39fb58b54d5666e71596d94bc1c4f",
+  "simpleTraceId": "b4dc21ccbc60c96a21b7686d5f721c0c",
+  "richAssessment": {
+    "worth_reflecting": true,
+    "reason_codes": [
+      "tool_calls_at_or_above_min",
+      "no_failure_recovery",
+      "no_coordination",
+      "successful_terminal_span"
+    ],
+    "complexity_score": 0.5
+  },
+  "richCandidateCount": 1,
+  "richCandidateTypes": [
+    "skill_create"
+  ],
+  "richConfidences": [
+    0.53
+  ],
+  "richSources": [
+    [
+      "80b39fb58b54d5666e71596d94bc1c4f"
+    ]
+  ],
+  "simpleAssessment": {
+    "worth_reflecting": false,
+    "reason_codes": [
+      "insufficient_tool_calls",
+      "no_failure_recovery",
+      "no_coordination",
+      "successful_terminal_span",
+      "focus_success_pattern"
+    ],
+    "complexity_score": 0.29
+  },
+  "simpleCandidateCount": 0,
+  "traceLinesBeforeReflection": 11,
+  "traceLinesAfterReflection": 11,
+  "reflectionReadOnly": true
+}

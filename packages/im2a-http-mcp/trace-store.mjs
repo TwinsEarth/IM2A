@@ -7,7 +7,7 @@
  * delete operation in this module.
  */
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, open } from "node:fs/promises";
+import { mkdir, open, readFile } from "node:fs/promises";
 import path from "node:path";
 
 export const TRACE_SCHEMA_VERSION = "1.0";
@@ -219,6 +219,34 @@ export class TraceStore {
 
   get filePath() {
     return path.join(this.tenantDir, this.#fileName);
+  }
+
+  /**
+   * Read-only lookup by trace id. This method never writes, rotates or repairs
+   * the trajectory file; a missing file means "not found", not "create it".
+   */
+  async get(traceId) {
+    if (typeof traceId !== "string" || !/^[0-9a-f]{32}$/.test(traceId)) {
+      throw new TraceValidationError("trace_id must be 32 lowercase hex characters");
+    }
+    let raw;
+    try {
+      raw = await readFile(this.filePath, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    }
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      let record;
+      try { record = JSON.parse(line); } catch { continue; }
+      if (record?.trace_id !== traceId) continue;
+      if (record.tenant !== this.#tenant) {
+        throw new TraceValidationError("trace tenant does not match the store tenant");
+      }
+      return record;
+    }
+    return null;
   }
 
   async ingest(input) {

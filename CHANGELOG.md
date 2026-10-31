@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.5.5 — 2026-10-31 read-only reflection trigger
+
+- Added `reflect_trigger` to the HTTP MCP and Go stdio MCP; tool surface is now
+  15.
+- `reflect_trigger` reads one tenant-scoped trace by id and agent DID, then
+  returns `worth_reflecting`, `reason_codes`, `complexity_score` and abstract
+  `distilled_candidates`.
+- Thresholds live in `IM2A_REFLECT_CONFIG` (inline JSON or a file), not in the
+  Agent loop; defaults are tool calls >=5, non-trivial failure recovery, or
+  cross-agent bus evidence.
+- Reflection is read-only: candidates are suggestions, never skill/memory/
+  proposal/trace writes. It verifies the trace owner and refuses agent mismatch.
+- Added 5 reflection tests: 5+ successful trace true with candidates, 2-step
+  simple trace false and empty, failure recovery, cross-agent evidence,
+  config override, read-only and ownership checks.
+- Deferred: curator/operator separation, per-conversation seq domain and
+  cryptographic caller identity remain open.
+
 ## v2.5.4 — 2026-10-31 execution trace foundation
 
 - Added `trace_ingest` to the HTTP MCP and Go stdio MCP; tool surface is now 14.
