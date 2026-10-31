@@ -136,7 +136,9 @@
         "EXTERNAL_REQUEST_INVALID",
         "RESERVED_POOL_UNAVAILABLE",
         "INVALID_GOAL_STATE",
-        "EXECUTION_BUDGET_EXCEEDED"
+        "EXECUTION_BUDGET_EXCEEDED",
+        "INVALID_LOOKBACK_DAYS",
+        "CALIBRATION_SNAPSHOT_INVALID"
       ],
       "description": "IM2A namespace codes in UPPER_SNAKE, matching SKILL-RUNTIME-MVP-v2.5.0 §4. The bridge does not paraphrase subsystem codes."
     },

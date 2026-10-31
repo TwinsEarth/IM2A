@@ -1,0 +1,39 @@
+{
+  "release": "v2.6.4",
+  "kind": "local-drive-calibration",
+  "checkedAt": "2026-11-01T05:32:35Z",
+  "toolSurface": 27,
+  "tests": {
+    "total": 2,
+    "passed": 2,
+    "cases": [
+      "drive_calibrate returns a non-unchanged adjustment with goal-level evidence",
+      "invalid lookback and agent are rejected"
+    ]
+  },
+  "localAcceptance": {
+    "goalCount": 10,
+    "healthyAdjustment": "increase",
+    "riskyAdjustment": "decrease",
+    "proposalAcceptanceRate": 0.8,
+    "executionYield": 0.8,
+    "evidenceGoalIds": 10,
+    "confidenceDeltaEvidence": true,
+    "readOnly": true,
+    "drivesModified": false
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 27,
+    "calibrationDelegation": "PASS"
+  },
+  "limits": [
+    "metrics are local-window telemetry, not network truth",
+    "fixed calibration thresholds; no LLM calibration",
+    "suggestions are never auto-applied",
+    "drive updates still require drive_manage + skill_guard_check L2",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

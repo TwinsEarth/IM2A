@@ -35,6 +35,7 @@ run('drives and goal buffer tests', ['tests/drives-goal-buffer.test.mjs']);
 run('drive propose tests', ['tests/drive-propose.test.mjs']);
 run('scheduler tests', ['tests/scheduler.test.mjs']);
 run('goal schedule tests', ['tests/goal-schedule.test.mjs']);
+run('drive calibrate tests', ['tests/drive-calibrate.test.mjs']);
 run('ident-code tests', ['--test', 'packages/ident-code/test/ident-code.test.mjs']);
 run('skill-runtime tests', ['--test', 'packages/skill-runtime/test/skill-runtime.test.mjs']);
 run('skill-runtime sqlite tests', ['--test', 'packages/skill-runtime/test/sqlite-store.test.mjs']);

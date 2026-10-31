@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.6.4 — 2026-11-01 drive calibration
+
+- Added `drive_calibrate`; tool surface is 27.
+- Added local `goal_proposals` and `goal_executions` telemetry.
+- Per-drive metrics: proposal_acceptance_rate, execution_yield, expiry_rate,
+  mean confidence delta.
+- Returns priority_adjustment, trigger_hint_refinement and goal-level evidence.
+- Read-only: never modifies drives/; application still requires
+  `drive_manage` + `skill_guard_check` L2.
+- Added 2 calibration tests.
+
 ## v2.6.3 — 2026-11-01 goal schedule and draft-only execution
 
 - Added `goal_schedule`; tool surface is 26.

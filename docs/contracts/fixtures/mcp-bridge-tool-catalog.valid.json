@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.6.3",
+  "toolCatalogVersion": "2.6.4",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -783,6 +783,34 @@
         "required": ["goal", "execution_result"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "GOAL_NOT_FOUND", "INVALID_GOAL_STATE", "RESERVED_POOL_UNAVAILABLE", "EXECUTION_BUDGET_EXCEEDED", "INTERNAL"]
+    },
+    {
+      "name": "drive_calibrate",
+      "title": "Calibrate drives",
+      "description": "Read-only drive calibration over goal history, execution confidence deltas and proposal adoption. Returns suggestions; never modifies drives/.",
+      "scope": ["drive:read", "goal:read", "curator:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_did": { "type": "string" },
+          "lookback_days": { "type": "integer", "minimum": 1, "maximum": 90 }
+        },
+        "required": ["agent_did"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "calibration_suggestions": { "type": "array", "items": { "type": "object" } },
+          "read_only": { "type": "boolean" },
+          "drives_modified": { "type": "boolean" }
+        },
+        "required": ["calibration_suggestions", "read_only", "drives_modified"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INVALID_LOOKBACK_DAYS", "DRIVE_INVALID", "CALIBRATION_SNAPSHOT_INVALID", "INTERNAL"]
     }
   ]
 }

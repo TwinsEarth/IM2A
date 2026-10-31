@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.6.3",
+  "version": "2.6.4",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.6.3 goal schedule and draft artifacts",
+  "description": "IM2A v2.6.4 drive calibration",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -36,7 +36,8 @@
     "drives:test": "node tests/drives-goal-buffer.test.mjs",
     "propose:test": "node tests/drive-propose.test.mjs",
     "scheduler:test": "node tests/scheduler.test.mjs",
-    "goal-schedule:test": "node tests/goal-schedule.test.mjs"
+    "goal-schedule:test": "node tests/goal-schedule.test.mjs",
+    "calibrate:test": "node tests/drive-calibrate.test.mjs"
   },
   "engines": {
     "node": ">=22"

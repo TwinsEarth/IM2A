@@ -1,0 +1,83 @@
+{
+  "checkedAt": "2026-10-31T21:32:35.690Z",
+  "toolCount": 27,
+  "hasCalibrate": true,
+  "readOnly": true,
+  "drivesModified": false,
+  "suggestion": {
+    "priority_adjustment": "increase",
+    "priority_delta": 0.05,
+    "trigger_hint_refinement": "Narrow to high-yield execution evidence; observed execution_yield=0.8 and mean_delta=0.175.",
+    "metrics": {
+      "goal_count": 13,
+      "completed_count": 11,
+      "expired_count": 2,
+      "execution_count": 10,
+      "proposal_acceptance_rate": 0.8,
+      "execution_yield": 0.8,
+      "expiry_rate": 0.154,
+      "mean_confidence_delta": 0.175,
+      "confidence_delta_distribution": [
+        0.4,
+        0.35,
+        0.3,
+        0.25,
+        0.22,
+        0.2,
+        0.18,
+        0.15,
+        -0.1,
+        -0.2
+      ]
+    },
+    "evidenceCount": 13,
+    "evidence": [
+      {
+        "goal_id": "goal_6fb6075a7bc536d8dae0430d",
+        "status": "completed",
+        "confidence_delta": null,
+        "execution_yield": null
+      },
+      {
+        "goal_id": "goal_f26400000000000000000000",
+        "status": "completed",
+        "confidence_delta": 0.4,
+        "execution_yield": true
+      },
+      {
+        "goal_id": "goal_f26400000000000000000001",
+        "status": "completed",
+        "confidence_delta": 0.35,
+        "execution_yield": true
+      },
+      {
+        "goal_id": "goal_f26400000000000000000002",
+        "status": "completed",
+        "confidence_delta": 0.3,
+        "execution_yield": true
+      },
+      {
+        "goal_id": "goal_f26400000000000000000003",
+        "status": "completed",
+        "confidence_delta": 0.25,
+        "execution_yield": true
+      }
+    ],
+    "evidenceHasDelta": true
+  },
+  "before": {
+    "hash": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+    "goals": 13,
+    "executions": 10,
+    "proposals": 10
+  },
+  "after": {
+    "hash": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+    "goals": 13,
+    "executions": 10,
+    "proposals": 10
+  },
+  "driveHashUnchanged": true,
+  "stateUnchanged": true,
+  "driveExists": true
+}

@@ -51,10 +51,29 @@ export async function scheduleGoal({
       now,
     });
   } catch (error) {
-    try { goalBuffer.transition(goalId, "expired", { actor: "goal_schedule", reason: String(error.message).slice(0, 200) }); } catch { /* best effort */ }
+    try {
+      goalBuffer.transition(goalId, "expired", { actor: "goal_schedule", reason: String(error.message).slice(0, 200) });
+      goalBuffer.recordExecution({
+        goalId,
+        driveId: goal.drive_id,
+        status: "expired",
+        confidenceDelta: 0,
+        reflectionNotes: `execution failed: ${String(error.message).slice(0, 200)}`,
+        recommendedNext: "discard",
+      });
+    } catch { /* best effort */ }
     throw error;
   }
   const completed = goalBuffer.transition(goalId, "completed", { actor: "goal_schedule", reason: "execution_result_ready" });
+  goalBuffer.recordExecution({
+    goalId,
+    driveId: completed.drive_id,
+    status: "completed",
+    confidenceDelta: execution.confidence_delta,
+    draftPatch: execution.draft_patch,
+    reflectionNotes: execution.reflection_notes,
+    recommendedNext: execution.recommended_next,
+  });
   return { goal: completed, execution_result: execution };
 }
 

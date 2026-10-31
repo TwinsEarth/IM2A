@@ -1,0 +1,84 @@
+{
+  "release": "v2.6.4",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T05:38:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T05:29:41+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.4",
+    "httpMcpVersion": "0.14.0",
+    "nodeServerSha256": "bc90663b1709f36ae8d9f00d8d8d04a373e983d17ae1e4631e3077f072a4a4e3",
+    "driveCalibrateSha256": "c67d3447b9876ad624c374213cb975d7d3e36bc18d30278c9c94ac90d8588409",
+    "goMcpVersion": "0.14.0",
+    "goMcpSha256": "17ff307070d5ebba36ad54effcc4595b7271d88f995d52a28f308ec114393aec",
+    "goMcpWindowsSha256": "d05f1afdb1c4576982c7e29bba85917f42d54494c8994524a522f24098df93db",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.4/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 27,
+    "hasDriveCalibrate": true,
+    "readOnly": true,
+    "drivesModified": false,
+    "goalCount": 13,
+    "completedCount": 11,
+    "expiredCount": 2,
+    "executionCount": 10,
+    "proposalAcceptanceRate": 0.8,
+    "executionYield": 0.8,
+    "expiryRate": 0.154,
+    "meanConfidenceDelta": 0.175,
+    "priorityAdjustment": "increase",
+    "priorityDelta": 0.05,
+    "triggerHintRefinement": "Narrow to high-yield execution evidence; observed execution_yield=0.8 and mean_delta=0.175.",
+    "evidenceCount": 13,
+    "evidenceGoalIdSample": "goal_f26400000000000000000000",
+    "evidenceConfidenceDeltaSample": 0.4,
+    "driveHashBefore": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+    "driveHashAfter": "aefbd29a2d81c520fa1bdcfa43d57d7de2f9bed20191d5e032d987c44a6dca58",
+    "driveHashUnchanged": true,
+    "stateUnchanged": true,
+    "goMcpTools": 27,
+    "goCalibrationShape": "PASS"
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingGoals": 3,
+    "remainingExecutions": 0,
+    "remainingProposals": 0,
+    "note": "seeded calibration goals/proposals/executions were removed; the drive file and its hash were never modified"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V264-CALIBRATE-EVIDENCE.json",
+    "tests/V264-CALIBRATE-UNIT-EVIDENCE.json",
+    "tests/V264-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.4-DRIVE-CALIBRATE.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.4-20261101052941",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.3 tree and data are untouched",
+  "notClaimed": [
+    "automatic drive mutation",
+    "network-wide calibration truth",
+    "LLM-based calibration",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "metrics are local-window telemetry",
+    "suggestions require explicit drive_manage + L2 application",
+    "curator/operator separation and per-conversation seq remain open",
+    "goal-buffer local writes are not yet caller-authenticated"
+  ]
+}

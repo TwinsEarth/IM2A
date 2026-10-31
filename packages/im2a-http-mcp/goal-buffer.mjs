@@ -74,6 +74,26 @@ export class GoalBuffer {
         agent_did TEXT,
         query_hash TEXT
       );
+      CREATE TABLE IF NOT EXISTS goal_proposals (
+        proposal_goal_id TEXT PRIMARY KEY,
+        drive_id TEXT NOT NULL,
+        proposed_at TEXT NOT NULL,
+        intent_summary TEXT NOT NULL,
+        source_signals_json TEXT NOT NULL,
+        adopted_goal_id TEXT
+      );
+      CREATE TABLE IF NOT EXISTS goal_executions (
+        execution_id TEXT PRIMARY KEY,
+        goal_id TEXT NOT NULL,
+        drive_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        status TEXT NOT NULL,
+        confidence_delta REAL NOT NULL,
+        draft_patch_json TEXT,
+        reflection_notes TEXT,
+        recommended_next TEXT,
+        execution_yield INTEGER NOT NULL
+      );
     `);
   }
 
@@ -84,6 +104,7 @@ export class GoalBuffer {
     intentSummary,
     sourceSignals,
     priorityScore,
+    proposalId = null,
   } = {}) {
     if (typeof driveId !== "string" || driveId.length === 0) throw new GoalBufferError("GOAL_INVALID", "drive_id is required");
     if (typeof intentSummary !== "string" || intentSummary.length === 0 || intentSummary.length > 2000) throw new GoalBufferError("GOAL_INVALID", "intent_summary is required (max 2000)");
@@ -104,6 +125,10 @@ export class GoalBuffer {
         (event_id, goal_id, from_status, to_status, acted_at, actor, reason)
         VALUES (?, ?, NULL, 'pending', ?, 'system', 'created')`)
         .run(`gevt_${randomBytes(12).toString("hex")}`, goalIdValue, at);
+      if (proposalId) {
+        if (!/^goal_[0-9a-f]{24}$/.test(String(proposalId))) throw new GoalBufferError("GOAL_INVALID", "proposal_id must be goal_<24 hex>");
+        this.db.prepare("UPDATE goal_proposals SET adopted_goal_id = ? WHERE proposal_goal_id = ?").run(goalIdValue, proposalId);
+      }
       this.db.exec("COMMIT");
     } catch (error) {
       try { this.db.exec("ROLLBACK"); } catch { /* best effort */ }
@@ -195,6 +220,75 @@ export class GoalBuffer {
 
   recallHistoryCount() {
     return this.db.prepare("SELECT COUNT(*) AS n FROM recall_history").get().n;
+  }
+
+  recordProposal({ proposalGoalId, driveId, intentSummary, sourceSignals = [], at = null } = {}) {
+    if (!/^goal_[0-9a-f]{24}$/.test(String(proposalGoalId))) throw new GoalBufferError("GOAL_INVALID", "proposal goal id invalid");
+    if (typeof driveId !== "string" || driveId.length === 0) throw new GoalBufferError("GOAL_INVALID", "drive_id required");
+    if (typeof intentSummary !== "string" || intentSummary.length === 0) throw new GoalBufferError("GOAL_INVALID", "intent_summary required");
+    const signals = sourceSignals.map(assertSignal);
+    this.db.prepare(`INSERT OR IGNORE INTO goal_proposals
+      (proposal_goal_id, drive_id, proposed_at, intent_summary, source_signals_json, adopted_goal_id)
+      VALUES (?, ?, ?, ?, ?, NULL)`)
+      .run(proposalGoalId, driveId, at ?? nowIso(this.now()), intentSummary, JSON.stringify(signals));
+  }
+
+  recordExecution({
+    goalId,
+    driveId,
+    status,
+    confidenceDelta,
+    draftPatch = null,
+    reflectionNotes = "",
+    recommendedNext = null,
+    at = null,
+  } = {}) {
+    if (!/^goal_[0-9a-f]{24}$/.test(String(goalId))) throw new GoalBufferError("GOAL_INVALID", "goal_id invalid");
+    if (typeof driveId !== "string" || driveId.length === 0) throw new GoalBufferError("GOAL_INVALID", "drive_id required");
+    if (!["completed", "expired"].includes(status)) throw new GoalBufferError("GOAL_INVALID", "execution status must be completed or expired");
+    if (!Number.isFinite(confidenceDelta)) throw new GoalBufferError("GOAL_INVALID", "confidence_delta invalid");
+    const yieldValue = draftPatch ? 1 : reflectionNotes ? 1 : 0;
+    this.db.prepare(`INSERT INTO goal_executions
+      (execution_id, goal_id, drive_id, at, status, confidence_delta, draft_patch_json, reflection_notes, recommended_next, execution_yield)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(
+        `gexec_${randomBytes(12).toString("hex")}`,
+        goalId,
+        driveId,
+        at ?? nowIso(this.now()),
+        status,
+        confidenceDelta,
+        draftPatch ? JSON.stringify(draftPatch) : null,
+        reflectionNotes ? String(reflectionNotes).slice(0, 4000) : null,
+        recommendedNext ? String(recommendedNext) : null,
+        yieldValue,
+      );
+  }
+
+  calibrationSnapshot({ sinceMs } = {}) {
+    const since = new Date(Number(sinceMs)).toISOString();
+    const goals = this.db.prepare("SELECT * FROM goals WHERE created_at >= ? ORDER BY created_at ASC LIMIT 5000").all(since).map((row) => this.#goal(row));
+    const executions = this.db.prepare("SELECT * FROM goal_executions WHERE at >= ? ORDER BY at ASC LIMIT 5000").all(since).map((row) => ({
+      execution_id: row.execution_id,
+      goal_id: row.goal_id,
+      drive_id: row.drive_id,
+      at: row.at,
+      status: row.status,
+      confidence_delta: row.confidence_delta,
+      draft_patch: row.draft_patch_json ? JSON.parse(row.draft_patch_json) : null,
+      reflection_notes: row.reflection_notes,
+      recommended_next: row.recommended_next,
+      execution_yield: row.execution_yield === 1,
+    }));
+    const proposals = this.db.prepare("SELECT * FROM goal_proposals WHERE proposed_at >= ? ORDER BY proposed_at ASC LIMIT 5000").all(since).map((row) => ({
+      proposal_goal_id: row.proposal_goal_id,
+      drive_id: row.drive_id,
+      proposed_at: row.proposed_at,
+      intent_summary: row.intent_summary,
+      source_signals: JSON.parse(row.source_signals_json),
+      adopted_goal_id: row.adopted_goal_id,
+    }));
+    return { goals, executions, proposals };
   }
 
   #goal(row) {

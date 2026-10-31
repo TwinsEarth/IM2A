@@ -24,6 +24,7 @@ import { GoalBuffer } from "./goal-buffer.mjs";
 import { drivePropose } from "./drive-propose.mjs";
 import { loadSchedulerConfig, ReservedScheduler } from "./scheduler.mjs";
 import { scheduleGoal } from "./goal-executor.mjs";
+import { calibrateDrives } from "./drive-calibrate.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -347,6 +348,7 @@ const TOOLS = [
       additionalProperties: false,
       properties: {
         action: { enum: ["put", "transition", "query", "audit"] },
+        proposal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
         goal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
         drive_id: { type: "string", minLength: 1, maxLength: 64 },
         intent_summary: { type: "string", minLength: 1, maxLength: 2000 },
@@ -433,6 +435,19 @@ const TOOLS = [
         budget_tokens: { type: "integer", minimum: 1 },
       },
       required: ["agent_did", "goal_id", "budget_tokens"],
+    },
+  },
+  {
+    name: "drive_calibrate",
+    description: "Read-only drive calibration over goal_buffer history, execution confidence deltas and proposal adoption. Returns suggestions; never modifies drives/.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        lookback_days: { type: "integer", minimum: 1, maximum: 90 },
+      },
+      required: ["agent_did"],
     },
   },
 ];
@@ -537,10 +552,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.13.0",
+            version: "0.14.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-six tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -554,8 +569,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.13.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-six tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.14.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate).",
       },
     };
   }
@@ -808,6 +823,7 @@ async function handleRpc(message, context = {}) {
             intentSummary: String(args.intent_summary),
             sourceSignals: args.source_signals,
             priorityScore: Number(args.priority_score),
+            proposalId: args.proposal_id ? String(args.proposal_id) : null,
           });
           return { jsonrpc: "2.0", id, result: resultText({ goal }) };
         }
@@ -845,6 +861,16 @@ async function handleRpc(message, context = {}) {
           estimatedTokenCost: goalBuffer.medianRecallBudget({ limit: 50 }),
           now: Date.now(),
         });
+        for (const proposed of result.proposed_goals) {
+          try {
+            goalBuffer.recordProposal({
+              proposalGoalId: proposed.goal_id,
+              driveId: proposed.drive_id,
+              intentSummary: proposed.intent_summary,
+              sourceSignals: proposed.source_signals,
+            });
+          } catch { /* proposal telemetry must not break the read-only proposal */ }
+        }
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "scheduler_cycle") {
@@ -885,6 +911,20 @@ async function handleRpc(message, context = {}) {
             },
           }),
         };
+      }
+      if (name === "drive_calibrate") {
+        const lookbackDays = args.lookback_days === undefined ? 14 : Number(args.lookback_days);
+        const now = Date.now();
+        const drives = await loadDrives(DRIVES_DIR);
+        const snapshot = goalBuffer.calibrationSnapshot({ sinceMs: now - lookbackDays * 24 * 60 * 60 * 1000 });
+        const result = calibrateDrives({
+          agentDid: String(args.agent_did),
+          lookbackDays,
+          drives,
+          snapshot,
+          now,
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {
