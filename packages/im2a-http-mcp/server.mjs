@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SqliteSkillStore } from "../skill-runtime/src/sqlite-store.mjs";
 import { MemoryHub } from "../memory-hub/src/index.mjs";
+import { TraceStore } from "./trace-store.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -32,6 +33,9 @@ const memoryHub = new MemoryHub({
   path: join(DB_DIR, "memory.db"),
   tenant: process.env.IM2A_TENANT_ID ?? "local",
 });
+const TRACE_DIR = process.env.IM2A_TRACE_DIR ?? join(DB_DIR, "traces");
+const TRACE_TENANT = process.env.IM2A_TENANT_ID ?? "local";
+const traceStore = new TraceStore({ dir: TRACE_DIR, tenant: TRACE_TENANT });
 
 let gatewaySession = null;
 let gatewaySessionToken = "";
@@ -178,6 +182,47 @@ const TOOLS = [
       required: ["title", "body"],
     },
   },
+  {
+    name: "trace_ingest",
+    description: "Append one immutable execution trace batch to trajectory.jsonl. Stores span metadata and SHA-256 digests only; raw prompts, arguments, outputs and credentials are rejected.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        session_id: { type: "string", minLength: 1, maxLength: 200 },
+        agent_did: {
+          type: "string",
+          pattern: "^did:[a-z0-9]+:[A-Za-z0-9._:%-]{3,200}$",
+        },
+        events: {
+          type: "array",
+          minItems: 1,
+          maxItems: 2000,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              span_type: { enum: ["tool_call", "llm_call", "retrieval", "skill_load"] },
+              name: { type: "string", minLength: 1, maxLength: 128 },
+              input_digest: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" },
+              output_digest: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" },
+              duration_ms: { type: "number", minimum: 0, maximum: 3600000 },
+              token_cost: { type: "integer", minimum: 0, maximum: 1000000 },
+              success: { type: "boolean" },
+              error_class: { type: ["string", "null"], maxLength: 64 },
+              skill_version: { type: "string", minLength: 1, maxLength: 128 },
+              occurred_at: { type: "string", format: "date-time" },
+            },
+            required: [
+              "span_type", "name", "input_digest", "output_digest",
+              "duration_ms", "token_cost", "success",
+            ],
+          },
+        },
+      },
+      required: ["session_id", "agent_did", "events"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -250,10 +295,10 @@ async function handleRpc(message) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.1.0",
+            version: "0.4.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: thirteen tools (IM2A bus, skills, memory).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: fourteen tools (IM2A bus, skills, memory, trace).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -267,8 +312,8 @@ async function handleRpc(message) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.1.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: thirteen tools (IM2A bus, skills, memory).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.4.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: fourteen tools (IM2A bus, skills, memory, trace).",
       },
     };
   }
@@ -400,9 +445,14 @@ async function handleRpc(message) {
         });
         return { jsonrpc: "2.0", id, result: resultText(result) };
       }
+      if (name === "trace_ingest") {
+        const result = await traceStore.ingest(args);
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {
-      return { jsonrpc: "2.0", id, result: resultText(String(error.message), true) };
+      const code = error.code ? `${error.code}: ` : "";
+      return { jsonrpc: "2.0", id, result: resultText(`${code}${String(error.message)}`, true) };
     }
   }
   return rpcError(id, -32601, `method not found: ${method}`);

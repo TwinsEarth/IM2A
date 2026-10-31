@@ -66,6 +66,10 @@ export function validateSchema(schema, value, options = {}) {
       out.push(`${path}: not in enum`);
     }
 
+    if (s.not && matches(s.not, v, path)) {
+      out.push(`${path}: matched forbidden schema`);
+    }
+
     if (s.type) {
       const types = Array.isArray(s.type) ? s.type : [s.type];
       const actual = v === null ? "null" : Array.isArray(v) ? "array" : Number.isInteger(v) ? "integer" : typeof v;

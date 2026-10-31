@@ -18,7 +18,7 @@ const defaultRoot = path.resolve(here, "..");
 const EXPECTED_TOOLS = [
   "im2a_harness_list", "im2a_send", "im2a_recv", "im2a_presence", "im2a_whoami",
   "im2a_history", "skills_list", "skill_view", "skill_manage", "curator",
-  "memory_search", "memory_get", "memory_propose"
+  "memory_search", "memory_get", "memory_propose", "trace_ingest"
 ];
 
 /**
@@ -39,7 +39,8 @@ const SCOPE_BY_TOOL = {
   curator: ["skill:curate"],
   memory_search: ["memory:read"],
   memory_get: ["memory:read"],
-  memory_propose: ["memory:propose"]
+  memory_propose: ["memory:propose"],
+  trace_ingest: ["trace:ingest"]
 };
 
 async function readJson(root, rel) {

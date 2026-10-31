@@ -5,6 +5,12 @@ Baseline: v2.5.3 已部署腾讯云 dev（13 个 MCP 工具、per-session SSE ca
 Repository: `E:\GPT\im2a-v2.3.45`（平台）/ `E:\GPT\im2a-work\im2agent`（Go 网关）。
 Scope: 50 个小版本（1 超大 + 4 大），5 个九方发布门禁，每次交付一个小版本。
 
+> **交付口径更新（2026-10-31，owner）**：v2.5.4 按 owner 规格先交
+> `trace_ingest` 执行轨迹底座，见
+> [IM2A-v2.5.4-TRACE-INGEST.md](IM2A-v2.5.4-TRACE-INGEST.md)。本文 W1 表中
+> 2.5.4 的 curator 分权与 per-conversation seq 仍有效，但顺延为后续版本，
+> 不计入 v2.5.4 已交付。
+
 ---
 
 ## 0. 一句话结论

@@ -1,0 +1,37 @@
+{
+  "release": "v2.5.4",
+  "kind": "local-unit-and-contract",
+  "checkedAt": "2026-10-31T10:19:02Z",
+  "schema": "docs/contracts/execution-trace-1.0.schema.json",
+  "localTraceChecks": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "cases": [
+      "12-event trace passes the JSON Schema and carries DID plus skill version",
+      "the trajectory file is append-only and two ingests preserve both lines",
+      "raw content and unknown fields are rejected structurally",
+      "digest, DID, span type and size bounds are enforced",
+      "skill_load requires an explicit skill_version",
+      "tenants write to different trajectory files"
+    ]
+  },
+  "contractChecks": {
+    "mcpBridgeToolCatalog": "PASS",
+    "mcpBridgeNegatives": "14/14 rejected",
+    "agentPluginContract": "PASS",
+    "platformValidate": "PASS (platform 2.5.4)",
+    "platformSchemaChecks": 7
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "test": "PASS, 0 failing packages",
+    "traceDelegationTest": "PASS"
+  },
+  "limits": [
+    "agent_did and session_id are asserted by the caller, not cryptographically bound to the gateway session",
+    "no RL, reflection, promotion or credit calculation consumes the trace file yet",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

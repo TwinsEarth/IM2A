@@ -1,0 +1,66 @@
+{
+  "release": "v2.5.4",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-10-31T10:21:09Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-10-31T18:12:46+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.5.4",
+    "httpMcpVersion": "0.4.0",
+    "nodeServerSha256": "aa0c0ce04cdea4cf434d96fb3630e3bb94f6f98f8c14bb34f1c0489d3211d8e1",
+    "traceStoreSha256": "9f315301819e4fb25bcc68e9f47854248d0149d94cdc193cba2bcd812439f5b4",
+    "goMcpVersion": "0.4.0",
+    "goMcpSha256": "9b941ee86fda91acf78f48be83cd70f41a61b5bffc1f2838fa39d86a623d4739",
+    "goMcpPaths": [
+      "/opt/im2a/v2.5.4/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "traceDir": "/opt/im2a/v2.5.4/data/traces",
+    "traceFile": "/opt/im2a/v2.5.4/data/traces/tencent-dev/trajectory.jsonl",
+    "traceFileLinesAtCheck": 9,
+    "traceFileMode": "0640 ubuntu:ubuntu",
+    "traceDirMode": "0750",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 14,
+    "hasTraceIngest": true,
+    "traceIngestEvents": 12,
+    "schemaValid": true,
+    "allEventsHaveDID": true,
+    "allEventsHaveSkillVersion": true,
+    "skillLoadVersion": "1.0.0",
+    "rawContentRejected": true,
+    "rawContentDidNotAppend": true,
+    "appendOnlySecondCall": true,
+    "goMcpTools": 14,
+    "goMcpTraceIngest": "PASS"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V254-TRACE-EVIDENCE.json",
+    "tests/V254-TRACE-UNIT-EVIDENCE.json",
+    "docs/design/IM2A-v2.5.4-TRACE-INGEST.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.5.4-20261031181246",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.5.3 tree and data are untouched",
+  "notClaimed": [
+    "production readiness",
+    "TLS or multi-tenant authorization",
+    "cryptographic binding of agent_did/session_id to the caller",
+    "distributed trace bus or object-store anchor",
+    "RL/reflection/credit consumers of the trace"
+  ],
+  "openP0": [
+    "curator remains on the shared main-Agent identity; curator/operator separation is deferred",
+    "per-conversation seq domain is not yet the harness ordering contract"
+  ]
+}

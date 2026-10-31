@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.5.0",
+  "toolCatalogVersion": "2.5.4",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -395,6 +395,35 @@
         "required": ["proposalId", "state", "dedupe"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "MEMORY_CONFLICT", "RATE_LIMITED", "UPSTREAM_UNAVAILABLE"]
+    },
+    {
+      "name": "trace_ingest",
+      "title": "Ingest execution trace",
+      "description": "Append one immutable execution-trace batch to the tenant trajectory log. Only span metadata and SHA-256 digests are accepted; raw prompts, arguments, outputs and credentials are rejected.",
+      "scope": ["trace:ingest"],
+      "sideEffect": "append",
+      "idempotency": "at-most-once",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": { "type": "string", "description": "Session that produced the trace" },
+          "agent_did": { "type": "string", "description": "Stable did:im2a subject identifier" },
+          "events": { "type": "array", "description": "Ordered span events; 1..2000" }
+        },
+        "required": ["session_id", "agent_did", "events"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "trace_id": { "type": "string" },
+          "ingested_count": { "type": "integer" },
+          "content_sha256": { "type": "string" }
+        },
+        "required": ["trace_id", "ingested_count", "content_sha256"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "TRACE_INVALID", "TRACE_TOO_LARGE", "TRACE_WRITE_FAILED", "INTERNAL"]
     }
   ]
 }

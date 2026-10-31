@@ -3,7 +3,7 @@
 Streamable HTTP MCP bridge used by DSH and by the Go stdio MCP for the
 skill/memory surface.
 
-## Tools (13)
+## Tools (14)
 
 ```text
 IM2A bus (6):
@@ -15,17 +15,22 @@ Skills (4):
 
 Memory (3):
   memory_search, memory_get, memory_propose
+
+Trace (1):
+  trace_ingest
 ```
 
 `skill_manage` only writes proposals. `curator` can stage but cannot promote
 or rollback. `memory_propose` does not become searchable until operator
-promotion.
+promotion. `trace_ingest` appends one immutable execution-trace batch; it
+accepts span metadata and SHA-256 digests only.
 
 ## Persistence
 
 ```text
 skills: SQLite (packages table + active pointer + ledger + idempotency)
 memory: SQLite FTS5 (memory_fts + tenant isolation)
+trace:  append-only JSONL (trajectory.jsonl, tenant-scoped, SHA-256 digests)
 ```
 
 Database directory defaults to `.tmp/im2a-mcp`; override with:
@@ -33,6 +38,8 @@ Database directory defaults to `.tmp/im2a-mcp`; override with:
 ```powershell
 $env:IM2A_MCP_DB_DIR = 'C:\path\to\im2a-mcp-data'
 $env:IM2A_TENANT_ID = 'tenant-a'
+# optional; defaults to $IM2A_MCP_DB_DIR/traces
+$env:IM2A_TRACE_DIR = 'C:\path\to\im2a-traces'
 ```
 
 ## Run
@@ -46,8 +53,8 @@ node packages/im2a-http-mcp/server.mjs
 
 Endpoint: `http://127.0.0.1:18082/mcp`.
 
-The Go stdio MCP registers the same 13 tools and forwards the 7 skill/memory
-tools to this server via `IM2A_MCP_HTTP_URL`.
+The Go stdio MCP registers the same 14 tools and forwards the 8
+skill/memory/trace tools to this server via `IM2A_MCP_HTTP_URL`.
 
 ```powershell
 $env:IM2A_MCP_HTTP_URL = 'http://127.0.0.1:18082/mcp'
@@ -57,5 +64,7 @@ $env:IM2A_MCP_HTTP_URL = 'http://127.0.0.1:18082/mcp'
 
 - Loopback only by default; no production TLS/auth claim.
 - Tenant is server-side (`IM2A_TENANT_ID`), not a tool argument.
-- No token or auth code is stored in skill/memory content by these tools.
+- No token or auth code is stored in skill/memory/trace content by these tools.
 - FTS5 snippets are returned; full bodies require `memory_get`.
+- Trace events contain digests, not raw prompts, arguments, outputs or
+  credentials; `trajectory.jsonl` has no update or delete API.

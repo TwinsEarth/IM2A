@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 
 const URL = 'http://127.0.0.1:18084/mcp';
@@ -15,7 +16,7 @@ async function rpc(method, params = {}) {
 const init = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'v250-test', version: '1.0.0' } });
 const list = await rpc('tools/list');
 const names = list.tools.map((tool) => tool.name);
-const expected = ['im2a_harness_list','im2a_send','im2a_recv','im2a_presence','im2a_whoami','im2a_history','skills_list','skill_view','skill_manage','curator','memory_search','memory_get','memory_propose'];
+const expected = ['im2a_harness_list','im2a_send','im2a_recv','im2a_presence','im2a_whoami','im2a_history','skills_list','skill_view','skill_manage','curator','memory_search','memory_get','memory_propose','trace_ingest'];
 const missing = expected.filter((name) => !names.includes(name));
 const extra = names.filter((name) => !expected.includes(name));
 const skills = await rpc('tools/call', { name: 'skills_list', arguments: { query: 'demo', limit: 10 } });
@@ -26,8 +27,20 @@ const memory = await rpc('tools/call', { name: 'memory_search', arguments: { que
 const memoryItems = JSON.parse(memory.content[0].text).items;
 const memoryGet = await rpc('tools/call', { name: 'memory_get', arguments: { id: memoryItems[0].id } });
 const memoryProposal = await rpc('tools/call', { name: 'memory_propose', arguments: { title: 'new memory', body: 'proposal only memory' } });
+const digest = (text) => `sha256:${createHash('sha256').update(text).digest('hex')}`;
+const trace = await rpc('tools/call', {
+  name: 'trace_ingest',
+  arguments: {
+    session_id: 'hs_manual_trace',
+    agent_did: 'did:im2a:agent-manual',
+    events: [
+      { span_type: 'tool_call', name: 'im2a_send', input_digest: digest('in'), output_digest: digest('out'), duration_ms: 3, token_cost: 4, success: true, error_class: null },
+      { span_type: 'skill_load', name: 'demo-skill', skill_version: '1.0.0', input_digest: digest('skill-in'), output_digest: digest('skill-out'), duration_ms: 2, token_cost: 0, success: true, error_class: null },
+    ],
+  },
+});
 const evidence = {
-  ok: missing.length === 0 && extra.length === 0 && !skills.isError && !view.isError && !proposal.isError,
+  ok: missing.length === 0 && extra.length === 0 && !skills.isError && !view.isError && !proposal.isError && !trace.isError,
   tools: names,
   count: names.length,
   missing,
@@ -39,6 +52,7 @@ const evidence = {
   memorySearch: JSON.parse(memory.content[0].text),
   memoryGet: JSON.parse(memoryGet.content[0].text),
   memoryProposal: JSON.parse(memoryProposal.content[0].text),
+  trace: JSON.parse(trace.content[0].text),
   checkedAt: new Date().toISOString(),
 };
 writeFileSync('E:/GPT/im2a-v2.3.45/tests/HTTP-MCP-2.0-EVIDENCE.json', JSON.stringify(evidence, null, 2) + '\n');

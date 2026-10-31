@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.5.4 — 2026-10-31 execution trace foundation
+
+- Added `trace_ingest` to the HTTP MCP and Go stdio MCP; tool surface is now 14.
+- Added a strict `execution-trace 1.0` contract: span metadata plus SHA-256
+  digests only; raw prompts, arguments, outputs and credentials are rejected.
+- Added tenant-scoped, append-only `trajectory.jsonl` storage with serialized
+  append and fsync; no update or delete API.
+- Every event carries `im2a.agent_did`; `skill_load` requires an explicit
+  `skill_version`, other events record `none`.
+- Added JSON Schema validation, 12-event acceptance, negative controls and
+  tenant-isolation tests.
+- Deferred: curator/operator identity separation, per-conversation seq domain,
+  and authenticated caller-to-agent binding remain W1/security follow-ups.
+- Healthz remains excluded; production TLS/multi-tenant deployment is not
+  claimed.
+
 ## v2.5.3 — 2026-10-31 security patch
 
 - Fixed SSE cross-session event fanout: stream now requires a valid session capability and filters every event.

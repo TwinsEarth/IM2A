@@ -36,7 +36,7 @@
       "additionalProperties": false,
       "required": ["name", "title", "description", "scope", "sideEffect", "idempotency", "inputSchema", "outputSchema", "errors"],
       "properties": {
-        "name": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory)_[a-z][a-z0-9_]{2,40}|curator)$" },
+        "name": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory|trace)_[a-z][a-z0-9_]{2,40}|curator)$" },
         "title": { "type": "string", "minLength": 3 },
         "description": { "type": "string", "minLength": 40 },
         "scope": {
@@ -45,7 +45,7 @@
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/scope" }
         },
-        "sideEffect": { "enum": ["none", "read", "proposal-write", "message-send"] },
+        "sideEffect": { "enum": ["none", "read", "append", "proposal-write", "message-send"] },
         "idempotency": { "enum": ["pure", "keyed", "at-most-once"] },
         "annotations": {
           "type": "object",
@@ -67,7 +67,7 @@
       }
     },
     "scope": {
-      "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "memory:read", "memory:propose"],
+      "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "memory:read", "memory:propose", "trace:ingest"],
       "description": "Closed set. skill:curate mounts only for the curator identity; promotion scopes (memory:promote, skill:promote) are deliberately absent: promotion is an L6 governance action, never a tool."
     },
     "errorCode": {
@@ -100,7 +100,10 @@
         "BINARY_FILE",
         "NFC_REQUIRED",
         "MEMORY_CONFLICT",
-        "STALE_REFERENCE"
+        "STALE_REFERENCE",
+        "TRACE_INVALID",
+        "TRACE_TOO_LARGE",
+        "TRACE_WRITE_FAILED"
       ],
       "description": "IM2A namespace codes in UPPER_SNAKE, matching SKILL-RUNTIME-MVP-v2.5.0 §4. The bridge does not paraphrase subsystem codes."
     },
