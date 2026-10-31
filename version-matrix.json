@@ -3,8 +3,8 @@
   "generatedAt": null,
   "releaseStatus": "draft",
   "platform": {
-    "version": "2.6.4",
-    "tag": "v2.6.4",
+    "version": "2.6.5",
+    "tag": "v2.6.5",
     "npmScope": "@twinsearth"
   },
   "go": {

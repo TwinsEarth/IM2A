@@ -294,6 +294,22 @@ export class MemoryHub {
     };
   }
 
+  textSimilarity(left, right) {
+    const tokenize = (text) => String(text ?? "").toLowerCase().match(/[\p{L}\p{N}_:-]+/gu) ?? [];
+    const a = tokenize(left);
+    const b = tokenize(right);
+    if (a.length === 0 || b.length === 0) return 0;
+    const countsA = new Map();
+    const countsB = new Map();
+    for (const token of a) countsA.set(token, (countsA.get(token) ?? 0) + 1);
+    for (const token of b) countsB.set(token, (countsB.get(token) ?? 0) + 1);
+    let dot = 0;
+    for (const [token, count] of countsA) dot += count * (countsB.get(token) ?? 0);
+    const normA = Math.sqrt([...countsA.values()].reduce((sum, count) => sum + count * count, 0));
+    const normB = Math.sqrt([...countsB.values()].reduce((sum, count) => sum + count * count, 0));
+    return dot / (normA * normB);
+  }
+
   transaction(fn) {
     this.db.exec('BEGIN IMMEDIATE');
     try { const result = fn(); this.db.exec('COMMIT'); return result; }

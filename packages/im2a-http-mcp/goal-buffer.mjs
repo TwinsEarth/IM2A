@@ -30,6 +30,24 @@ const ID_RE = /^[A-Za-z0-9_.:-]{1,200}$/;
 
 function nowIso(now) { return new Date(now).toISOString(); }
 
+function signalKey(signal) { return `${signal.type}:${signal.id}`; }
+
+function localSimilarity(left, right) {
+  const tokenize = (text) => String(text ?? "").toLowerCase().match(/[\p{L}\p{N}_:-]+/gu) ?? [];
+  const a = tokenize(left);
+  const b = tokenize(right);
+  if (a.length === 0 || b.length === 0) return 0;
+  const countsA = new Map();
+  const countsB = new Map();
+  for (const token of a) countsA.set(token, (countsA.get(token) ?? 0) + 1);
+  for (const token of b) countsB.set(token, (countsB.get(token) ?? 0) + 1);
+  let dot = 0;
+  for (const [token, count] of countsA) dot += count * (countsB.get(token) ?? 0);
+  const normA = Math.sqrt([...countsA.values()].reduce((sum, count) => sum + count * count, 0));
+  const normB = Math.sqrt([...countsB.values()].reduce((sum, count) => sum + count * count, 0));
+  return dot / (normA * normB);
+}
+
 function assertSignal(signal) {
   if (!signal || typeof signal !== "object" || Array.isArray(signal)) throw new GoalBufferError("GOAL_INVALID", "source_signal must be an object");
   if (!SIGNAL_TYPES.has(signal.type)) throw new GoalBufferError("GOAL_INVALID", "source_signal.type must be skill or memory_item");
@@ -38,9 +56,13 @@ function assertSignal(signal) {
 }
 
 export class GoalBuffer {
-  constructor({ path, now = () => Date.now() } = {}) {
+  constructor({ path, now = () => Date.now(), capacity = 8, dedupThreshold = 0.85 } = {}) {
     if (typeof path !== "string" || path.length === 0) throw new TypeError("path is required");
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 100) throw new RangeError("capacity must be an integer in 1..100");
+    if (!Number.isFinite(dedupThreshold) || dedupThreshold < 0 || dedupThreshold > 1) throw new RangeError("dedupThreshold must be 0..1");
     this.now = now;
+    this.capacity = capacity;
+    this.dedupThreshold = dedupThreshold;
     this.db = new DatabaseSync(path);
     this.db.exec(`
       PRAGMA foreign_keys = ON;
@@ -62,7 +84,15 @@ export class GoalBuffer {
         to_status TEXT NOT NULL,
         acted_at TEXT NOT NULL,
         actor TEXT NOT NULL,
-        reason TEXT
+        reason TEXT,
+        details_json TEXT
+      );
+      CREATE TABLE IF NOT EXISTS goal_merges (
+        merge_id TEXT PRIMARY KEY,
+        existing_goal_id TEXT NOT NULL,
+        incoming_intent TEXT NOT NULL,
+        merged_signals_json TEXT NOT NULL,
+        at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS recall_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,6 +125,8 @@ export class GoalBuffer {
         execution_yield INTEGER NOT NULL
       );
     `);
+    const eventColumns = new Set(this.db.prepare("PRAGMA table_info(goal_events)").all().map((row) => row.name));
+    if (!eventColumns.has("details_json")) this.db.exec("ALTER TABLE goal_events ADD COLUMN details_json TEXT");
   }
 
   put({
@@ -143,7 +175,7 @@ export class GoalBuffer {
     return row ? this.#goal(row) : null;
   }
 
-  transition(goalId, toStatus, { actor = "operator", reason = null } = {}) {
+  transition(goalId, toStatus, { actor = "operator", reason = null, details = null } = {}) {
     const goal = this.get(goalId);
     if (!goal) throw new GoalBufferError("GOAL_NOT_FOUND");
     if (!GOAL_STATUSES.includes(toStatus)) throw new GoalBufferError("GOAL_INVALID", "invalid status");
@@ -153,9 +185,9 @@ export class GoalBuffer {
     const at = nowIso(this.now());
     this.db.prepare("UPDATE goals SET status = ?, updated_at = ? WHERE goal_id = ?").run(toStatus, at, goalId);
     this.db.prepare(`INSERT INTO goal_events
-      (event_id, goal_id, from_status, to_status, acted_at, actor, reason)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(`gevt_${randomBytes(12).toString("hex")}`, goalId, goal.status, toStatus, at, String(actor).slice(0, 200), reason ? String(reason).slice(0, 500) : null);
+      (event_id, goal_id, from_status, to_status, acted_at, actor, reason, details_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(`gevt_${randomBytes(12).toString("hex")}`, goalId, goal.status, toStatus, at, String(actor).slice(0, 200), reason ? String(reason).slice(0, 500) : null, details ? JSON.stringify(details) : null);
     return this.get(goalId);
   }
 
@@ -195,6 +227,7 @@ export class GoalBuffer {
         acted_at: row.acted_at,
         actor: row.actor,
         reason: row.reason,
+        details: row.details_json ? JSON.parse(row.details_json) : null,
       })),
       count: rows.length,
     };
@@ -220,6 +253,75 @@ export class GoalBuffer {
 
   recallHistoryCount() {
     return this.db.prepare("SELECT COUNT(*) AS n FROM recall_history").get().n;
+  }
+
+  activeGoals() {
+    return this.db.prepare("SELECT * FROM goals WHERE status IN ('pending','scheduled','executing') ORDER BY priority_score ASC, proposed_at ASC")
+      .all().map((row) => this.#goal(row));
+  }
+
+  admit({
+    goalId = null,
+    driveId,
+    proposedAt = null,
+    intentSummary,
+    sourceSignals,
+    priorityScore,
+    proposalId = null,
+    similarity = null,
+    dedupThreshold = this.dedupThreshold,
+  } = {}) {
+    if (typeof intentSummary !== "string" || intentSummary.length === 0) throw new GoalBufferError("GOAL_INVALID", "intent_summary is required");
+    if (!Array.isArray(sourceSignals) || sourceSignals.length === 0) throw new GoalBufferError("GOAL_INVALID", "source_signals must be a non-empty array");
+    const signals = sourceSignals.map(assertSignal);
+    const compare = typeof similarity === "function" ? similarity : localSimilarity;
+    const active = this.activeGoals();
+    let mergedGoal = null;
+    let mergedScore = -1;
+    for (const goal of active) {
+      const score = compare(intentSummary, goal.intent_summary);
+      if (score >= dedupThreshold && score > mergedScore) {
+        mergedGoal = goal;
+        mergedScore = score;
+      }
+    }
+    if (mergedGoal) {
+      const union = new Map();
+      for (const signal of [...mergedGoal.source_signals, ...signals]) union.set(signalKey(signal), signal);
+      const mergedSignals = [...union.values()];
+      const mergedPriority = Math.max(mergedGoal.priority_score, Number(priorityScore));
+      const at = nowIso(this.now());
+      this.db.prepare("UPDATE goals SET source_signals_json = ?, priority_score = ?, updated_at = ? WHERE goal_id = ?")
+        .run(JSON.stringify(mergedSignals), mergedPriority, at, mergedGoal.goal_id);
+      this.db.prepare(`INSERT INTO goal_merges
+        (merge_id, existing_goal_id, incoming_intent, merged_signals_json, at)
+        VALUES (?, ?, ?, ?, ?)`)
+        .run(`gmerge_${randomBytes(12).toString("hex")}`, mergedGoal.goal_id, intentSummary, JSON.stringify(mergedSignals), at);
+      this.db.prepare(`INSERT INTO goal_events
+        (event_id, goal_id, from_status, to_status, acted_at, actor, reason, details_json)
+        VALUES (?, ?, ?, ?, ?, 'goal_dedup', 'merged_similar_intent', ?)`)
+        .run(`gevt_${randomBytes(12).toString("hex")}`, mergedGoal.goal_id, mergedGoal.status, mergedGoal.status, at, JSON.stringify({
+          similarity: Math.round(mergedScore * 1000) / 1000,
+          merged_signals: mergedSignals,
+          incoming_intent: intentSummary,
+        }));
+      return { goal: this.get(mergedGoal.goal_id), merged: true, merged_goal_id: mergedGoal.goal_id, expired_goal_id: null, similarity: Math.round(mergedScore * 1000) / 1000 };
+    }
+    const created = this.put({ goalId, driveId, proposedAt, intentSummary, sourceSignals: signals, priorityScore, proposalId });
+    let expiredGoalId = null;
+    const activeAfter = this.activeGoals();
+    if (activeAfter.length > this.capacity) {
+      const candidate = activeAfter.find((goal) => goal.status === "pending" || goal.status === "scheduled");
+      if (candidate) {
+        this.transition(candidate.goal_id, "expired", {
+          actor: "goal_buffer_capacity",
+          reason: `capacity ${this.capacity} exceeded`,
+          details: { source_signals: candidate.source_signals, priority_score: candidate.priority_score, capacity: this.capacity },
+        });
+        expiredGoalId = candidate.goal_id;
+      }
+    }
+    return { goal: this.get(created.goal_id), merged: false, merged_goal_id: null, expired_goal_id: expiredGoalId, similarity: null };
   }
 
   recordProposal({ proposalGoalId, driveId, intentSummary, sourceSignals = [], at = null } = {}) {

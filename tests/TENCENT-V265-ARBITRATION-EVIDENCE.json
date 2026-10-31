@@ -1,0 +1,77 @@
+{
+  "checkedAt": "2026-10-31T22:13:47.954Z",
+  "toolCount": 27,
+  "created": [
+    "goal_872fde5da45dbd0ee548ad55",
+    "goal_cfab9b875234eea03fd261a5",
+    "goal_5f389b9974b1fa3b511a66cf",
+    "goal_fb2b75d49caea12002848ac5",
+    "goal_6e59ffc6da969068d4cd3c78",
+    "goal_e6681f45ead47639f0fee898",
+    "goal_ce3c3d268e3b88d194d18038",
+    "goal_5232c808b6df404b5a9a5745"
+  ],
+  "overflow": {
+    "expiredGoalId": "goal_872fde5da45dbd0ee548ad55",
+    "newGoalId": "goal_e2da53b0ccb1dc837b1c3cc6",
+    "newStatus": "pending"
+  },
+  "expired": {
+    "status": "expired",
+    "sourceSignals": [
+      {
+        "type": "skill",
+        "id": "signal-0"
+      }
+    ],
+    "auditDetails": {
+      "source_signals": [
+        {
+          "type": "skill",
+          "id": "signal-0"
+        }
+      ],
+      "priority_score": 0.1,
+      "capacity": 8
+    }
+  },
+  "dedup": {
+    "merged": true,
+    "mergedGoalId": "goal_5232c808b6df404b5a9a5745",
+    "sourceSignals": [
+      {
+        "type": "skill",
+        "id": "signal-a1"
+      },
+      {
+        "type": "skill",
+        "id": "signal-a2"
+      },
+      {
+        "type": "skill",
+        "id": "signal-a3"
+      }
+    ],
+    "similarity": 1,
+    "activeCount": 8,
+    "mergeRows": 1,
+    "mergeAudit": {
+      "similarity": 1,
+      "merged_signals": [
+        {
+          "type": "skill",
+          "id": "signal-a1"
+        },
+        {
+          "type": "skill",
+          "id": "signal-a2"
+        },
+        {
+          "type": "skill",
+          "id": "signal-a3"
+        }
+      ],
+      "incoming_intent": "capacity arbitration goal 7 unique token 7"
+    }
+  }
+}

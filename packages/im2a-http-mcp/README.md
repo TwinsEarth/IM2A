@@ -56,7 +56,8 @@ hard token budget; it suppresses stale atoms unless `include_stale` is true.
 durable writes and returns per-step timings, schema checks and ID traceability.
 `drive_list` reads optional `drives/*.md` declarations; `drive_manage` writes
 one through `skill_guard_check`; `goal_buffer` is a local SQLite intent buffer,
-never Memory Hub. `drive_propose` reads drives and current signals to return
+never Memory Hub. Its `put` admission enforces capacity (default 8) and merges
+highly similar intents at the 0.85 similarity threshold. `drive_propose` reads drives and current signals to return
 proposed goals; it does not write the goal buffer. `scheduler_cycle` splits the
 cycle budget into external_pool and reserved_pool; external demand cannot
 borrow reserved_pool. `goal_schedule` executes one goal with read-only signals
@@ -84,6 +85,9 @@ $env:IM2A_REFLECT_CONFIG = 'C:\path\to\reflect-config.json'
 # optional skill-write guard key and audit path
 $env:IM2A_SKILL_GUARD_KEY = '<32+ byte HMAC key>'
 $env:IM2A_SKILL_GUARD_AUDIT = 'C:\path\to\skill-guard\audit.jsonl'
+# goal admission defaults
+$env:IM2A_GOAL_BUFFER_CAPACITY = '8'
+$env:IM2A_INTENT_DEDUP_THRESHOLD = '0.85'
 ```
 
 The guard session is sent as `x-im2a-skill-session`, an HMAC-signed,

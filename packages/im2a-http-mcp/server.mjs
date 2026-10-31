@@ -52,6 +52,8 @@ const skillGuard = new SkillGuard({
 const DRIVES_DIR = process.env.IM2A_DRIVES_DIR ?? join(DB_DIR, "drives");
 const goalBuffer = new GoalBuffer({
   path: process.env.IM2A_GOAL_BUFFER_DB ?? join(DB_DIR, "goal-buffer.db"),
+  capacity: process.env.IM2A_GOAL_BUFFER_CAPACITY === undefined ? 8 : Number(process.env.IM2A_GOAL_BUFFER_CAPACITY),
+  dedupThreshold: process.env.IM2A_INTENT_DEDUP_THRESHOLD === undefined ? 0.85 : Number(process.env.IM2A_INTENT_DEDUP_THRESHOLD),
 });
 const schedulerConfig = loadSchedulerConfig(process.env);
 const scheduler = new ReservedScheduler({
@@ -552,10 +554,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.14.0",
+            version: "0.15.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity and deduplicates).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -569,8 +571,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.14.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.15.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity and deduplicates).",
       },
     };
   }
@@ -817,15 +819,25 @@ async function handleRpc(message, context = {}) {
       if (name === "goal_buffer") {
         const action = String(args.action);
         if (action === "put") {
-          const goal = goalBuffer.put({
+          const admitted = goalBuffer.admit({
             goalId: args.goal_id ? String(args.goal_id) : null,
             driveId: String(args.drive_id),
             intentSummary: String(args.intent_summary),
             sourceSignals: args.source_signals,
             priorityScore: Number(args.priority_score),
             proposalId: args.proposal_id ? String(args.proposal_id) : null,
+            similarity: (left, right) => memoryHub.textSimilarity(left, right),
           });
-          return { jsonrpc: "2.0", id, result: resultText({ goal }) };
+          return {
+            jsonrpc: "2.0", id,
+            result: resultText({
+              goal: admitted.goal,
+              merged: admitted.merged,
+              merged_goal_id: admitted.merged_goal_id,
+              expired_goal_id: admitted.expired_goal_id,
+              similarity: admitted.similarity,
+            }),
+          };
         }
         if (action === "transition") {
           const goal = goalBuffer.transition(String(args.goal_id), String(args.status), {
@@ -851,6 +863,10 @@ async function handleRpc(message, context = {}) {
       }
       if (name === "drive_propose") {
         const drives = await loadDrives(DRIVES_DIR);
+        const recentIntentCount = {};
+        for (const goal of goalBuffer.activeGoals()) {
+          recentIntentCount[goal.drive_id] = (recentIntentCount[goal.drive_id] ?? 0) + 1;
+        }
         const result = drivePropose({
           drives,
           driveIds: args.drive_ids,
@@ -859,6 +875,7 @@ async function handleRpc(message, context = {}) {
           skillStore,
           memoryHub,
           estimatedTokenCost: goalBuffer.medianRecallBudget({ limit: 50 }),
+          recentIntentCount,
           now: Date.now(),
         });
         for (const proposed of result.proposed_goals) {

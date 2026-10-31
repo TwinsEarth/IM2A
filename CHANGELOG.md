@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.6.5 — 2026-11-01 goal priority arbitration and dedup
+
+- `goal_buffer put` now admits through capacity and deduplication.
+- Default capacity 8; lowest-priority pending/scheduled goal expires on
+  overflow, with source_signals preserved in goal_events.details.
+- Similar intents merge at 0.85 local-embedding similarity; source_signals are
+  unioned and priority is the max.
+- Added `goal_merges` and `goal_events.details_json`.
+- `drive_propose` now returns priority_score, signal_strength and
+  recency_factor.
+- Added 2 arbitration/dedup tests.
+
 ## v2.6.4 — 2026-11-01 drive calibration
 
 - Added `drive_calibrate`; tool surface is 27.

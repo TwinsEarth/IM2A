@@ -1,0 +1,89 @@
+{
+  "release": "v2.6.5",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T06:20:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T05:59:39+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.5",
+    "httpMcpVersion": "0.15.0",
+    "nodeServerSha256": "0e383aaa95ca5efdffe0d30dcbc47497f85fb16028074dd46fa0bfbb4fd4433d",
+    "goalBufferSha256": "688b202c0203cc84035483c88ee30f6fd679fefd02ae03a3ba9ad0ca30c5adc6",
+    "memoryHubSha256": "1e3952bdc7e4e946a8cb2eb0674e36fee39f2e2758d933a7ec0422ddd13b0b39",
+    "goMcpVersion": "0.15.0",
+    "goMcpSha256": "f8f80f493546ea2e8ffe3e6e545a8724c64e33b0c2d5f37438d6db82cceace7d",
+    "goMcpWindowsSha256": "3475dcfb1ebb297a77e3e7003726c1275b7a1d3c16082c627b815752c7580fff",
+    "nodePackageSha256": "3888cba4561eeaf18c9bd1555fe000392905cd44391c43361af4e5928c674e0e",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.5/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "hotfix": {
+    "reason": "cosine similarity normalization corrected before final evidence",
+    "finalGoalBufferSha256": "688b202c0203cc84035483c88ee30f6fd679fefd02ae03a3ba9ad0ca30c5adc6",
+    "finalMemoryHubSha256": "1e3952bdc7e4e946a8cb2eb0674e36fee39f2e2758d933a7ec0422ddd13b0b39",
+    "backup": "/opt/backups/im2a-mcp-v2.6.5-hotfix3-20261101061321"
+  },
+  "liveChecks": {
+    "httpMcpTools": 27,
+    "capacity": 8,
+    "overflow": {
+      "expiredGoalId": "goal_872fde5da45dbd0ee548ad55",
+      "expiredPriority": 0.1,
+      "expiredSourceSignals": [{ "type": "skill", "id": "signal-0" }],
+      "auditDetailsSourceSignals": [{ "type": "skill", "id": "signal-0" }],
+      "newGoalStatus": "pending"
+    },
+    "dedup": {
+      "merged": true,
+      "mergedGoalId": "goal_5232c808b6df404b5a9a5745",
+      "similarity": 1,
+      "sourceSignals": [
+        { "type": "skill", "id": "signal-a1" },
+        { "type": "skill", "id": "signal-a2" },
+        { "type": "skill", "id": "signal-a3" }
+      ],
+      "activeCountAfter": 8,
+      "mergeRows": 1
+    },
+    "goMcpTools": 27,
+    "goGoalBuffer": "PASS"
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingGoals": 3,
+    "activeGoals": 0,
+    "note": "all capacity/dedup test goals, events and merges were removed; the three historical completed goals remain"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V265-ARBITRATION-EVIDENCE.json",
+    "tests/V265-ARBITRATION-UNIT-EVIDENCE.json",
+    "tests/V265-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.5-GOAL-ARBITRATION.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.5-20261101055939",
+  "rollback": "restore unit/env/go binary from the main backup; the hotfix backup contains pre-cosine-fix Node files",
+  "notClaimed": [
+    "external embedding model",
+    "automatic goal application",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "dedup uses local token cosine, not memory_recall_v2 model embeddings",
+    "capacity expires pending/scheduled goals only, never executing",
+    "goal-buffer local writes are not yet caller-authenticated",
+    "curator/operator separation and per-conversation seq remain open"
+  ]
+}

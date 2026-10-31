@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.6.4",
+  "toolCatalogVersion": "2.6.5",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -635,6 +635,7 @@
         "type": "object",
         "properties": {
           "action": { "enum": ["put", "transition", "query", "audit"] },
+          "proposal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" },
           "goal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" },
           "drive_id": { "type": "string", "minLength": 1, "maxLength": 64 },
           "intent_summary": { "type": "string", "minLength": 1, "maxLength": 2000 },

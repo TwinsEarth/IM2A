@@ -119,6 +119,7 @@ export function drivePropose({
   skillStore,
   memoryHub,
   estimatedTokenCost,
+  recentIntentCount = {},
   now = Date.now(),
 }) {
   if (!Array.isArray(driveIds) || driveIds.length === 0 || driveIds.some((id) => typeof id !== "string")) {
@@ -153,6 +154,9 @@ export function drivePropose({
         };
         if (!matchesDrive(predicates, signal, drive)) continue;
         const sourceSignals = [{ type: "skill", id: skill.skill_id }];
+        const signalStrength = Math.min(1, 0.55 + (skill.use_count_30d === 0 ? 0.35 : 0.1) + (skill.patch_count === 0 ? 0.1 : 0));
+        const recencyFactor = 1 / (1 + (Number(recentIntentCount[drive.drive_id]) || 0) * 0.25);
+        const priorityScore = Math.round(drive.priority * signalStrength * recencyFactor * 1000) / 1000;
         proposed.push({
           goal_id: `goal_${randomBytes(12).toString("hex")}`,
           drive_id: drive.drive_id,
@@ -160,6 +164,9 @@ export function drivePropose({
           source_signals: sourceSignals,
           estimated_token_cost: tokenCost ?? Math.max(1, Math.ceil(Buffer.byteLength(curatorIntent(skill, drive), "utf8") / 4)),
           confidence: confidenceFor(drive, urgencyHint, signal),
+          priority_score: priorityScore,
+          signal_strength: signalStrength,
+          recency_factor: recencyFactor,
         });
         evaluated[evaluated.length - 1].matched += 1;
       }
@@ -181,6 +188,9 @@ export function drivePropose({
           confidence: item.score,
         };
         if (!matchesDrive(predicates, signal, drive)) continue;
+        const signalStrength = Math.min(1, 0.55 + (item.quality_flag === "low_confidence" ? 0.3 : 0.1));
+        const recencyFactor = 1 / (1 + (Number(recentIntentCount[drive.drive_id]) || 0) * 0.25);
+        const priorityScore = Math.round(drive.priority * signalStrength * recencyFactor * 1000) / 1000;
         proposed.push({
           goal_id: `goal_${randomBytes(12).toString("hex")}`,
           drive_id: drive.drive_id,
@@ -188,6 +198,9 @@ export function drivePropose({
           source_signals: [{ type: "memory_item", id: itemId }],
           estimated_token_cost: tokenCost ?? Math.max(1, recalled.budget_used || Math.ceil(Buffer.byteLength(item.content, "utf8") / 4)),
           confidence: confidenceFor(drive, urgencyHint, signal),
+          priority_score: priorityScore,
+          signal_strength: signalStrength,
+          recency_factor: recencyFactor,
         });
         evaluated[evaluated.length - 1].matched += 1;
       }

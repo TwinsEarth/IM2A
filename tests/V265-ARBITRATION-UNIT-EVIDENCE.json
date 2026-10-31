@@ -1,0 +1,37 @@
+{
+  "release": "v2.6.5",
+  "kind": "local-goal-arbitration-dedup",
+  "checkedAt": "2026-11-01T06:13:00Z",
+  "toolSurface": 27,
+  "tests": {
+    "total": 2,
+    "passed": 2,
+    "cases": [
+      "capacity arbitration expires the lowest-priority intent and preserves its signals in audit",
+      "semantically overlapping intents merge source_signals and keep the higher priority"
+    ]
+  },
+  "localAcceptance": {
+    "capacity": 3,
+    "expiredPriority": 0.2,
+    "expiredSignalPreserved": true,
+    "dedupSimilarity": 1.0,
+    "mergedSignalCount": 3,
+    "mergedPriority": 0.8,
+    "activeGoalsAfterDedup": 1,
+    "mergeRows": 1
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 27,
+    "goalBufferDelegation": "PASS"
+  },
+  "limits": [
+    "dedup uses a deterministic local token cosine, not an external embedding model",
+    "capacity applies to pending/scheduled/executing goals",
+    "expired goals retain signals but do not execute",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}
