@@ -1,0 +1,105 @@
+{
+  "release": "v2.6.2",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T04:34:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T04:27:16+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.2",
+    "httpMcpVersion": "0.12.0",
+    "nodeServerSha256": "4eb1e8d4b5f62eff26b09770151dfc3a0c60bf91c7721da67f3239e2da758775",
+    "schedulerSha256": "25814d991c3762f1f2fe90ff270895da298fb32e868e77e48fa2fdf36507a79a",
+    "goMcpVersion": "0.12.0",
+    "goMcpSha256": "02c556bf74013fe5649c5ffef07932565d6a242f720be1503c3f427940c83b82",
+    "goMcpWindowsSha256": "48ea2b7c9816113fe4ffad6c33f832f70ff8b85f986d267da9066d061f29a250",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.2/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "schedulerAuditPath": "/opt/im2a/v2.6.2/data/scheduler-audit.jsonl",
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "nrestarts": 0,
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 25,
+    "hasScheduler": true,
+    "config": {
+      "reserved_ratio": 0.15,
+      "total_budget_tokens": 100000,
+      "reserved_task_tokens": 2000
+    },
+    "externalHeavyCycle": {
+      "externalLimit": 85000,
+      "externalUsed": 80000,
+      "queueDepth": 2,
+      "reservedUsed": 0,
+      "idle": false,
+      "scheduledGoal": null
+    },
+    "drainCycle": {
+      "externalUsed": 20000,
+      "queueDepth": 0,
+      "reservedUsed": 0,
+      "idle": false
+    },
+    "idleCycle": {
+      "idle": true,
+      "externalUsed": 0,
+      "reservedUsed": 2000,
+      "reservedRemaining": 13000,
+      "scheduledGoalPriority": 0.9,
+      "scheduledGoalId": "goal_c0e176e66f26dc6d54ee1db7"
+    },
+    "audit": {
+      "events": 3,
+      "separatePools": true,
+      "externalTrajectory": [80000, 20000, 0],
+      "reservedTrajectory": [0, 0, 2000]
+    },
+    "goMcpTools": 25,
+    "goSchedulerAudit": "PASS"
+  },
+  "cleanup": {
+    "performed": true,
+    "removedGoals": [
+      "goal_36b8f2a25969eca2f0dc7944",
+      "goal_c0e176e66f26dc6d54ee1db7"
+    ],
+    "remainingGoals": 1,
+    "remainingRecallHistory": 0,
+    "schedulerAuditRetained": true,
+    "reason": "the three scheduler cycle records are the audit evidence; the abandoned test goals were removed from the local buffer"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V262-SCHEDULER-EVIDENCE.json",
+    "tests/V262-SCHEDULER-UNIT-EVIDENCE.json",
+    "tests/V262-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.6.2-RESERVED-SCHEDULER.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.2-20261101042716",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.1 tree and data are untouched",
+  "notClaimed": [
+    "durable external queue",
+    "actual model token accounting",
+    "skill patch validation execution",
+    "Memory Hub curation execution",
+    "v2.6.3 goal_schedule",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "external queue is in-memory and restart-unsafe",
+    "reserved allocation is a scheduling charge, not measured execution cost",
+    "scheduler tools are local state tools without caller authentication",
+    "curator/operator separation and per-conversation seq remain open",
+    "pending -> scheduled is a temporary v2.6.3 seam"
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.6.1",
+  "toolCatalogVersion": "2.6.2",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -688,6 +688,72 @@
         "required": ["proposed_goals", "evaluated_drives", "token_cost_basis"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "DRIVE_INVALID", "DRIVE_NOT_FOUND", "AGENT_DID_REQUIRED", "INTERNAL"]
+    },
+    {
+      "name": "scheduler_cycle",
+      "title": "Reserved-ratio scheduler cycle",
+      "description": "Run one scheduling cycle. External demand consumes only external_pool; reserved_pool is consumed only when the external queue was empty at cycle start.",
+      "scope": ["scheduler:write", "goal:read"],
+      "sideEffect": "local-write",
+      "idempotency": "at-most-once",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "external_requests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "request_id": { "type": "string" },
+                "tokens": { "type": "integer", "minimum": 1 }
+              },
+              "required": ["request_id", "tokens"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "external_pool": { "type": "object" },
+          "reserved_pool": { "type": "object" },
+          "idle": { "type": "boolean" },
+          "scheduled_goal_id": { "type": ["string", "null"] },
+          "audit_event_id": { "type": "string" }
+        },
+        "required": ["external_pool", "reserved_pool", "idle", "audit_event_id"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "EXTERNAL_REQUEST_INVALID", "INTERNAL"]
+    },
+    {
+      "name": "scheduler_audit",
+      "title": "Scheduler audit",
+      "description": "Read scheduler state or the append-only cycle audit. External and reserved pool consumption are returned as separate objects.",
+      "scope": ["scheduler:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": { "enum": ["state", "audit"] },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "events": { "type": "array", "items": { "type": "object" } },
+          "config": { "type": "object" },
+          "queue_depth": { "type": "integer" }
+        }
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INTERNAL"]
     }
   ]
 }

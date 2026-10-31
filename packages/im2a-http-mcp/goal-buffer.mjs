@@ -134,6 +134,11 @@ export class GoalBuffer {
     return this.get(goalId);
   }
 
+  nextPending() {
+    const row = this.db.prepare("SELECT * FROM goals WHERE status = 'pending' ORDER BY priority_score DESC, proposed_at ASC LIMIT 1").get();
+    return row ? this.#goal(row) : null;
+  }
+
   query({ status = null, driveId = null, limit = 100 } = {}) {
     const clauses = [];
     const params = [];

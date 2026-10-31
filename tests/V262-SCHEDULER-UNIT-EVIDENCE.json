@@ -1,0 +1,44 @@
+{
+  "release": "v2.6.2",
+  "kind": "local-reserved-scheduler",
+  "checkedAt": "2026-11-01T04:28:44Z",
+  "toolSurface": 25,
+  "tests": {
+    "total": 4,
+    "passed": 4,
+    "cases": [
+      "external-heavy cycle queues demand and does not borrow reserved_pool",
+      "leftover external queue is drained before idle scheduling",
+      "scheduler audit keeps external and reserved trajectories separate",
+      "reserved_ratio config is bounded to 0.10..0.30"
+    ]
+  },
+  "localAcceptance": {
+    "totalBudgetTokens": 100000,
+    "reservedRatio": 0.15,
+    "externalLimit": 85000,
+    "reservedLimit": 15000,
+    "externalHeavyUsed": 80000,
+    "externalHeavyQueued": 2,
+    "externalHeavyReservedUsed": 0,
+    "drainExternalUsed": 20000,
+    "idleReservedUsed": 2000,
+    "idleScheduledPriority": 0.9,
+    "auditEvents": 3,
+    "externalReservedSeparate": true
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 25,
+    "schedulerAuditDelegation": "PASS"
+  },
+  "limits": [
+    "external queue is in-memory and does not survive a scheduler restart",
+    "reserved allocation is a scheduling charge, not measured model execution cost",
+    "skill patch validation and Memory Hub curation are not executed in v2.6.2",
+    "pending -> scheduled is a temporary v2.6.3 goal_schedule seam",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

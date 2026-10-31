@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.6.2 — 2026-11-01 reserved-ratio scheduler and idle detection
+
+- Added `scheduler_cycle` and `scheduler_audit`; tool surface is 25.
+- Cycle budget split into external_pool and reserved_pool; default
+  reserved_ratio 0.15, bounded 0.10..0.30.
+- External demand queues when external_pool is exhausted and never borrows
+  reserved_pool.
+- Structural idle detection: external queue empty at cycle start.
+- Idle cycle schedules the highest-priority pending goal and records reserved
+  allocation; temporary v2.6.3 goal_schedule seam.
+- Append-only scheduler audit keeps external and reserved consumption
+  trajectories separate.
+- Added 4 scheduler tests.
+
 ## v2.6.1 — 2026-11-01 read-only drive proposal
 
 - Added `drive_propose`; tool surface is 23.

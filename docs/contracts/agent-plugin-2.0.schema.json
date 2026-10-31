@@ -66,7 +66,7 @@
         "copilot", "doubao"
       ]
     },
-    "scope": { "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "skill:guard", "curator:read", "memory:read", "memory:propose", "trace:ingest", "trace:read", "drive:read", "drive:write", "goal:read", "goal:write"] },
+    "scope": { "enum": ["bus:read", "bus:send", "skill:read", "skill:propose", "skill:curate", "skill:guard", "curator:read", "memory:read", "memory:propose", "trace:ingest", "trace:read", "drive:read", "drive:write", "goal:read", "goal:write", "scheduler:read", "scheduler:write"] },
     "skillRef": {
       "type": "object",
       "additionalProperties": false,
@@ -117,7 +117,7 @@
         "tools": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory|trace|reflect|curator|evolution|drive|goal)_[a-z][a-z0-9_]{2,40}|curator)$" }
+          "items": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory|trace|reflect|curator|evolution|drive|goal|scheduler)_[a-z][a-z0-9_]{2,40}|curator)$" }
         },
         "maxDepth": { "type": "integer", "minimum": 0, "maximum": 2 },
         "budget": {

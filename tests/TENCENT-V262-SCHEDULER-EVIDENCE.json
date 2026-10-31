@@ -1,0 +1,72 @@
+{
+  "checkedAt": "2026-10-31T20:28:44.179Z",
+  "toolCount": 25,
+  "goals": {
+    "low": "goal_36b8f2a25969eca2f0dc7944",
+    "high": "goal_c0e176e66f26dc6d54ee1db7",
+    "beforeHeavy": 3
+  },
+  "heavy": {
+    "externalLimit": 85000,
+    "externalUsed": 80000,
+    "queueDepth": 2,
+    "reservedUsed": 0,
+    "idle": false,
+    "scheduledGoal": null
+  },
+  "drain": {
+    "externalUsed": 20000,
+    "queueDepth": 0,
+    "reservedUsed": 0,
+    "idle": false
+  },
+  "idle": {
+    "idle": true,
+    "externalUsed": 0,
+    "reservedUsed": 2000,
+    "scheduledGoal": "goal_c0e176e66f26dc6d54ee1db7",
+    "isHigh": true
+  },
+  "audit": {
+    "count": 3,
+    "events": [
+      {
+        "cycle": 1,
+        "externalUsed": 80000,
+        "reservedUsed": 0,
+        "idle": false
+      },
+      {
+        "cycle": 2,
+        "externalUsed": 20000,
+        "reservedUsed": 0,
+        "idle": false
+      },
+      {
+        "cycle": 3,
+        "externalUsed": 0,
+        "reservedUsed": 2000,
+        "idle": true
+      }
+    ],
+    "separatePools": true
+  },
+  "state": {
+    "config": {
+      "reserved_ratio": 0.15,
+      "total_budget_tokens": 100000,
+      "reserved_task_tokens": 2000
+    },
+    "queueDepth": 0
+  },
+  "goalsAfter": {
+    "count": 3,
+    "scheduledStatus": "scheduled",
+    "highStatus": "scheduled",
+    "lowStatus": "pending"
+  },
+  "auditFile": {
+    "exists": true,
+    "lines": 3
+  }
+}

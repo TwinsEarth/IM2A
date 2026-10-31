@@ -22,6 +22,7 @@ import { runEvolutionPipelineDryRun } from "./evolution-pipeline.mjs";
 import { loadDrives, writeDrive } from "./drives.mjs";
 import { GoalBuffer } from "./goal-buffer.mjs";
 import { drivePropose } from "./drive-propose.mjs";
+import { loadSchedulerConfig, ReservedScheduler } from "./scheduler.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -49,6 +50,14 @@ const skillGuard = new SkillGuard({
 const DRIVES_DIR = process.env.IM2A_DRIVES_DIR ?? join(DB_DIR, "drives");
 const goalBuffer = new GoalBuffer({
   path: process.env.IM2A_GOAL_BUFFER_DB ?? join(DB_DIR, "goal-buffer.db"),
+});
+const schedulerConfig = loadSchedulerConfig(process.env);
+const scheduler = new ReservedScheduler({
+  goalBuffer,
+  auditPath: process.env.IM2A_SCHEDULER_AUDIT ?? join(DB_DIR, "scheduler-audit.jsonl"),
+  reservedRatio: schedulerConfig.reserved_ratio,
+  totalBudgetTokens: schedulerConfig.total_budget_tokens,
+  reservedTaskTokens: schedulerConfig.reserved_task_tokens,
 });
 
 let gatewaySession = null;
@@ -375,6 +384,41 @@ const TOOLS = [
       required: ["agent_did", "drive_ids"],
     },
   },
+  {
+    name: "scheduler_cycle",
+    description: "Run one reserved-ratio scheduling cycle. External demand can use only external_pool; reserved_pool is consumed only when the external queue was empty at cycle start.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        external_requests: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              request_id: { type: "string", minLength: 1, maxLength: 200 },
+              tokens: { type: "integer", minimum: 1 },
+            },
+            required: ["request_id", "tokens"],
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "scheduler_audit",
+    description: "Read scheduler state or the append-only cycle audit. External and reserved pool consumption are returned as separate objects.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        action: { enum: ["state", "audit"] },
+        limit: { type: "integer", minimum: 1, maximum: 500 },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 function sendJson(res, status, body) {
@@ -477,10 +521,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.11.0",
+            version: "0.12.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-three tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-five tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -494,8 +538,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.11.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-three tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.12.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-five tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler).",
       },
     };
   }
@@ -786,6 +830,19 @@ async function handleRpc(message, context = {}) {
           now: Date.now(),
         });
         return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "scheduler_cycle") {
+        const result = await scheduler.scheduleCycle({
+          externalRequests: Array.isArray(args.external_requests) ? args.external_requests : [],
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "scheduler_audit") {
+        if (String(args.action) === "audit") {
+          const result = await scheduler.audit({ limit: args.limit ? Number(args.limit) : 50 });
+          return { jsonrpc: "2.0", id, result: resultText(result) };
+        }
+        return { jsonrpc: "2.0", id, result: resultText(scheduler.state()) };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {
