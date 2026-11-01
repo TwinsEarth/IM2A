@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "3.0",
+  "name": "dsh-im2a",
+  "version": "3.2.1",
+  "description": "IM2A single-package plugin: kernel plus nine capability modules, one manifest, one install entry.",
+  "license": "MIT",
+  "toolNamespace": {
+    "externalPrefix": "im2a_",
+    "externalSeparator": "_",
+    "internalSeparator": ".",
+    "note": "MCP wire names use underscores; the dotted form is documentation and config only."
+  },
+  "kernel": {
+    "module_version": "1.0.0",
+    "status": "available",
+    "constitution_hash": null,
+    "constitution_hash_note": "null until the v3.1.6 / v3.2.6 schema freeze is recorded",
+    "meta_tools": [
+      "status",
+      "pipeline",
+      "gate_check",
+      "constitution_audit",
+      "module_list",
+      "module_set",
+      "config_get",
+      "config_set",
+      "license_status"
+    ],
+    "tools": ["whoami"]
+  },
+  "modules": {
+    "memory": {
+      "module_version": "2.5.8",
+      "status": "available",
+      "required_scopes": ["memory:read"],
+      "deps": [],
+      "soft_deps": [],
+      "tools": ["search", "get", "propose", "recall"]
+    },
+    "evolution": {
+      "module_version": "2.5.9",
+      "status": "available",
+      "required_scopes": ["trace:write"],
+      "deps": [],
+      "soft_deps": [],
+      "tools": ["ingest", "reflect", "curator", "curator_audit"]
+    },
+    "asset": {
+      "module_version": "3.2.0",
+      "status": "available",
+      "required_scopes": ["skill:write"],
+      "deps": ["memory", "evolution"],
+      "soft_deps": [],
+      "tools": ["view", "manage", "claim", "list", "audit", "guard_check"]
+    },
+    "identity": {
+      "module_version": "2.8.9",
+      "status": "planned",
+      "required_scopes": ["credit:attest"],
+      "deps": ["asset", "evolution"],
+      "soft_deps": [],
+      "tools": []
+    },
+    "autonomy": {
+      "module_version": "2.6.9",
+      "status": "available",
+      "required_scopes": ["autonomy:drive"],
+      "deps": ["memory", "asset", "evolution"],
+      "soft_deps": [],
+      "tools": [
+        "drive_list",
+        "drive_manage",
+        "propose",
+        "calibrate",
+        "buffer",
+        "schedule",
+        "scheduler_cycle",
+        "scheduler_audit"
+      ]
+    },
+    "economy": {
+      "module_version": "2.9.9",
+      "status": "planned",
+      "required_scopes": ["economy:node"],
+      "deps": ["asset", "identity"],
+      "soft_deps": ["observability"],
+      "tools": []
+    },
+    "fleet": {
+      "module_version": "3.0.6",
+      "status": "available",
+      "required_scopes": ["fleet:coordinate"],
+      "deps": ["asset", "autonomy"],
+      "soft_deps": ["economy"],
+      "tools": ["harness_list", "send", "recv", "presence", "history"]
+    },
+    "governance": {
+      "module_version": "3.0.4",
+      "status": "planned",
+      "required_scopes": ["governance:vote"],
+      "deps": ["identity"],
+      "soft_deps": ["observability"],
+      "tools": []
+    },
+    "observability": {
+      "module_version": "3.2.1",
+      "status": "partial",
+      "status_note": "pipeline dry-run only; drift, meta_evolve and telemetry_ingest are not implemented",
+      "required_scopes": ["observability:read"],
+      "deps": [],
+      "soft_deps": [],
+      "tools": ["pipeline_dryrun"]
+    }
+  },
+  "premium": {
+    "relay_required": true,
+    "license_implemented": false,
+    "license_note": "no Relay handshake or license verification code exists in this repository yet",
+    "modules": {
+      "deploy_local": { "status": "planned", "requires_signature": true },
+      "enterprise_net": { "status": "planned", "requires_signature": true },
+      "cloud_backup": { "status": "planned", "requires_signature": true },
+      "token_router": { "status": "planned", "requires_signature": true },
+      "team_permissions": { "status": "planned", "requires_signature": true }
+    }
+  },
+  "aliases": "migrations/3.2.1-tool-aliases.json"
+}

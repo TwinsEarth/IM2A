@@ -1,0 +1,317 @@
+{
+  "schemaVersion": "1.0",
+  "generatedFrom": {
+    "server": "im2a-http-mcp",
+    "protocolVersion": "2.0",
+    "toolCount": 30
+  },
+  "deprecatedAfter": "3.4.0",
+  "entries": [
+    {
+      "old_name": "autonomy_pipeline_dryrun",
+      "new_name": "im2a_observability_pipeline_dryrun",
+      "module": "observability",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:0debf99e1852e9e958c7f57231cd8220d81e9b89920dcec2ca730728e8227432",
+      "fixed_args": {
+        "pipeline": "autonomy"
+      }
+    },
+    {
+      "old_name": "contribution_audit",
+      "new_name": "im2a_asset_audit",
+      "module": "asset",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:188c60d683ca04712138114f3b73b3285ff7a3bff77ac559ebc11f3f49f712c8"
+    },
+    {
+      "old_name": "curator",
+      "new_name": "im2a_evolution_curator",
+      "module": "evolution",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:df2c46665e4cbfee1e625444ee3ca32174821c01d5dc2ad8f940dfc03702096f"
+    },
+    {
+      "old_name": "curator_audit",
+      "new_name": "im2a_evolution_curator_audit",
+      "module": "evolution",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:2c812fcfb3911378a3f386480b3cf32d86564acbeaeb8ac118c3aa753856b2ca"
+    },
+    {
+      "old_name": "drive_calibrate",
+      "new_name": "im2a_autonomy_calibrate",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:986b0163b40cec007b2a421fbd392831a893c7bdacdc41e0e48d56193b1c250c"
+    },
+    {
+      "old_name": "drive_list",
+      "new_name": "im2a_autonomy_drive_list",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:f5b3bd495c9379f64d25f78f2ad39697c55e7f5d1c6d486347440a1a31121a3e"
+    },
+    {
+      "old_name": "drive_manage",
+      "new_name": "im2a_autonomy_drive_manage",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:b35575958fb5d7afd775e511cbd0f9e0ca3e074948ab6dc5d07686f0a51b7d67"
+    },
+    {
+      "old_name": "drive_propose",
+      "new_name": "im2a_autonomy_propose",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:cf2def62859879a23be2218bde7919c4cc1559367b796f52cd7160aa127904d4"
+    },
+    {
+      "old_name": "evolution_pipeline_dryrun",
+      "new_name": "im2a_observability_pipeline_dryrun",
+      "module": "observability",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:86b515e0f94294b9b6831e08e0dbe331e44d0c54def991b0dbe62d3d8abd68da",
+      "fixed_args": {
+        "pipeline": "evolution"
+      }
+    },
+    {
+      "old_name": "goal_buffer",
+      "new_name": "im2a_autonomy_buffer",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:f66b4ee800e37ba4a7cacc4f2677de4db3209b0297164a256ff6b07cab8c7424"
+    },
+    {
+      "old_name": "goal_schedule",
+      "new_name": "im2a_autonomy_schedule",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:4a07ba714e4ca2ae9a8df8e68feb0a1603582c38873d7d67b092f5d06a123b06"
+    },
+    {
+      "old_name": "im2a_harness_list",
+      "new_name": "im2a_fleet_harness_list",
+      "module": "fleet",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:2e8c590d02de3f8127925c750754e9353d6962cf19b8284ff5a92d4bfad6a860"
+    },
+    {
+      "old_name": "im2a_history",
+      "new_name": "im2a_fleet_history",
+      "module": "fleet",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:7ddc669e5a7e7c7ece493113c16b532545f4d424afe96706568dafc4739057f8"
+    },
+    {
+      "old_name": "im2a_presence",
+      "new_name": "im2a_fleet_presence",
+      "module": "fleet",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:3f23cd255744213e5c878fa15a3455f3da084772465fd72c26f95c20499e4cbc"
+    },
+    {
+      "old_name": "im2a_recv",
+      "new_name": "im2a_fleet_recv",
+      "module": "fleet",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:5555fc5ea9d854ba39733dec74ecd41079d1992882891e8cd559ff9fe8185249"
+    },
+    {
+      "old_name": "im2a_send",
+      "new_name": "im2a_fleet_send",
+      "module": "fleet",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:932c5ffcaac46aa4b3a6bb3da9cdfe60f3df40f12147755ffc4ea01397805d7c"
+    },
+    {
+      "old_name": "im2a_whoami",
+      "new_name": "im2a_kernel_whoami",
+      "module": "kernel",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:f53d9a9127985c1ede9178e656ea594fd9013f618674adbcd8ad9394ac345048"
+    },
+    {
+      "old_name": "memory_get",
+      "new_name": "im2a_memory_get",
+      "module": "memory",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:08863198ae2f0f1c23ff5d15592f41f3d0e025cf24a66260e838fc8e9c0e17a4"
+    },
+    {
+      "old_name": "memory_propose",
+      "new_name": "im2a_memory_propose",
+      "module": "memory",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:ed46600b617fa2a687474927535ba25d299d28b935a4855a579bebfda6c9c8ba"
+    },
+    {
+      "old_name": "memory_recall_v2",
+      "new_name": "im2a_memory_recall",
+      "module": "memory",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:e72ee397725a5ed687e91fdde653b814ce62a9e9996fa1a54baac29c75018041"
+    },
+    {
+      "old_name": "memory_search",
+      "new_name": "im2a_memory_search",
+      "module": "memory",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:1fdb70e5086d99f4fb0abe97f6fc552b4233c5a108382175e3acc05f61bf8e99"
+    },
+    {
+      "old_name": "reflect_trigger",
+      "new_name": "im2a_evolution_reflect",
+      "module": "evolution",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:ec52be892493d967eee19c0a69dc4db28b0fd2ac2a200354378506ee6bf36270"
+    },
+    {
+      "old_name": "scheduler_audit",
+      "new_name": "im2a_autonomy_scheduler_audit",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:e0fd699c72c4aa9d653a0319cb20cbdd4fe5a7e5aeceb4a887d2f4012d03b8af"
+    },
+    {
+      "old_name": "scheduler_cycle",
+      "new_name": "im2a_autonomy_scheduler_cycle",
+      "module": "autonomy",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:6e406775c4a3ee640de4f00618fd6824944fc6ba9a6ea01d8f56b329e35c6436"
+    },
+    {
+      "old_name": "skill_claim",
+      "new_name": "im2a_asset_claim",
+      "module": "asset",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:f49b2716f6ae0bca1e590046695fb52cda30ab22cdade1f13de5fa8a97060801"
+    },
+    {
+      "old_name": "skill_guard_check",
+      "new_name": "im2a_asset_guard_check",
+      "module": "asset",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:e7a4662a2922fb24c55908baec3f2209e2f1c855c51fda863f40fdf86605d23a"
+    },
+    {
+      "old_name": "skill_manage",
+      "new_name": "im2a_asset_manage",
+      "module": "asset",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:612282d53a330f01a976e8c85806f4740a3e714db18ee7920ae6757bbfb70e37"
+    },
+    {
+      "old_name": "skill_view",
+      "new_name": "im2a_asset_view",
+      "module": "asset",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:89d4356cc00c75c110fbf42d8ad86df265d308d96b6e6f2fd1a2e9d01fd6231e"
+    },
+    {
+      "old_name": "skills_list",
+      "new_name": "im2a_asset_list",
+      "module": "asset",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:47a673bdbe11f38641c4cc4b7f917c83e31e3efa49b4b163a31aa16973c31e19"
+    },
+    {
+      "old_name": "trace_ingest",
+      "new_name": "im2a_evolution_ingest",
+      "module": "evolution",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:5bb8bb380a7bc704d27383ac59a24295549b396affbeaf0ec8baa2d1b3d83176"
+    }
+  ]
+}
