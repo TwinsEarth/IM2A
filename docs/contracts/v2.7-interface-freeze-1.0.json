@@ -1,0 +1,18 @@
+{
+  "$id": "https://im2a.dev/contracts/v2.7-interface-freeze-1.0.json",
+  "title": "IM2A v2.6.9 frozen v2.7 interfaces",
+  "version": "1.0",
+  "goal_buffer": {
+    "schema": "goal-buffer-1.0.schema.json",
+    "status_enum": ["pending", "scheduled", "executing", "completed", "expired"]
+  },
+  "execution_result": {
+    "schema": "execution-result-1.0.schema.json",
+    "recommended_next_enum": ["crystallize", "patch", "discard"],
+    "draft_patch": "execution_result.draft_patch"
+  },
+  "skill_claim": {
+    "schema": "skill-claim-1.0.schema.json",
+    "contribution_log_ref": "goal_id"
+  }
+}

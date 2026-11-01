@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.6.8",
+  "toolCatalogVersion": "2.6.9",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -812,6 +812,36 @@
         "required": ["calibration_suggestions", "read_only", "drives_modified"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "INVALID_LOOKBACK_DAYS", "DRIVE_INVALID", "CALIBRATION_SNAPSHOT_INVALID", "INTERNAL"]
+    },
+    {
+      "name": "autonomy_pipeline_dryrun",
+      "title": "Autonomy pipeline dry run",
+      "description": "Read-only autonomy handoff proof: drive_propose -> temporary goal_schedule -> simulated v2.7 skill_claim schema. Never writes production goals, skills, drives or drafts.",
+      "scope": ["drive:read", "goal:read", "curator:read", "memory:read", "trace:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_did": { "type": "string" },
+          "drive_ids": { "type": "array", "items": { "type": "string" } },
+          "budget_tokens": { "type": "integer", "minimum": 1, "maximum": 100000 }
+        },
+        "required": ["agent_did"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "signal_traceability": { "enum": ["full", "partial"] },
+          "goal_status_enum": { "type": "array" },
+          "recommended_next_enum": { "type": "array" }
+        },
+        "required": ["ok", "signal_traceability", "goal_status_enum", "recommended_next_enum"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "DRIVE_INVALID", "EXECUTION_BUDGET_EXCEEDED", "INTERNAL"]
     }
   ]
 }

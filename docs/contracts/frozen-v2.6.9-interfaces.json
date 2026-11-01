@@ -1,0 +1,23 @@
+{
+    "schema_version":  "1.0",
+    "release":  "v2.6.9",
+    "frozen_at":  "2026-11-01T00:00:00Z",
+    "interfaces":  {
+                       "goal_buffer":  {
+                                           "schema":  "docs/contracts/goal-buffer-1.0.schema.json",
+                                           "sha256":  "67390a63deee2e739962da31f910ddf2bb19b6c92caf5e4e35e973e761e4556d"
+                                       },
+                       "execution_result":  {
+                                                "schema":  "docs/contracts/execution-result-1.0.schema.json",
+                                                "sha256":  "a2ec9f2a35a67c4a376753f4d081aa024713e6cf29a68aca7b1098c3fd8adb47"
+                                            },
+                       "skill_claim":  {
+                                           "schema":  "docs/contracts/skill-claim-1.0.schema.json",
+                                           "sha256":  "0469ce913abc9472f37dd6dc4eff69953c2154f449fcc9343423694dda94911e"
+                                       },
+                       "interface_freeze":  {
+                                                "schema":  "docs/contracts/v2.7-interface-freeze-1.0.json",
+                                                "sha256":  "ea98c169e7fca3e5b6d213b35e8ed4c440702e2b6d172552b3395563fa4654f5"
+                                            }
+                   }
+}

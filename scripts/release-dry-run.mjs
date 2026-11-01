@@ -35,6 +35,7 @@ run('drives and goal buffer tests', ['tests/drives-goal-buffer.test.mjs']);
 run('drive propose and joint reflection tests', ['tests/drive-propose.test.mjs']);
 run('scheduler tests', ['tests/scheduler.test.mjs']);
 run('scheduler governance tests', ['tests/scheduler-governance.test.mjs']);
+run('autonomy pipeline tests', ['tests/autonomy-pipeline.test.mjs']);
 run('goal schedule tests', ['tests/goal-schedule.test.mjs']);
 run('drive calibrate tests', ['tests/drive-calibrate.test.mjs']);
 run('goal arbitration tests', ['tests/goal-arbitration.test.mjs']);

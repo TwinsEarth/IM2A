@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/execution-result-1.0.schema.json",
+  "title": "IM2A v2.6.9 frozen execution_result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "goal_id", "agent_did", "draft_patch", "reflection_notes", "confidence_delta",
+    "recommended_next", "recommendation_reason", "budget", "read_only_tools"
+  ],
+  "properties": {
+    "goal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" },
+    "agent_did": { "type": "string", "minLength": 1 },
+    "draft_patch": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["draft_id", "target_skill_id", "path", "sha256", "bytes", "applied"],
+          "properties": {
+            "draft_id": { "type": "string", "pattern": "^draft_[0-9a-f]{24}$" },
+            "target_skill_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "path": { "type": "string", "minLength": 1 },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "bytes": { "type": "integer", "minimum": 1 },
+            "applied": { "const": false }
+          }
+        }
+      ]
+    },
+    "reflection_notes": { "type": "string" },
+    "confidence_delta": { "type": "number", "minimum": -1, "maximum": 1 },
+    "recommended_next": { "enum": ["crystallize", "patch", "discard"] },
+    "recommendation_reason": { "type": "string" },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested", "used", "source"],
+      "properties": {
+        "requested": { "type": "integer", "minimum": 1 },
+        "used": { "type": "integer", "minimum": 0 },
+        "source": { "const": "reserved_pool" }
+      }
+    },
+    "read_only_tools": { "type": "array", "items": { "type": "string" } },
+    "memory_items": { "type": "integer", "minimum": 0 },
+    "drafted_skill_ids": { "type": "array", "items": { "type": "string" } }
+  }
+}

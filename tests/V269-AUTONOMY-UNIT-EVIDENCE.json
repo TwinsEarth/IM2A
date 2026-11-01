@@ -1,0 +1,38 @@
+{
+  "release": "v2.6.9",
+  "kind": "local-autonomy-handoff-freeze",
+  "checkedAt": "2026-11-01T08:12:00Z",
+  "toolSurface": 28,
+  "tests": {
+    "autonomyPipeline": { "total": 1, "passed": 1 },
+    "cases": [
+      "autonomy dry-run completes in under 45s with full signal traceability and frozen enums"
+    ]
+  },
+  "localAcceptance": {
+    "durationMs": 101,
+    "under45Seconds": true,
+    "signalTraceability": "full",
+    "steps": 3,
+    "goalBufferSchema": true,
+    "executionResultSchema": true,
+    "skillClaimSchema": true,
+    "draftApplied": false,
+    "recommendedNext": "crystallize",
+    "goalStatusEnum": ["pending", "scheduled", "executing", "completed", "expired"],
+    "recommendedNextEnum": ["crystallize", "patch", "discard"],
+    "freezeHashesMatch": true
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 28
+  },
+  "limits": [
+    "skill_claim is simulated by a frozen schema validator; v2.7.x implementation remains future work",
+    "goal_schedule runs in a temporary SQLite buffer and temporary drafts directory",
+    "the dry-run never writes production goals, skills, drives or drafts",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

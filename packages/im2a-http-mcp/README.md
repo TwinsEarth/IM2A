@@ -3,7 +3,7 @@
 Streamable HTTP MCP bridge used by DSH and by the Go stdio MCP for the
 skill/memory surface.
 
-## Tools (27)
+## Tools (28)
 
 ```text
 IM2A bus (6):
@@ -39,6 +39,9 @@ Goal execution (1):
 
 Drive calibration (1):
   drive_calibrate
+
+Autonomy handoff (1):
+  autonomy_pipeline_dryrun
 ```
 
 `skill_manage` only writes proposals. `curator` can stage but cannot promote
@@ -114,8 +117,8 @@ node packages/im2a-http-mcp/server.mjs
 
 Endpoint: `http://127.0.0.1:18082/mcp`.
 
-The Go stdio MCP registers the same 27 tools and forwards the 21
-skill/memory/trace/reflection/curator-audit/guard/evolution/drives/goal/propose/scheduler/execute/calibrate tools to this server via
+The Go stdio MCP registers the same 28 tools and forwards the 22
+skill/memory/trace/reflection/curator-audit/guard/evolution/drives/goal/propose/scheduler/execute/calibrate/autonomy tools to this server via
 `IM2A_MCP_HTTP_URL`. It forwards `IM2A_SKILL_GUARD_SESSION_TOKEN` as the
 `x-im2a-skill-session` header when configured.
 

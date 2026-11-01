@@ -117,7 +117,7 @@
         "tools": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory|trace|reflect|curator|evolution|drive|goal|scheduler)_[a-z][a-z0-9_]{2,40}|curator)$" }
+          "items": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory|trace|reflect|curator|evolution|drive|goal|scheduler|autonomy)_[a-z][a-z0-9_]{2,40}|curator)$" }
         },
         "maxDepth": { "type": "integer", "minimum": 0, "maximum": 2 },
         "budget": {

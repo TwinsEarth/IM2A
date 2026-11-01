@@ -16,7 +16,7 @@ async function rpc(method, params = {}) {
 const init = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'v250-test', version: '1.0.0' } });
 const list = await rpc('tools/list');
 const names = list.tools.map((tool) => tool.name);
-const expected = ['im2a_harness_list','im2a_send','im2a_recv','im2a_presence','im2a_whoami','im2a_history','skills_list','skill_view','skill_manage','curator','memory_search','memory_recall_v2','memory_get','memory_propose','trace_ingest','reflect_trigger','curator_audit','skill_guard_check','evolution_pipeline_dryrun','drive_list','drive_manage','goal_buffer','drive_propose','scheduler_cycle','scheduler_audit','goal_schedule','drive_calibrate'];
+const expected = ['im2a_harness_list','im2a_send','im2a_recv','im2a_presence','im2a_whoami','im2a_history','skills_list','skill_view','skill_manage','curator','memory_search','memory_recall_v2','memory_get','memory_propose','trace_ingest','reflect_trigger','curator_audit','skill_guard_check','evolution_pipeline_dryrun','drive_list','drive_manage','goal_buffer','drive_propose','scheduler_cycle','scheduler_audit','goal_schedule','drive_calibrate','autonomy_pipeline_dryrun'];
 const missing = expected.filter((name) => !names.includes(name));
 const extra = names.filter((name) => !expected.includes(name));
 const skills = await rpc('tools/call', { name: 'skills_list', arguments: { query: 'demo', limit: 10 } });

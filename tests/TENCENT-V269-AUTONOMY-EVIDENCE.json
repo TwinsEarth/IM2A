@@ -1,0 +1,80 @@
+{
+  "checkedAt": "2026-11-01T00:12:07.426Z",
+  "toolCount": 28,
+  "wallMs": 89,
+  "report": {
+    "ok": true,
+    "duration_ms": 83.828,
+    "under_45_seconds": true,
+    "signal_traceability": "full",
+    "missing_signals": [],
+    "steps": [
+      {
+        "name": "drive_propose",
+        "ok": true,
+        "duration_ms": 2.337
+      },
+      {
+        "name": "goal_schedule",
+        "ok": true,
+        "duration_ms": 80.726
+      },
+      {
+        "name": "skill_claim(simulated)",
+        "ok": true,
+        "duration_ms": 0.164
+      }
+    ],
+    "schema_validation": {
+      "goal_buffer": {
+        "ok": true,
+        "errors": [],
+        "enum": [
+          "pending",
+          "scheduled",
+          "executing",
+          "completed",
+          "expired"
+        ]
+      },
+      "execution_result": {
+        "ok": true,
+        "errors": [],
+        "enum": [
+          "crystallize",
+          "patch",
+          "discard"
+        ]
+      },
+      "skill_claim": {
+        "ok": true,
+        "errors": [],
+        "inputSchema": "skill-claim-1.0"
+      }
+    },
+    "goal_id": "goal_1d35ffa2160f0d74c906c7d7",
+    "goal_status": "completed",
+    "draft_patch": {
+      "draft_id": "draft_b1c1600d03b0cfdbd8156676",
+      "target_skill_id": "autonomy-windows-build",
+      "path": "/tmp/im2a-autonomy-Zm6TWS/drafts/goal_1d35ffa2160f0d74c906c7d7/autonomy-windows-build.patch.md",
+      "sha256": "c5ffc304a00ccfed4cda0156cb04181eddfc814b85fc62420836c7e39b22e651",
+      "bytes": 575,
+      "applied": false
+    },
+    "recommended_next": "crystallize",
+    "goal_status_enum": [
+      "pending",
+      "scheduled",
+      "executing",
+      "completed",
+      "expired"
+    ],
+    "recommended_next_enum": [
+      "crystallize",
+      "patch",
+      "discard"
+    ]
+  },
+  "skillId": "autonomy-windows-build"
+}

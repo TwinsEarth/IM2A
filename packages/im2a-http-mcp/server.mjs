@@ -25,6 +25,7 @@ import { drivePropose } from "./drive-propose.mjs";
 import { assertAgentReservedRatioWrite, loadSchedulerConfig, ReservedScheduler } from "./scheduler.mjs";
 import { scheduleGoal } from "./goal-executor.mjs";
 import { calibrateDrives } from "./drive-calibrate.mjs";
+import { runAutonomyPipelineDryRun } from "./autonomy-pipeline.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -440,6 +441,20 @@ const TOOLS = [
     },
   },
   {
+    name: "autonomy_pipeline_dryrun",
+    description: "Read-only autonomy handoff proof: drive_propose -> temporary goal_schedule -> simulated v2.7 skill_claim schema. Never writes production goals, skills, drives or drafts.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        drive_ids: { type: "array", items: { type: "string" }, maxItems: 20 },
+        budget_tokens: { type: "integer", minimum: 1, maximum: 100000 },
+      },
+      required: ["agent_did"],
+    },
+  },
+  {
     name: "drive_calibrate",
     description: "Read-only drive calibration over goal_buffer history, execution confidence deltas and proposal adoption. Returns suggestions; never modifies drives/.",
     inputSchema: {
@@ -554,10 +569,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.18.0",
+            version: "0.19.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -571,8 +586,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.18.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-seven tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.19.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
       },
     };
   }
@@ -935,6 +950,20 @@ async function handleRpc(message, context = {}) {
             },
           }),
         };
+      }
+      if (name === "autonomy_pipeline_dryrun") {
+        const drives = await loadDrives(DRIVES_DIR);
+        const result = await runAutonomyPipelineDryRun({
+          agentDid: String(args.agent_did),
+          drives,
+          driveIds: Array.isArray(args.drive_ids) ? args.drive_ids.map(String) : [],
+          skillStore,
+          memoryHub,
+          traceStore,
+          budgetTokens: args.budget_tokens === undefined ? 5000 : Number(args.budget_tokens),
+          now: Date.now(),
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
       }
       if (name === "drive_calibrate") {
         const lookbackDays = args.lookback_days === undefined ? 14 : Number(args.lookback_days);

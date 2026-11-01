@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.6.9 — 2026-11-01 autonomy handoff and v2.7 interface freeze
+
+- Added `autonomy_pipeline_dryrun`; tool surface 27 -> 28.
+- Dry-run composes drive_propose -> temporary goal_schedule -> simulated
+  skill_claim schema validation, never touching production goals/skills/drives.
+- Frozen goal_buffer.status enum and execution_result.recommended_next enum.
+- Added execution-result-1.0 and skill-claim-1.0 schema freeze artifacts with
+  SHA-256 hashes.
+- autonomy_report includes per-step durations, schema results, signal
+  traceability and the 45-second gate.
+- Added autonomy pipeline and freeze-hash test.
+
 ## v2.6.8 — 2026-11-01 dynamic reserved ratio governance
 
 - Scheduler governance may adjust reserved_ratio within ±0.05 of the Agent

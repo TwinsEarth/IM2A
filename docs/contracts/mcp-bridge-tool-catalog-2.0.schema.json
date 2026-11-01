@@ -36,7 +36,7 @@
       "additionalProperties": false,
       "required": ["name", "title", "description", "scope", "sideEffect", "idempotency", "inputSchema", "outputSchema", "errors"],
       "properties": {
-        "name": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory|trace|reflect|curator|evolution|drive|goal|scheduler)_[a-z][a-z0-9_]{2,40}|curator)$" },
+        "name": { "type": "string", "pattern": "^(?:(?:im2a|skills|skill|memory|trace|reflect|curator|evolution|drive|goal|scheduler|autonomy)_[a-z][a-z0-9_]{2,40}|curator)$" },
         "title": { "type": "string", "minLength": 3 },
         "description": { "type": "string", "minLength": 40 },
         "scope": {

@@ -1,0 +1,87 @@
+{
+  "release": "v2.6.9",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T08:15:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T08:11:19+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.6.9",
+    "httpMcpVersion": "0.19.0",
+    "nodeServerSha256": "709b5e6358f2061a4e5c249831202414288b28987dbd15ef604742c923d04d54",
+    "autonomyPipelineSha256": "f9968baf0599a027c1f50e3cbd73cd30b9d6d31c27b74bc21825d35c886489b6",
+    "nodePackageSha256": "b64e7b11abc15bd627fe02f44e2292a9da5e4b3b6b171aee592843808683054b",
+    "goMcpVersion": "0.19.0",
+    "goMcpSha256": "f990d3b7eae71ff6a9b2f007326e2db40617feffdd397ecdae7501bd3f0a213b",
+    "goMcpWindowsSha256": "d7eb428f98cc910a2b9030efdf53be98ff5840e3a9540f3d22500e16c2fda29f",
+    "goMcpPaths": [
+      "/opt/im2a/v2.6.9/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "httpMcpTools": 28,
+    "dryRun": {
+      "wallMs": 89,
+      "durationMs": 83.828,
+      "under45Seconds": true,
+      "ok": true,
+      "signalTraceability": "full",
+      "missingSignals": [],
+      "steps": [
+        { "name": "drive_propose", "ok": true, "durationMs": 2.337 },
+        { "name": "goal_schedule", "ok": true, "durationMs": 80.726 },
+        { "name": "skill_claim(simulated)", "ok": true, "durationMs": 0.164 }
+      ],
+      "schemaValidation": {
+        "goalBuffer": true,
+        "executionResult": true,
+        "skillClaim": true
+      },
+      "goalId": "goal_1d35ffa2160f0d74c906c7d7",
+      "goalStatus": "completed",
+      "draftId": "draft_b1c1600d03b0cfdbd8156676",
+      "draftApplied": false,
+      "recommendedNext": "crystallize",
+      "goalStatusEnum": ["pending", "scheduled", "executing", "completed", "expired"],
+      "recommendedNextEnum": ["crystallize", "patch", "discard"]
+    },
+    "goMcpTools": 28
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingSkills": 0,
+    "remainingGoals": 3,
+    "activeGoals": 0,
+    "note": "seed skill removed; all dry-run goal/draft artifacts were temporary and removed by the pipeline"
+  },
+  "freezeArtifacts": [
+    "docs/contracts/execution-result-1.0.schema.json",
+    "docs/contracts/skill-claim-1.0.schema.json",
+    "docs/contracts/v2.7-interface-freeze-1.0.json",
+    "docs/contracts/frozen-v2.6.9-interfaces.json",
+    "docs/design/IM2A-v2.6.9-INTERFACE-FREEZE.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.6.9-20261101081119",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.8 tree and data are untouched",
+  "notClaimed": [
+    "v2.7 skill_claim implementation",
+    "contribution_log implementation",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "skill_claim is simulated by schema validation only",
+    "contribution_log and ownership chain remain v2.7.x",
+    "curator/operator separation and per-conversation seq remain open",
+    "goal-buffer local writes are not yet caller-authenticated"
+  ]
+}
