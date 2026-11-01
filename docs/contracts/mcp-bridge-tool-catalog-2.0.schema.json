@@ -139,7 +139,18 @@
         "EXECUTION_BUDGET_EXCEEDED",
         "INVALID_LOOKBACK_DAYS",
         "CALIBRATION_SNAPSHOT_INVALID",
-        "IM2A_METADATA_READ_ONLY"
+        "IM2A_METADATA_READ_ONLY",
+        "CLAIM_TARGET_AMBIGUOUS",
+        "CLAIM_TARGET_REQUIRED",
+        "CLAIM_JUSTIFICATION_REQUIRED",
+        "SOURCE_SIGNALS_INVALID",
+        "CONTRIBUTION_CHAIN_INVALID",
+        "CONTRIBUTION_LOG_INVALID",
+        "SKILL_METADATA_MISSING",
+        "SKILL_METADATA_INVALID",
+        "SKILL_VERSION_INVALID",
+        "DRAFT_NOT_FOUND",
+        "DRAFT_INVALID"
       ],
       "description": "IM2A namespace codes in UPPER_SNAKE, matching SKILL-RUNTIME-MVP-v2.5.0 §4. The bridge does not paraphrase subsystem codes."
     },

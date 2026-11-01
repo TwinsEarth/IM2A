@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.7.0",
+  "toolCatalogVersion": "2.7.1",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -842,6 +842,38 @@
         "required": ["ok", "signal_traceability", "goal_status_enum", "recommended_next_enum"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "DRIVE_INVALID", "EXECUTION_BUDGET_EXCEEDED", "INTERNAL"]
+    },
+    {
+      "name": "skill_claim",
+      "title": "Claim a draft as an owned skill",
+      "description": "Claim a goal_schedule draft as an owned skill. Requires L2 skill:write via skill_guard_check; appends an initial or successive hash-linked contribution entry and never overwrites im2a.origin_agent.",
+      "scope": ["skill:propose", "goal:read", "curator:read"],
+      "sideEffect": "local-write",
+      "idempotency": "keyed",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agent_did": { "type": "string" },
+          "draft_id": { "type": "string" },
+          "target_skill_id": { "type": "string" },
+          "new_skill_name": { "type": "string" },
+          "claim_justification": { "type": "object" }
+        },
+        "required": ["agent_did", "draft_id", "claim_justification"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "claim_id": { "type": "string" },
+          "skill_id": { "type": "string" },
+          "version": { "type": "string" },
+          "contribution_log_ref": { "type": "string" }
+        },
+        "required": ["claim_id", "skill_id", "version", "contribution_log_ref"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "SKILL_NOT_FOUND", "SKILL_EXISTS", "SKILL_WRITE_DENIED", "DRAFT_NOT_FOUND", "GOAL_NOT_FOUND", "SOURCE_SIGNALS_INVALID", "CONTRIBUTION_CHAIN_INVALID", "SKILL_METADATA_MISSING", "INTERNAL"]
     }
   ]
 }

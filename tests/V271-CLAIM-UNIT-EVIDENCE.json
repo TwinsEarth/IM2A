@@ -1,0 +1,34 @@
+{
+  "release": "v2.7.1",
+  "kind": "local-skill-claim-contribution-chain",
+  "checkedAt": "2026-11-01T09:01:00Z",
+  "toolSurface": 29,
+  "tests": {
+    "skillClaim": { "total": 1, "passed": 1 },
+    "cases": [
+      "skill_claim creates and patches an owned skill with a verifiable contribution chain"
+    ]
+  },
+  "localAcceptance": {
+    "createVersion": "0.1.0",
+    "patchVersion": "0.2.0",
+    "originAgentPreserved": true,
+    "firstEntryHashVerifies": true,
+    "chainVerifies": true,
+    "chainCount": 2,
+    "patchDepth": 1,
+    "goalIdTraceable": true
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`); one transient API stream test passed on retry",
+    "tools": 29
+  },
+  "limits": [
+    "lightweight hash chain, not a consensus ledger",
+    "guard cross-agent rules still restrict foreign-owner patches",
+    "credit/reputation consumption is later work",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

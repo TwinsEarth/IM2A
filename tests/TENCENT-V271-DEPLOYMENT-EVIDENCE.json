@@ -1,0 +1,98 @@
+{
+    "release":  "v2.7.1",
+    "kind":  "tencent-dev-deployment",
+    "checkedAt":  "2026-11-01T09:05:00Z",
+    "scope":  "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+    "host":  {
+                 "name":  "ins-j3ou8dmy",
+                 "hostname":  "VM-0-5-ubuntu",
+                 "public":  "134.175.243.146",
+                 "internal":  "192.168.0.5"
+             },
+    "deployment":  {
+                       "startedAt":  "2026-11-01T09:00:16+08:00",
+                       "httpMcpRoot":  "/opt/im2a/v2.7.1",
+                       "httpMcpVersion":  "0.21.0",
+                       "nodeServerSha256":  "82b676cccb1d1955f231a3d1eba7abd83c5875e95fc0acb40a850e75ad9d5d4b",
+                       "skillClaimSha256":  "95476f4ccf34dff4bb5c39c029a5eaead91343d15089cc560d98af19b5583f5d",
+                       "nodePackageSha256":  "e497c7784b1d621a4de11258b7db9f8ffd44449d0680793c711e0d851d17ff03",
+                       "goMcpVersion":  "0.21.0",
+                       "goMcpSha256":  "d2b0c56ca12f436d08e1b499bb3f9fd02217519632cb449a792e5f9388193f34",
+                       "goMcpWindowsSha256":  "c7c7ffe43549caae3c2f8a2e0a57f4bb6194e9d3ebc57c86c69a61e929676238",
+                       "goMcpPaths":  [
+                                          "/opt/im2a/v2.7.1/bin/im2a-mcp",
+                                          "/opt/im2a/v2.5.2/bin/im2a-mcp"
+                                      ],
+                       "service":  "im2a-http-mcp.service",
+                       "serviceState":  "active",
+                       "listener":  "127.0.0.1:18082"
+                   },
+    "liveChecks":  {
+                       "toolCount":  29,
+                       "draft":  {
+                                     "draftId":  "draft_ad5a17fab39c23f386b6e3c7",
+                                     "targetSkillId":  "claim-source-skill",
+                                     "applied":  false
+                                 },
+                       "claim":  {
+                                     "claimId":  "claim_9873d2e632482b096605b45b",
+                                     "skillId":  "claimed-live-skill",
+                                     "action":  "create",
+                                     "version":  "0.1.0",
+                                     "originAgent":  "did:im2a:claim-live-agent",
+                                     "guardAuditEventId":  "evt_61b89fa40ab186be3e99a72f",
+                                     "contributionLogRef":  "skills/claimed-live-skill/.im2a/contributions.jsonl"
+                                 },
+                       "metadata":  {
+                                        "im2a.origin_agent":  "did:im2a:claim-live-agent",
+                                        "im2a.origin_credit_at_claim":  "0.72",
+                                        "im2a.contribution_log_ref":  "skills/claimed-live-skill/.im2a/contributions.jsonl",
+                                        "im2a.skill_lineage":  "[\"did:im2a:claim-live-agent@0.1.0\"]",
+                                        "im2a.patch_depth":  "0"
+                                    },
+                       "firstEntry":  {
+                                          "goalId":  "goal_67b1c0e66885bbdfd97180f0",
+                                          "action":  "create",
+                                          "versionBefore":  null,
+                                          "versionAfter":  "0.1.0",
+                                          "prevHash":  null,
+                                          "entryHash":  "6e47af76cf3a88e5219029a49cacbaeb7f9a1633d01018bea5c860551904aa4c",
+                                          "independentHashOk":  true
+                                      },
+                       "chain":  {
+                                     "ok":  true,
+                                     "count":  1
+                                 },
+                       "goalTraceable":  true,
+                       "goMcpTools":  29
+                   },
+    "cleanup":  {
+                    "performed":  true,
+                    "remainingSkills":  0,
+                    "remainingGoals":  3,
+                    "activeGoals":  0,
+                    "note":  "source skill, claimed skill, contribution log, draft, and test goal were removed"
+                },
+    "evidenceFiles":  [
+                          "tests/TENCENT-V271-CLAIM-EVIDENCE.json",
+                          "tests/V271-CLAIM-UNIT-EVIDENCE.json",
+                          "tests/V271-WINDOWS-MCP-EVIDENCE.json",
+                          "docs/design/IM2A-v2.7.1-SKILL-CLAIM.md"
+                      ],
+    "backup":  "/opt/backups/im2a-mcp-pre-v2.7.1-20261101090016",
+    "rollback":  "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.7.0 tree and data are untouched",
+    "notClaimed":  [
+                       "consensus ledger",
+                       "credit/reputation consumer formula",
+                       "cross-agent foreign-owner patch",
+                       "production readiness",
+                       "TLS or multi-tenant authorization"
+                   ],
+    "openP0":  [
+                   "contribution hash chain is lightweight",
+                   "credit/reputation consumption is later work",
+                   "cross-agent patch remains blocked by guard owner rules",
+                   "curator/operator separation and per-conversation seq remain open"
+               ],
+    "hotfixBackup":  "/opt/backups/im2a-mcp-v2.7.1-hotfix-20261101091103"
+}

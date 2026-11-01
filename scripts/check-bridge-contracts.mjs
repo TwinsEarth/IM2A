@@ -22,7 +22,7 @@ const EXPECTED_TOOLS = [
   "curator_audit", "skill_guard_check", "memory_recall_v2", "evolution_pipeline_dryrun",
   "drive_list", "drive_manage", "goal_buffer", "drive_propose",
   "scheduler_cycle", "scheduler_audit", "goal_schedule", "drive_calibrate",
-  "autonomy_pipeline_dryrun"
+  "autonomy_pipeline_dryrun", "skill_claim"
 ];
 
 /**
@@ -58,7 +58,8 @@ const SCOPE_BY_TOOL = {
   scheduler_audit: ["scheduler:read"],
   goal_schedule: ["goal:write", "scheduler:write"],
   drive_calibrate: ["drive:read", "goal:read", "curator:read"],
-  autonomy_pipeline_dryrun: ["drive:read", "goal:read", "curator:read", "memory:read", "trace:read"]
+  autonomy_pipeline_dryrun: ["drive:read", "goal:read", "curator:read", "memory:read", "trace:read"],
+  skill_claim: ["skill:propose", "goal:read", "curator:read"]
 };
 
 async function readJson(root, rel) {

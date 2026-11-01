@@ -8,7 +8,7 @@ url: http://127.0.0.1:18082/mcp
 ```
 
 It carries no token, no `im2a-mcp` binary path, and no launcher. The local
-Agent Plugins 2.0 HTTP MCP service owns SQLite/FTS5/trace JSONL and exposes 28 tools.
+Agent Plugins 2.0 HTTP MCP service owns SQLite/FTS5/trace JSONL and exposes 29 tools.
 
 ## Prerequisite
 

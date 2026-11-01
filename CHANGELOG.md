@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.7.1 — 2026-11-01 skill claim and contribution chain
+
+- Added `skill_claim`; tool surface 28 -> 29.
+- Draft resolution by draft_id, goal/source-signal traceability check.
+- L2 `skill:write` guard before any write.
+- Create writes origin metadata and version 0.1.0; patch preserves origin,
+  increments minor version and appends a hash-linked contribution entry.
+- Added `verifyContributionChain` and claim tests.
+
 ## v2.7.0 — 2026-11-01 skill metadata ownership namespace
 
 - Added the agentskills.io `metadata` ownership namespace with five frozen

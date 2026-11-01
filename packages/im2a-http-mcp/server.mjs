@@ -27,6 +27,7 @@ import { scheduleGoal } from "./goal-executor.mjs";
 import { calibrateDrives } from "./drive-calibrate.mjs";
 import { runAutonomyPipelineDryRun } from "./autonomy-pipeline.mjs";
 import { assertNoAgentMetadataEdit } from "./skill-metadata.mjs";
+import { claimDraftSkill, SkillClaimError } from "./skill-claim.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -66,6 +67,7 @@ const scheduler = new ReservedScheduler({
   reservedTaskTokens: schedulerConfig.reserved_task_tokens,
 });
 const DRAFTS_DIR = process.env.IM2A_DRAFTS_DIR ?? join(DB_DIR, "drafts");
+const SKILLS_DIR = process.env.IM2A_SKILLS_DIR ?? join(DB_DIR, "skills");
 
 let gatewaySession = null;
 let gatewaySessionToken = "";
@@ -442,6 +444,33 @@ const TOOLS = [
     },
   },
   {
+    name: "skill_claim",
+    description: "Claim a goal_schedule draft as an owned skill. Requires L2 skill:write via skill_guard_check; appends an initial or successive hash-linked contribution entry and never overwrites im2a.origin_agent.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        draft_id: { type: "string", pattern: "^draft_[0-9a-f]{24}$" },
+        target_skill_id: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{1,63}$" },
+        new_skill_name: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{1,63}$" },
+        claim_justification: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            goal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
+            source_signals: { type: "array", minItems: 1, items: { type: "object" } },
+            trace_id: { type: "string", pattern: "^[0-9a-f]{32}$" },
+            description: { type: "string", minLength: 1, maxLength: 1024 },
+            origin_credit_at_claim: { type: "number", minimum: 0, maximum: 1 },
+          },
+          required: ["goal_id", "source_signals"],
+        },
+      },
+      required: ["agent_did", "draft_id", "claim_justification"],
+    },
+  },
+  {
     name: "autonomy_pipeline_dryrun",
     description: "Read-only autonomy handoff proof: drive_propose -> temporary goal_schedule -> simulated v2.7 skill_claim schema. Never writes production goals, skills, drives or drafts.",
     inputSchema: {
@@ -570,10 +599,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.20.0",
+            version: "0.21.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-nine tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, skill claim, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable; skill_claim requires L2 and writes a hash-linked contribution chain).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -587,8 +616,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.20.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.21.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-nine tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, skill claim, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable; skill_claim requires L2 and writes a hash-linked contribution chain).",
       },
     };
   }
@@ -952,6 +981,46 @@ async function handleRpc(message, context = {}) {
               source: "reserved_pool",
             },
           }),
+        };
+      }
+      if (name === "skill_claim") {
+        const agentDid = String(args.agent_did);
+        const targetSkillId = args.target_skill_id ? String(args.target_skill_id) : null;
+        const newSkillName = args.new_skill_name ? String(args.new_skill_name) : null;
+        if (targetSkillId && newSkillName) throw new SkillClaimError("CLAIM_TARGET_AMBIGUOUS");
+        if (!targetSkillId && !newSkillName) throw new SkillClaimError("CLAIM_TARGET_REQUIRED");
+        const justification = args.claim_justification;
+        if (!justification || typeof justification !== "object") throw new SkillClaimError("CLAIM_JUSTIFICATION_REQUIRED");
+        const goal = goalBuffer.get(String(justification.goal_id));
+        if (!goal) throw new SkillClaimError("GOAL_NOT_FOUND");
+        for (const signal of justification.source_signals ?? []) {
+          if (!goal.source_signals.some((item) => item.type === signal.type && item.id === signal.id)) {
+            throw new SkillClaimError("SOURCE_SIGNALS_INVALID");
+          }
+        }
+        const guard = await skillGuard.check({
+          session: guardSession,
+          agentDid,
+          operation: targetSkillId ? "patch" : "create",
+          targetSkillId: targetSkillId ?? newSkillName,
+          targetOwnerDid: targetSkillId ? skillStore.ownerOf(targetSkillId) : agentDid,
+        });
+        if (!guard.allowed) return { jsonrpc: "2.0", id, result: resultText(guardDeniedText(guard), true) };
+        const result = await claimDraftSkill({
+          skillStore,
+          skillsDir: SKILLS_DIR,
+          draftsDir: DRAFTS_DIR,
+          agentDid,
+          draftId: String(args.draft_id),
+          targetSkillId,
+          newSkillName,
+          claimJustification: justification,
+          traceId: justification.trace_id ? String(justification.trace_id) : null,
+          now: Date.now(),
+        });
+        return {
+          jsonrpc: "2.0", id,
+          result: resultText({ ...result, guard_audit_event_id: guard.audit_event_id }),
         };
       }
       if (name === "autonomy_pipeline_dryrun") {

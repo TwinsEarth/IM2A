@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-11-01T01:11:26.913Z",
+  "toolCount": 29,
+  "sourceSkill": "claim-source-skill",
+  "claimedSkill": "claimed-live-skill",
+  "draft": {
+    "draft_id": "draft_ad5a17fab39c23f386b6e3c7",
+    "target_skill_id": "claim-source-skill",
+    "applied": false
+  },
+  "claim": {
+    "claim_id": "claim_9873d2e632482b096605b45b",
+    "skill_id": "claimed-live-skill",
+    "action": "create",
+    "version": "0.1.0",
+    "origin_agent": "did:im2a:claim-live-agent",
+    "guard_audit_event_id": "evt_61b89fa40ab186be3e99a72f",
+    "contribution_log_ref": "skills/claimed-live-skill/.im2a/contributions.jsonl"
+  },
+  "metadata": {
+    "im2a.origin_agent": "did:im2a:claim-live-agent",
+    "im2a.origin_credit_at_claim": "0.72",
+    "im2a.contribution_log_ref": "skills/claimed-live-skill/.im2a/contributions.jsonl",
+    "im2a.skill_lineage": "[\"did:im2a:claim-live-agent@0.1.0\"]",
+    "im2a.patch_depth": "0"
+  },
+  "firstEntry": {
+    "agent_did": "did:im2a:claim-live-agent",
+    "action": "create",
+    "version_before": null,
+    "version_after": "0.1.0",
+    "goal_id": "goal_67b1c0e66885bbdfd97180f0",
+    "prev_hash": null,
+    "entry_hash": "6e47af76cf3a88e5219029a49cacbaeb7f9a1633d01018bea5c860551904aa4c",
+    "independentHashOk": true
+  },
+  "chain": {
+    "ok": true,
+    "count": 1,
+    "last_hash": "6e47af76cf3a88e5219029a49cacbaeb7f9a1633d01018bea5c860551904aa4c",
+    "errors": []
+  },
+  "goalId": "goal_67b1c0e66885bbdfd97180f0"
+}
