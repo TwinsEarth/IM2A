@@ -232,9 +232,10 @@ MCP 工具名必须是 `^[a-z0-9_]+$`，且当前 `docs/contracts/mcp-bridge-too
    `@twinsearth/w2m-dsh-plugin` 里。3.2.1 不得声称"已接许可"。
 2. `im2a-http-mcp@0.22.0` 在 `127.0.0.1:18082` 实测健康：
    `initialize` 200、`tools/list` 30、`serverInfo.version=0.22.0`。
-3. 但本轮 DSH 会话未挂载 `mcp__im2a__*`：工具面在服务端可达，
-   宿主侧没有注册成功过。根因待查（启动顺序或 transport 校验），
-   **不要在未确认前改 bundle 再重启**。
+3. 单 bundle 安装后宿主侧已挂载 `mcp__im2a__*` 共 30 个（2026-11-02 00:xx 实测），
+   此前「工具面可达、宿主侧未注册」的问题由单一 bundle 修复。
+   真正卡住调用的是网关 `127.0.0.1:18080` 缺失，见
+   [本地网关的 Windows 构建](IM2A-LOCAL-GATEWAY-WINDOWS.md)。
 4. 契约冲突：`agent-plugin-2.0.schema.json` 对 `streamable-http`
    要求 `url` + `tlsRequired`，并对 `https` 有强制 pattern；
    而 profile 实际用的是 `http://127.0.0.1:18082/mcp`。
@@ -250,12 +251,14 @@ plugin.json 自检                          PASS   validateManifest()
 模块拓扑与逆序卸载                         PASS   tests/v321-plugin-shell.test.mjs
 30 条别名映射完整性 + 新名唯一              PASS   30/30，来自运行中 bridge 的真实 schema hash
 planned 模块无工具、返回 not_implemented    PASS   identity/economy/governance
-tools/list = 旧名 + 新名 + 元工具           PARTIAL registry 已具备，MCP 宿主侧尚未挂载
-单 bundle 安装后一条 MCP 行                 NOT STARTED
+tools/list = 旧名 + 新名 + 元工具           PASS   MCP 宿主侧挂载 30 个 mcp__im2a__*
+单 bundle 安装后一条 MCP 行                 PASS   Config.listConfigs 仅 include:im2a-mcp
 kernel_status 如实报告 planned/unavailable  PASS   statusReport()
+真实工具调用（L3）                          PASS   im2a_whoami / presence / harness_list
 ```
 
 已通过：`node --test tests/v321-plugin-shell.test.mjs` → 8 passed / 0 failed。
+L3 证据见 [本地网关的 Windows 构建与验证](IM2A-LOCAL-GATEWAY-WINDOWS.md)。
 
 ## 12. 品牌与插件页展示
 
