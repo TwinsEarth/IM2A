@@ -1,0 +1,6 @@
+{
+  "checkedAt": "2026-11-01T00:36:52.792Z",
+  "isError": true,
+  "text": "IM2A_METADATA_READ_ONLY: im2a.* metadata is written only by skill_claim/skill_patch",
+  "skillVisible": false
+}

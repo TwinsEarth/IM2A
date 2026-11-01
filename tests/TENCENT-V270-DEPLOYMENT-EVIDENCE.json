@@ -1,0 +1,95 @@
+{
+  "release": "v2.7.0",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T08:38:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T08:35:16+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.7.0",
+    "httpMcpVersion": "0.20.0",
+    "nodeServerSha256": "682438e53193f710259e3e9dc90db4ead60e3b1a39cced4c1f0da4cb2c1fd870",
+    "skillMetadataSha256": "4452189c9b492af087bc38f2246ef0f90abf8d7be79d36335685100d030346be",
+    "nodePackageSha256": "e0d1081737f05e623b36f10f8438c048462d29e0dbe180c6cba37219adcb85ee",
+    "goMcpVersion": "0.20.0",
+    "goMcpSha256": "41825f38cf050f55a9c56b54b4bd5894edca464705a8df141800390f5ed16fcb",
+    "goMcpWindowsSha256": "ec7065573eb5068d89eb7704d638128a21d7520a5c10ae304dcf660e1116e601",
+    "goMcpPaths": [
+      "/opt/im2a/v2.7.0/bin/im2a-mcp",
+      "/opt/im2a/v2.5.2/bin/im2a-mcp"
+    ],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "toolCount": 28,
+    "claimedSkill": {
+      "skillId": "metadata-claim-test",
+      "packageSha": "89e0a33c799eeff37e48cb6590bb13308cd6c099dbae05e96855674e1168d95e",
+      "standardFields": {
+        "name": "metadata-claim-test",
+        "description": "Standard-client compatible metadata claim fixture.",
+        "bodyContainsMarker": true
+      },
+      "metadataKeys": [
+        "im2a.contribution_log_ref",
+        "im2a.origin_agent",
+        "im2a.origin_credit_at_claim",
+        "im2a.patch_depth",
+        "im2a.skill_lineage"
+      ],
+      "metadata": {
+        "im2a.origin_agent": "did:im2a:agent:v270-accept",
+        "im2a.origin_credit_at_claim": "0.72",
+        "im2a.contribution_log_ref": "skills/metadata-claim-test/.im2a/contributions.jsonl",
+        "im2a.skill_lineage": "[\"did:im2a:agent:v270-accept@v1\"]",
+        "im2a.patch_depth": "0"
+      },
+      "contributionLogPath": "/opt/im2a/v2.7.0/data/skills/metadata-claim-test/.im2a/contributions.jsonl",
+      "contributionEventType": "skill_claim",
+      "contributionEventGoalId": "goal_0123456789abcdef01234567",
+      "draftApplied": false
+    },
+    "readOnlyRejection": {
+      "isError": true,
+      "code": "IM2A_METADATA_READ_ONLY",
+      "skillVisible": false
+    },
+    "goMcpTools": 28
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingSkills": 0,
+    "remainingGoals": 3,
+    "activeGoals": 0,
+    "note": "claim fixture and its JSONL removed; no production goal/draft was modified"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V270-METADATA-EVIDENCE.json",
+    "tests/TENCENT-V270-READONLY-EVIDENCE.json",
+    "tests/V270-METADATA-UNIT-EVIDENCE.json",
+    "tests/V270-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.7.0-SKILL-METADATA.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.7.0-20261101083516",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; the v2.6.9 tree and data are untouched",
+  "notClaimed": [
+    "public skill_claim tool (v2.7.1)",
+    "skill_guard integration for claim",
+    "lineage/credit accounting implementation",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "v2.7.0 exposes the claim seam, not the public skill_claim tool",
+    "claim writes are not yet routed through skill_guard_check",
+    "skill_lineage/credit are fixture-level",
+    "curator/operator separation and per-conversation seq remain open"
+  ]
+}

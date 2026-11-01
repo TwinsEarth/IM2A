@@ -26,6 +26,7 @@ import { assertAgentReservedRatioWrite, loadSchedulerConfig, ReservedScheduler }
 import { scheduleGoal } from "./goal-executor.mjs";
 import { calibrateDrives } from "./drive-calibrate.mjs";
 import { runAutonomyPipelineDryRun } from "./autonomy-pipeline.mjs";
+import { assertNoAgentMetadataEdit } from "./skill-metadata.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -569,10 +570,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.19.0",
+            version: "0.20.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -586,8 +587,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.19.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance and is not Agent-writable).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.20.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-eight tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable).",
       },
     };
   }
@@ -698,6 +699,8 @@ async function handleRpc(message, context = {}) {
       }
       if (name === "skill_manage") {
         assertAgentReservedRatioWrite(args);
+        assertNoAgentMetadataEdit(args.content ?? null);
+        assertNoAgentMetadataEdit(args.files ?? null);
         const action = String(args.action);
         const targetId = String(args.id);
         const guard = await skillGuard.check({

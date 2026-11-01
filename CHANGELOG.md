@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.7.0 — 2026-11-01 skill metadata ownership namespace
+
+- Added the agentskills.io `metadata` ownership namespace with five frozen
+  `im2a.*` keys.
+- Added `skill-metadata-1.0.schema.json`.
+- Added the internal `claimSkill` seam: SKILL.md metadata plus external
+  `.im2a/contributions.jsonl`; no public `skill_claim` tool yet.
+- `skill_manage` rejects direct `im2a.*` metadata writes with
+  `IM2A_METADATA_READ_ONLY`.
+- Standard parser compatibility and contribution-log tests added.
+
 ## v2.6.9 — 2026-11-01 autonomy handoff and v2.7 interface freeze
 
 - Added `autonomy_pipeline_dryrun`; tool surface 27 -> 28.

@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-11-01T00:36:07.157Z",
+  "skillId": "metadata-claim-test",
+  "packageSha": "89e0a33c799eeff37e48cb6590bb13308cd6c099dbae05e96855674e1168d95e",
+  "activeRow": {
+    "skill_id": "metadata-claim-test",
+    "package_sha": "89e0a33c799eeff37e48cb6590bb13308cd6c099dbae05e96855674e1168d95e"
+  },
+  "standardFields": {
+    "name": "metadata-claim-test",
+    "description": "Standard-client compatible metadata claim fixture.",
+    "bodyContainsMarker": true
+  },
+  "metadataKeys": [
+    "im2a.contribution_log_ref",
+    "im2a.origin_agent",
+    "im2a.origin_credit_at_claim",
+    "im2a.patch_depth",
+    "im2a.skill_lineage"
+  ],
+  "metadata": {
+    "im2a.origin_agent": "did:im2a:agent:v270-accept",
+    "im2a.origin_credit_at_claim": "0.72",
+    "im2a.contribution_log_ref": "skills/metadata-claim-test/.im2a/contributions.jsonl",
+    "im2a.skill_lineage": "[\"did:im2a:agent:v270-accept@v1\"]",
+    "im2a.patch_depth": "0"
+  },
+  "contributionLogRef": "skills/metadata-claim-test/.im2a/contributions.jsonl",
+  "contributionLogPath": "/opt/im2a/v2.7.0/data/skills/metadata-claim-test/.im2a/contributions.jsonl",
+  "contributionEvent": {
+    "event_id": "contrib_b65c39763c2aedab6a5ae368",
+    "at": "2026-11-01T00:36:07.146Z",
+    "event_type": "skill_claim",
+    "goal_id": "goal_0123456789abcdef01234567",
+    "agent_did": "did:im2a:agent:v270-accept",
+    "draft_id": "draft_0123456789abcdef01234567",
+    "draft_sha256": "6c70c3a740d8fed92a18ef5abef7f66612f40a91baabd70408a337b5798d5f3a",
+    "target_skill_id": "metadata-claim-test",
+    "credit_at_claim": 0.72,
+    "patch_depth": 0
+  },
+  "skillMdPath": "/opt/im2a/v2.7.0/data/skills/metadata-claim-test/SKILL.md",
+  "draftApplied": false
+}

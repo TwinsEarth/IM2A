@@ -1,0 +1,37 @@
+{
+  "release": "v2.7.0",
+  "kind": "local-skill-metadata-namespace",
+  "checkedAt": "2026-11-01T08:36:00Z",
+  "toolSurface": 28,
+  "tests": {
+    "skillMetadata": { "total": 1, "passed": 1 },
+    "cases": [
+      "skill claim metadata is standard-client compatible and contribution log is external JSONL"
+    ]
+  },
+  "localAcceptance": {
+    "metadataKeys": [
+      "im2a.origin_agent",
+      "im2a.origin_credit_at_claim",
+      "im2a.contribution_log_ref",
+      "im2a.skill_lineage",
+      "im2a.patch_depth"
+    ],
+    "standardFields": { "name": true, "description": true, "body": true },
+    "contributionLogJsonl": true,
+    "draftApplied": false,
+    "directAgentMetadataEdit": "IM2A_METADATA_READ_ONLY"
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 28
+  },
+  "limits": [
+    "public skill_claim tool is v2.7.1; v2.7.0 provides the internal claim seam",
+    "skill_lineage is a JSON string inside the string-valued metadata map",
+    "skill_guard integration is deferred to v2.7.1 claim",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

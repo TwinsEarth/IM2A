@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/skill-metadata-1.0.schema.json",
+  "title": "IM2A v2.7.0 agentskills.io metadata ownership namespace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description", "metadata"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "description": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "im2a.origin_agent",
+        "im2a.origin_credit_at_claim",
+        "im2a.contribution_log_ref",
+        "im2a.skill_lineage",
+        "im2a.patch_depth"
+      ],
+      "properties": {
+        "im2a.origin_agent": { "type": "string", "pattern": "^did:[a-z0-9]+:[A-Za-z0-9._:%-]{3,200}$" },
+        "im2a.origin_credit_at_claim": { "type": "string", "pattern": "^(?:0(?:\\.[0-9]+)?|1(?:\\.0+)?)$" },
+        "im2a.contribution_log_ref": { "type": "string", "pattern": "^skills/[a-z0-9][a-z0-9-]{1,63}/\\.im2a/contributions\\.jsonl$" },
+        "im2a.skill_lineage": { "type": "string", "minLength": 2 },
+        "im2a.patch_depth": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,3})$" }
+      },
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

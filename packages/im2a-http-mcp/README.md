@@ -72,7 +72,10 @@ and writes only a candidate draft under `drafts/`; it never writes a skill.
 suggestions without modifying `drives/`.
 `reserved_ratio` is a Harness-governed setting: scheduler cycles may adjust it
 within ±0.05 of the Agent's base ratio using audited completion and capacity
-metrics. Agent skill writes containing `reserved_ratio` are rejected. `drive_propose` also reads up to five
+metrics. Agent skill writes containing `reserved_ratio` are rejected.
+Skill ownership uses the agentskills.io `metadata` map with `im2a.*` string
+keys; `im2a.*` writes are rejected on `skill_manage` and reserved for the
+v2.7.1 `skill_claim`/v2.7.3 `skill_patch` paths. `drive_propose` also reads up to five
 recent `skill_load` traces for each candidate skill and runs a lightweight
 `success_pattern` reflection; negative trace evidence halves the proposal's
 `priority_score` (not a veto).
