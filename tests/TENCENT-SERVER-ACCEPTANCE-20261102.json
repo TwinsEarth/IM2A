@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "tencent-server-acceptance",
+  "checkedAt": "2026-11-02T05:03:56+08:00",
+  "method": "ssh ubuntu@134.175.243.146 (password auth) + loopback HTTP probes on the host",
+  "scope": "verify the existing v2.7.2 stack; no files were modified on the server",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5",
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.8.0-138-generic"
+  },
+  "services": {
+    "im2a-gateway": { "active": true, "enabled": true, "port": 18080 },
+    "im2a-http-mcp": { "active": true, "enabled": true, "port": 18082, "workdir": "/opt/im2a/v2.7.2" }
+  },
+  "listeners": [
+    "127.0.0.1:18081",
+    "127.0.0.1:18082",
+    "*:18080",
+    "[::1]:18081"
+  ],
+  "gateway": {
+    "binary": "/opt/im2a/bin/im2a-gateway",
+    "sha256": "8e13aa48f6a6e4c135dc5af43f01a9bb23a9f6d8efae969191d1c11daf00adf1",
+    "healthzStatus": 401,
+    "note": "healthz is token-gated; 401 without credentials is the expected answer, not a failure"
+  },
+  "httpMcp": {
+    "healthzStatus": 200,
+    "serverVersion": "0.22.0",
+    "toolCount": 30,
+    "packageDir": "/opt/im2a/v2.7.2/packages/im2a-http-mcp",
+    "v272FilesPresent": ["server.mjs", "skill-audit.mjs", "skill-claim.mjs", "skill-guard.mjs", "skill-metadata.mjs"]
+  },
+  "live": {
+    "whoami": {
+      "harness": "deepseek-harness",
+      "agent": "dsh",
+      "sessionId": "hs_e382928dfbee",
+      "transport": "streamable-http"
+    },
+    "presence": { "count": 1 },
+    "harnessList": { "harnesses": 33, "gatewaySessions": 17 },
+    "skillsList": { "count": 0 }
+  },
+  "checks": {
+    "gatewayActiveEnabled": "PASS",
+    "httpMcpActiveEnabled": "PASS",
+    "httpMcpHealth": "PASS",
+    "initializeProtocol": "PASS",
+    "toolCount30": "PASS",
+    "whoamiThroughBridge": "PASS",
+    "presenceThroughBridge": "PASS",
+    "harnessRegistryThroughBridge": "PASS",
+    "skillsListLocal": "PASS"
+  },
+  "findings": [
+    "18080 binds all interfaces (*:18080), not loopback-only; 18082 is loopback-only as designed.",
+    "A 18081 loopback listener is present (not part of this release; untouched).",
+    "whoami created harness session hs_e382928dfbee on the shared gateway (in-memory; cleared on gateway restart)."
+  ],
+  "notClaimed": [
+    "TLS or public exposure of 18082",
+    "multi-tenant authorization",
+    "production HA/backup automation",
+    "gateway v2.5.3 upgrade (same version as the local source snapshot)"
+  ]
+}
