@@ -1,0 +1,16 @@
+# IM2A single bundle: exactly one MCP row, no overlay layer.
+#
+# One package, one manifest, one lifecycle. Do not add a second bundle that
+# overrides this row: layered overrides are what made startup order-dependent.
+#
+# The bridge binds loopback only. failOnStartupError stays false so a bridge
+# that is not up yet leaves the row unavailable instead of failing the whole
+# Harness boot; `im2a_kernel_status` reports the row state afterwards.
+- insert:
+    - id: im2a-mcp
+      name: "@deepseek-ai/dsh-mcp-client"
+      config:
+        serverName: im2a
+        transport: streamable-http
+        url: "http://127.0.0.1:18082/mcp"
+        failOnStartupError: false

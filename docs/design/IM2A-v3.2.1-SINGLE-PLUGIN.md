@@ -7,7 +7,7 @@
 
 | 项 | 决定 |
 | --- | --- |
-| 分发单元 | 1 个包 `dsh-im2a`，1 个 `plugin.json`，1 个版本号 `3.2.1` |
+| 分发单元 | 1 个包 `dsh-im2a-plugin`（npm `@twinsearth/dsh-im2a-plugin`），1 个 `plugin.json`，1 个版本号 `3.2.1` |
 | 内部边界 | 内核 1 + 能力模块 9 + 商用模块 5，均为包内目录，不是独立包 |
 | 工具面 | 外部只调总线，命名 `im2a_<module>_<tool>` |
 | 旧名兼容 | 全部 30 个旧工具名保留为别名，两个发布周期（3.2.x、3.3.x） |
@@ -32,8 +32,13 @@ C1–C7 的运行时新逻辑、schema 冻结哈希的强制校验。
 ## 2. 包结构
 
 ```text
-packages/dsh-im2a/
-  plugin.json                    # 唯一 manifest（本版已落地）
+packages/dsh-im2a-plugin/
+  package.json                   # DSH bundle 清单：name/exports/icon/locale/patch
+  cordis.patch.yml               # 单一 bundle，只插入一条 im2a-mcp 行
+  locale/zh.json                 # 插件页标题与详情（zh）
+  locale/en.json                 # 插件页标题与详情（en）
+  icon.svg                       # 插件图标（SVG，< 256 KiB）
+  plugin.json                    # 唯一 IM2A manifest（本版已落地）
   kernel/
     registry.mjs                 # 注册表、拓扑、别名解析、总线错误值（本版已落地）
     bus.mjs                      # 路由 + 超时 + 熔断（3.2.x 后续）
@@ -57,8 +62,13 @@ packages/dsh-im2a/
 ```jsonc
 {
   "schemaVersion": "3.0",
-  "name": "dsh-im2a",
+  "name": "dsh-im2a-plugin",
   "version": "3.2.1",
+  "display": {
+    "title": "智能体宇宙—IM2A",
+    "locales": ["zh", "en"],
+    "icon": "icon.svg"
+  },
   "kernel": {
     "module_version": "1.0.0",
     "constitution_hash": null,        // 阶段一为 null，冻结后写入
@@ -247,9 +257,30 @@ kernel_status 如实报告 planned/unavailable  PASS   statusReport()
 
 已通过：`node --test tests/v321-plugin-shell.test.mjs` → 8 passed / 0 failed。
 
-## 12. 待决策
+## 12. 品牌与插件页展示
+
+| 项 | 值 |
+| --- | --- |
+| 插件名 | `dsh-im2a-plugin`（npm：`@twinsearth/dsh-im2a-plugin`） |
+| 主标题 | 智能体宇宙—IM2A |
+| 详情页（zh） | `locale/zh.json` → `meta.title` / `meta.description` |
+| 详情页（en） | `locale/en.json` → `meta.title` / `meta.description` |
+| 图标 | `icon.svg`（SVG，< 256 KiB，随包分发） |
+| 导出口 | `"./locale/*.json"`、`"./icon"`，均在 `files` 中 |
+
+详情页文案（zh，原文照录）：
+
+> 一个面向 Agent 开发&开放的即时连接网络：让每个人都拥有自己专属的 AI 秘书、
+> 助理与管家&团队。传统 IM 连接人，人类被海量信息奴役；IM2A 连接 Agent 网络，
+> 人类退居幕后，掌握最终裁决权。这不仅是 IM，更是 AGI 时代个人生活方式的
+> 「数字平权」基础设施。
+
+插件页读的是 `locale/*.json` 的 `meta`，不是 `plugin.json`；两处都写是为了让
+包内文档与插件页一致，单一事实来源仍是 locale 文件。
+
+## 13. 待决策
 
 1. `allowInsecureLoopback` 与 TLS 二选一（§10.4）。
-2. 顶层包名与 npm scope：`dsh-im2a` 还是 `@twinsearth/dsh-im2a`。
-3. 别名保留两个发布周期的弃用时间点需写进 `CHANGELOG`。
-4. DSH 侧 IM2A 工具未挂载是否本轮修复（需要重启，当前会话不宜重启）。
+2. 别名保留两个发布周期的弃用时间点需写进 `CHANGELOG`。
+3. DSH 侧 IM2A 工具未挂载是否本轮修复（需要重启，当前会话不宜重启）。
+4. npm scope 用 `@twinsearth/dsh-im2a-plugin` 还是无 scope 的 `dsh-im2a-plugin`。

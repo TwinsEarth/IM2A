@@ -34,7 +34,7 @@ export async function loadPlugin(root = PLUGIN_ROOT) {
 export function validateManifest(manifest) {
   const errors = [];
   if (manifest?.schemaVersion !== "3.0") errors.push("schemaVersion must be 3.0");
-  if (manifest?.name !== "dsh-im2a") errors.push("name must be dsh-im2a");
+  if (manifest?.name !== "dsh-im2a-plugin") errors.push("name must be dsh-im2a-plugin");
   if (!/^\d+\.\d+\.\d+$/.test(manifest?.version ?? "")) errors.push("version must be semver");
   if (!manifest?.kernel?.module_version) errors.push("kernel.module_version is required");
   if (manifest?.kernel?.status !== "available") errors.push("kernel must be available");

@@ -1,0 +1,28 @@
+{
+  "name": "@twinsearth/dsh-im2a-plugin",
+  "version": "3.2.1",
+  "description": "IM2A — an instant network for agents: kernel plus nine capability modules in one package.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "dsh": "0.2.1-rc.5" },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "exports": {
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json",
+    "./plugin.json": "./plugin.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "plugin.json",
+    "kernel/*.mjs",
+    "migrations/*",
+    "README.md"
+  ],
+  "publishConfig": { "access": "public" }
+}

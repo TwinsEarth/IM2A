@@ -11,9 +11,9 @@ import {
   effectiveStatus,
   loadPlugin,
   validateManifest,
-} from "../packages/dsh-im2a/kernel/registry.mjs";
+} from "../packages/dsh-im2a-plugin/kernel/registry.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "packages", "dsh-im2a");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "packages", "dsh-im2a-plugin");
 const LEGACY_TOOLS = [
   "autonomy_pipeline_dryrun",
   "contribution_audit",
@@ -52,7 +52,7 @@ test("manifest is a valid 3.2.1 single-package shell", async () => {
   const { manifest } = await loadPlugin(ROOT);
   const guard = validateManifest(manifest);
   assert.deepEqual(guard.errors, []);
-  assert.equal(manifest.name, "dsh-im2a");
+  assert.equal(manifest.name, "dsh-im2a-plugin");
   assert.equal(manifest.version, "3.2.1");
   assert.equal(manifest.premium.license_implemented, false);
   for (const id of PLANNED) {
