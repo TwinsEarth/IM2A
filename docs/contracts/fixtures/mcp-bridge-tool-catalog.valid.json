@@ -1,6 +1,6 @@
 {
   "profileVersion": "2.0",
-  "toolCatalogVersion": "2.7.1",
+  "toolCatalogVersion": "2.7.2",
   "mcp": {
     "protocolVersion": "2026-07-28",
     "transport": "streamable-http",
@@ -874,6 +874,35 @@
         "required": ["claim_id", "skill_id", "version", "contribution_log_ref"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "SKILL_NOT_FOUND", "SKILL_EXISTS", "SKILL_WRITE_DENIED", "DRAFT_NOT_FOUND", "GOAL_NOT_FOUND", "SOURCE_SIGNALS_INVALID", "CONTRIBUTION_CHAIN_INVALID", "SKILL_METADATA_MISSING", "INTERNAL"]
+    },
+    {
+      "name": "contribution_audit",
+      "title": "Audit a contribution chain",
+      "description": "Read-only contribution chain audit for one skill. Verifies seq/prev_hash/entry_hash integrity, returns filtered entries, unique contributors and effective patch count. Never writes or repairs.",
+      "scope": ["skill:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "skill_id": { "type": "string" },
+          "agent_did": { "type": "string" }
+        },
+        "required": ["skill_id"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "entries": { "type": "array" },
+          "integrity_status": { "type": "string" },
+          "unique_contributor_count": { "type": "integer" },
+          "effective_patch_count": { "type": "integer" }
+        },
+        "required": ["entries", "integrity_status", "unique_contributor_count", "effective_patch_count"]
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "SKILL_METADATA_MISSING", "SKILL_METADATA_INVALID", "INVALID_AGENT_DID", "INTERNAL"]
     }
   ]
 }

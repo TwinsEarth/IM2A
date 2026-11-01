@@ -34,20 +34,40 @@ function canonical(value) {
 export function contributionEntryHash(entry) {
   const copy = { ...entry };
   delete copy.entry_hash;
-  return createHash("sha256").update(canonical(copy)).digest("hex");
+  return `sha256:${createHash("sha256").update(canonical(copy)).digest("hex")}`;
+}
+
+export function isEffectivePatch(entry) {
+  if (!entry || entry.action !== "patch" || !entry.validation_evidence) return false;
+  const evidence = entry.validation_evidence;
+  if (!Number.isInteger(evidence.post_patch_success_count) || evidence.post_patch_success_count < 0) return false;
+  if (!Number.isInteger(evidence.post_patch_failure_count) || evidence.post_patch_failure_count < 0) return false;
+  if (!Array.isArray(evidence.verifier_agents)) return false;
+  return evidence.verifier_agents.some((did) => typeof did === "string" && did !== entry.agent_did);
 }
 
 export function verifyContributionChain(entries) {
   const errors = [];
   let previous = null;
+  let brokenAt = null;
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
-    if (entry.prev_hash !== previous) errors.push(`entry ${index}: prev_hash mismatch`);
-    if (!SHA_RE.test(String(entry.entry_hash ?? ""))) errors.push(`entry ${index}: entry_hash invalid`);
-    if (contributionEntryHash(entry) !== entry.entry_hash) errors.push(`entry ${index}: entry_hash mismatch`);
+    const seq = Number.isInteger(entry.seq) ? entry.seq : index + 1;
+    if (entry.prev_hash !== previous) {
+      errors.push(`entry ${seq}: prev_hash mismatch`);
+      if (brokenAt === null) brokenAt = seq;
+    }
+    if (!/^sha256:[0-9a-f]{64}$/.test(String(entry.entry_hash ?? ""))) {
+      errors.push(`entry ${seq}: entry_hash invalid`);
+      if (brokenAt === null) brokenAt = seq;
+    }
+    if (contributionEntryHash(entry) !== entry.entry_hash) {
+      errors.push(`entry ${seq}: entry_hash mismatch`);
+      if (brokenAt === null) brokenAt = seq;
+    }
     previous = entry.entry_hash;
   }
-  return { ok: errors.length === 0, count: entries.length, last_hash: previous, errors };
+  return { ok: errors.length === 0, count: entries.length, last_hash: previous, broken_at_seq: brokenAt, errors };
 }
 
 function validSignals(signals) {
@@ -109,6 +129,8 @@ export async function claimDraftSkill({
   newSkillName = null,
   claimJustification,
   traceId = null,
+  changedSections = [],
+  validationEvidence = null,
   now = Date.now(),
 } = {}) {
   if (typeof agentDid !== "string" || agentDid.length === 0) throw new SkillClaimError("INVALID_AGENT_DID");
@@ -118,6 +140,15 @@ export async function claimDraftSkill({
   if (!GOAL_RE.test(goalId)) throw new SkillClaimError("GOAL_INVALID");
   if (!validSignals(claimJustification.source_signals)) throw new SkillClaimError("SOURCE_SIGNALS_INVALID");
   if (traceId !== null && !TRACE_RE.test(String(traceId))) throw new SkillClaimError("TRACE_INVALID");
+  if (!Array.isArray(changedSections) || changedSections.some((section) => typeof section !== "string" || section.length === 0)) {
+    throw new SkillClaimError("CHANGED_SECTIONS_INVALID");
+  }
+  if (validationEvidence !== null) {
+    if (typeof validationEvidence !== "object" || Array.isArray(validationEvidence)) throw new SkillClaimError("VALIDATION_EVIDENCE_INVALID");
+    if (!Number.isInteger(validationEvidence.post_patch_success_count) || validationEvidence.post_patch_success_count < 0) throw new SkillClaimError("VALIDATION_EVIDENCE_INVALID");
+    if (!Number.isInteger(validationEvidence.post_patch_failure_count) || validationEvidence.post_patch_failure_count < 0) throw new SkillClaimError("VALIDATION_EVIDENCE_INVALID");
+    if (!Array.isArray(validationEvidence.verifier_agents) || validationEvidence.verifier_agents.some((did) => typeof did !== "string")) throw new SkillClaimError("VALIDATION_EVIDENCE_INVALID");
+  }
   if (targetSkillId && newSkillName) throw new SkillClaimError("CLAIM_TARGET_AMBIGUOUS");
   if (!targetSkillId && !newSkillName) throw new SkillClaimError("CLAIM_TARGET_REQUIRED");
   if (newSkillName && !SKILL_RE.test(String(newSkillName))) throw new SkillClaimError("SKILL_METADATA_INVALID", "new_skill_name invalid");
@@ -174,6 +205,7 @@ export async function claimDraftSkill({
   const skillMd = renderSkillMarkdown({ name: skillId, description, metadata, body });
   const prevHash = entries.length ? entries[entries.length - 1].entry_hash : null;
   const entry = {
+    seq: entries.length + 1,
     entry_id: `contrib_${randomBytes(12).toString("hex")}`,
     claim_id: `claim_${randomBytes(12).toString("hex")}`,
     agent_did: agentDid,
@@ -182,6 +214,8 @@ export async function claimDraftSkill({
     version_after: versionAfter,
     goal_id: goalId,
     trace_id: traceId,
+    changed_sections: changedSections,
+    validation_evidence: validationEvidence,
     timestamp: new Date(now).toISOString(),
     draft_id: draftId,
     draft_sha256: draftSha,

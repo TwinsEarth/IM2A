@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/contribution-log-1.0.schema.json",
+  "title": "IM2A v2.7.2 contribution_log JSONL entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "seq", "prev_hash", "entry_hash", "agent_did", "action",
+    "version_before", "version_after", "goal_id", "trace_id",
+    "changed_sections", "validation_evidence", "timestamp"
+  ],
+  "properties": {
+    "seq": { "type": "integer", "minimum": 1 },
+    "prev_hash": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      ]
+    },
+    "entry_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "entry_id": { "type": "string" },
+    "claim_id": { "type": "string" },
+    "agent_did": { "type": "string", "pattern": "^did:[a-z0-9]+:[A-Za-z0-9._:%-]{3,200}$" },
+    "action": { "enum": ["create", "patch"] },
+    "version_before": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+      ]
+    },
+    "version_after": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "goal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" },
+    "trace_id": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+      ]
+    },
+    "changed_sections": { "type": "array", "items": { "type": "string" } },
+    "validation_evidence": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["post_patch_success_count", "post_patch_failure_count", "verifier_agents"],
+          "properties": {
+            "post_patch_success_count": { "type": "integer", "minimum": 0 },
+            "post_patch_failure_count": { "type": "integer", "minimum": 0 },
+            "verifier_agents": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^did:[a-z0-9]+:" }
+            }
+          }
+        }
+      ]
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "draft_id": { "type": "string" },
+    "draft_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "source_signals": { "type": "array" }
+  }
+}

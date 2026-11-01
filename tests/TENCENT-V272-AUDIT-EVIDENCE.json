@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-11-01T14:36:12.643Z",
+  "toolCount": 30,
+  "goalId": "goal_86572ef701c9d759258a6205",
+  "skillId": "audit-live-skill",
+  "verified": {
+    "integrity_status": "verified",
+    "entries": 4,
+    "unique_contributor_count": 1,
+    "effective_patch_count": 3,
+    "total_patch_count": 3,
+    "seqs": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "versions": [
+      "0.1.0",
+      "0.2.0",
+      "0.3.0",
+      "0.4.0"
+    ]
+  },
+  "tampered": {
+    "integrity_status": "broken_at_seq_2",
+    "broken_at_seq": 2,
+    "errors": [
+      "entry 2: entry_hash mismatch"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "release": "v2.7.2",
+  "kind": "windows-stdio-mcp-smoke",
+  "checkedAt": "2026-11-01T14:40:00Z",
+  "binary": "release/im2a-v2.7.2/im2a-mcp-windows-amd64.exe",
+  "sha256": "e0af36636afbf7f2498796be26a0bb8a70f764d4ff73e0b097d489a25425e430",
+  "serverInfo": { "name": "im2a-harness-bridge", "version": "0.22.0" },
+  "toolCount": 30,
+  "hasContributionAudit": true,
+  "limits": ["tools/list smoke only; no audit was executed on Windows"]
+}

@@ -1,0 +1,37 @@
+{
+  "release": "v2.7.2",
+  "kind": "contribution-chain-audit",
+  "checkedAt": "2026-11-01T14:36:00Z",
+  "toolSurface": 30,
+  "tests": {
+    "contributionAudit": { "total": 1, "passed": 1 },
+    "skillClaim": { "total": 1, "passed": 1 },
+    "cases": [
+      "contribution_audit verifies three patches and reports the tampered sequence",
+      "skill_claim creates and patches an owned skill with a verifiable contribution chain"
+    ]
+  },
+  "localAcceptance": {
+    "entries": 4,
+    "seqs": [1, 2, 3, 4],
+    "versions": ["0.1.0", "0.2.0", "0.3.0", "0.4.0"],
+    "integrityStatus": "verified",
+    "tamperedStatus": "broken_at_seq_2",
+    "effectivePatchCount": 3,
+    "totalPatchCount": 3,
+    "effectiveLeTotal": true,
+    "uniqueContributorCount": 1
+  },
+  "goChecks": {
+    "build": "PASS",
+    "vet": "PASS",
+    "testSerial": "PASS, 0 failing packages (`go test -p 1 ./...`)",
+    "tools": 30
+  },
+  "limits": [
+    "lightweight hash chain, not a consensus ledger",
+    "Shapley pricing remains v2.9.x",
+    "audit is read-only and never repairs",
+    "not a production/TLS/multi-tenant claim"
+  ]
+}

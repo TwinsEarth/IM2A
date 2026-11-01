@@ -28,6 +28,7 @@ import { calibrateDrives } from "./drive-calibrate.mjs";
 import { runAutonomyPipelineDryRun } from "./autonomy-pipeline.mjs";
 import { assertNoAgentMetadataEdit } from "./skill-metadata.mjs";
 import { claimDraftSkill, SkillClaimError } from "./skill-claim.mjs";
+import { auditContributionLog } from "./skill-audit.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -444,6 +445,19 @@ const TOOLS = [
     },
   },
   {
+    name: "contribution_audit",
+    description: "Read-only contribution chain audit for one skill. Verifies seq/prev_hash/entry_hash integrity, returns filtered entries, unique contributors and effective patch count. Never writes or repairs.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        skill_id: { type: "string", pattern: "^[a-z0-9][a-z0-9-]{1,63}$" },
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+      },
+      required: ["skill_id"],
+    },
+  },
+  {
     name: "skill_claim",
     description: "Claim a goal_schedule draft as an owned skill. Requires L2 skill:write via skill_guard_check; appends an initial or successive hash-linked contribution entry and never overwrites im2a.origin_agent.",
     inputSchema: {
@@ -465,6 +479,15 @@ const TOOLS = [
             origin_credit_at_claim: { type: "number", minimum: 0, maximum: 1 },
           },
           required: ["goal_id", "source_signals"],
+        },
+        changed_sections: { type: "array", items: { type: "string" } },
+        validation_evidence: {
+          type: ["object", "null"],
+          properties: {
+            post_patch_success_count: { type: "integer", minimum: 0 },
+            post_patch_failure_count: { type: "integer", minimum: 0 },
+            verifier_agents: { type: "array", items: { type: "string" } },
+          },
         },
       },
       required: ["agent_did", "draft_id", "claim_justification"],
@@ -599,10 +622,10 @@ async function handleRpc(message, context = {}) {
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
             name: "im2a-http-mcp",
-            version: "0.21.0",
+            version: "0.22.0",
           },
         },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-nine tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, skill claim, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable; skill_claim requires L2 and writes a hash-linked contribution chain).",
+        instructions: "IM2A Agent Plugins 2.0 bridge: thirty tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, skill claim, contribution audit, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable; skill_claim requires L2 and writes a hash-linked contribution chain; contribution_audit is read-only).",
         ttlMs: 3600000,
         cacheScope: "public",
       },
@@ -616,8 +639,8 @@ async function handleRpc(message, context = {}) {
         protocolVersion: params?.protocolVersion ?? PROTOCOL_VERSION,
         resultType: "complete",
         capabilities: { tools: {} },
-        serverInfo: { name: "im2a-http-mcp", version: "0.21.0" },
-        instructions: "IM2A Agent Plugins 2.0 bridge: twenty-nine tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, skill claim, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable; skill_claim requires L2 and writes a hash-linked contribution chain).",
+        serverInfo: { name: "im2a-http-mcp", version: "0.22.0" },
+        instructions: "IM2A Agent Plugins 2.0 bridge: thirty tools (IM2A bus, skills, memory, layered recall, trace, reflection, curator audit, skill guard, evolution dry run, drives, goal buffer, drive propose, scheduler, goal schedule, drive calibrate, skill claim, contribution audit, autonomy pipeline dry run; goal admission arbitrates capacity, deduplicates and recovers executing goals to pending on restart; drive_propose cross-checks recent skill traces; reserved_ratio is adjusted only by scheduler governance; im2a.* skill metadata is claim-owned and not Agent-writable; skill_claim requires L2 and writes a hash-linked contribution chain; contribution_audit is read-only).",
       },
     };
   }
@@ -983,6 +1006,14 @@ async function handleRpc(message, context = {}) {
           }),
         };
       }
+      if (name === "contribution_audit") {
+        const result = await auditContributionLog({
+          skillsDir: SKILLS_DIR,
+          skillId: String(args.skill_id),
+          agentDid: args.agent_did ? String(args.agent_did) : null,
+        });
+        return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
       if (name === "skill_claim") {
         const agentDid = String(args.agent_did);
         const targetSkillId = args.target_skill_id ? String(args.target_skill_id) : null;
@@ -1016,6 +1047,8 @@ async function handleRpc(message, context = {}) {
           newSkillName,
           claimJustification: justification,
           traceId: justification.trace_id ? String(justification.trace_id) : null,
+          changedSections: Array.isArray(args.changed_sections) ? args.changed_sections.map(String) : [],
+          validationEvidence: args.validation_evidence ?? null,
           now: Date.now(),
         });
         return {

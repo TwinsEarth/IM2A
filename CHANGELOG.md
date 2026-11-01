@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.7.2 — 2026-11-01 contribution hash chain and audit
+
+- Froze contribution_log entries with seq, sha256-prefixed prev_hash/entry_hash,
+  changed_sections and validation_evidence.
+- Added `contribution_audit`; tool surface 29 -> 30.
+- Audit independently verifies every hash link and reports
+  `broken_at_seq_N`; it is read-only.
+- `effective_patch_count` counts only patches with non-negative validation
+  counts and a non-author verifier.
+- Added 3-patch verified/tamper test.
+
 ## v2.7.1 — 2026-11-01 skill claim and contribution chain
 
 - Added `skill_claim`; tool surface 28 -> 29.

@@ -1,0 +1,77 @@
+{
+  "release": "v2.7.2",
+  "kind": "tencent-dev-deployment",
+  "checkedAt": "2026-11-01T14:40:00Z",
+  "scope": "Tencent Cloud dev host only; gateway remains v2.5.3; not production",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5"
+  },
+  "deployment": {
+    "startedAt": "2026-11-01T22:35:11+08:00",
+    "httpMcpRoot": "/opt/im2a/v2.7.2",
+    "httpMcpVersion": "0.22.0",
+    "nodeServerSha256": "970a207e77678cf432282dae316a13661eb46b47a5c31d15123f824a2420278d",
+    "contributionAuditSha256": "856335e679fb656ae7ca439b9cd7baa2f7934aff668f76dad5bbd4017395a572",
+    "skillClaimSha256": "5f5f5b8cebd04103e1eea427fc63d32e846a017fc3431467b5ee844947089786",
+    "nodePackageSha256": "d806c7553463c7171e0449943dd3e7f61d6cbed8508952d1531160c8e5775e63",
+    "goMcpVersion": "0.22.0",
+    "goMcpSha256": "8695f91af3879efa76ed76b296d136cbf248984f2ac37e22b716c22ab3c996f0",
+    "goMcpWindowsSha256": "e0af36636afbf7f2498796be26a0bb8a70f764d4ff73e0b097d489a25425e430",
+    "goMcpPaths": ["/opt/im2a/v2.7.2/bin/im2a-mcp", "/opt/im2a/v2.5.2/bin/im2a-mcp"],
+    "service": "im2a-http-mcp.service",
+    "serviceState": "active",
+    "listener": "127.0.0.1:18082"
+  },
+  "liveChecks": {
+    "toolCount": 30,
+    "verified": {
+      "integrityStatus": "verified",
+      "entries": 4,
+      "seqs": [1, 2, 3, 4],
+      "versions": ["0.1.0", "0.2.0", "0.3.0", "0.4.0"],
+      "uniqueContributorCount": 1,
+      "effectivePatchCount": 3,
+      "totalPatchCount": 3,
+      "effectiveLeTotal": true
+    },
+    "tampered": {
+      "integrityStatus": "broken_at_seq_2",
+      "brokenAtSeq": 2,
+      "errors": ["entry 2: entry_hash mismatch"]
+    },
+    "goalId": "goal_86572ef701c9d759258a6205",
+    "skillId": "audit-live-skill",
+    "goMcpTools": 30
+  },
+  "cleanup": {
+    "performed": true,
+    "remainingGoals": 3,
+    "activeGoals": 0,
+    "remainingSkills": 0,
+    "note": "audit fixture skill, tampered log, draft and test goal removed"
+  },
+  "evidenceFiles": [
+    "tests/TENCENT-V272-AUDIT-EVIDENCE.json",
+    "tests/V272-AUDIT-UNIT-EVIDENCE.json",
+    "tests/V272-WINDOWS-MCP-EVIDENCE.json",
+    "docs/design/IM2A-v2.7.2-CONTRIBUTION-AUDIT.md"
+  ],
+  "backup": "/opt/backups/im2a-mcp-pre-v2.7.2-20261101223511",
+  "rollback": "restore unit/env/go binary from the backup, daemon-reload, restart; v2.7.1 tree/data untouched",
+  "notClaimed": [
+    "Shapley pricing",
+    "consensus ledger",
+    "credit/reputation consumer",
+    "production readiness",
+    "TLS or multi-tenant authorization"
+  ],
+  "openP0": [
+    "hash chain is a local tamper-evidence mechanism, not a ledger",
+    "full Shapley computation remains v2.9.x",
+    "curator/operator separation and per-conversation seq remain open",
+    "goal-buffer local writes are not yet caller-authenticated"
+  ]
+}

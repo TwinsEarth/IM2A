@@ -38,6 +38,7 @@ run('scheduler governance tests', ['tests/scheduler-governance.test.mjs']);
 run('autonomy pipeline tests', ['tests/autonomy-pipeline.test.mjs']);
 run('skill metadata tests', ['tests/skill-metadata.test.mjs']);
 run('skill claim tests', ['tests/skill-claim.test.mjs']);
+run('contribution audit tests', ['tests/contribution-audit.test.mjs']);
 run('goal schedule tests', ['tests/goal-schedule.test.mjs']);
 run('drive calibrate tests', ['tests/drive-calibrate.test.mjs']);
 run('goal arbitration tests', ['tests/goal-arbitration.test.mjs']);

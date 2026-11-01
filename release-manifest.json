@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "platformVersion": "2.7.1",
-  "releaseTag": "v2.7.1",
+  "platformVersion": "2.7.2",
+  "releaseTag": "v2.7.2",
   "goVersion": "2.3.26",
   "status": "draft",
   "commit": null,

@@ -1,9 +1,9 @@
 {
   "name": "@twinsearth/im2a-platform",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "private": true,
   "type": "module",
-  "description": "IM2A v2.7.1 skill claim and contribution chain",
+  "description": "IM2A v2.7.2 contribution chain audit",
   "packageManager": "pnpm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -43,7 +43,8 @@
     "governance:test": "node tests/scheduler-governance.test.mjs",
     "autonomy:test": "node tests/autonomy-pipeline.test.mjs",
     "metadata:test": "node tests/skill-metadata.test.mjs",
-    "claim:test": "node tests/skill-claim.test.mjs"
+    "claim:test": "node tests/skill-claim.test.mjs",
+    "audit:test": "node tests/contribution-audit.test.mjs"
   },
   "engines": {
     "node": ">=22"
