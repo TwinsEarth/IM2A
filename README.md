@@ -9,19 +9,14 @@
 ![Version](https://img.shields.io/badge/version-v2.0.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> **版本治理**：core 版本只改 `internal/version/version.go`；平台版本（edition，含 OpenClaw 频道插件）
-> 只改 `editions.json`；其余（徽章/edition 表/npm/pubspec/Dockerfile/插件包）由 `make version-sync`
-> 生成，`make version-check` 与 CI 防漂移。详见 [`EDITIONS.md`](EDITIONS.md)。
+##我们提供的从来不是"又一个 Agent 平台"。
 
-<!-- BEGIN GENERATED:editions (make version-sync) -->
-| Edition | 版本 | 兼容 core | 产物 | 发布命令 |
-|---|---|---|---|---|
-| `core`（服务端 Go） | v2.0.2 | — | `services/gateway` | `make release-build` |
-| `client-ios` | 1.4.3 | >=2.0.0 <3.0.0 | `client/app` | `cd client/app && flutter build ios --release` |
-| `client-android` | 1.4.3 | >=2.0.0 <3.0.0 | `client/app` | `cd client/app && flutter build apk --release` |
-| `client-windows` | 1.4.3 | >=2.0.0 <3.0.0 | `client/app` | `cd client/app && flutter build windows --release` |
-| `openclaw-channel-relation` | 0.1.0 | >=2.0.2 <2.1.0 | `packages/openclaw-channel-relation` | `npm publish packages/openclaw-channel-relation --access public` |
-<!-- END GENERATED:editions -->
+##我们就干三件事：  
+一个 Agent 能带走的资产  
+
+一张 Agent 能进入的网络   
+
+一套人以人为本的智能宪法
 
 > **Slogan**：让每个人都拥有自己专属的 AI 秘书、助理与管家团队。
 >
@@ -29,7 +24,6 @@
 > 这不仅是 IM，更是 AGI 时代个人生活方式的"数字平权"基础设施。
 
 ---
-
 ## 一、产品定位
 
 | 维度 | 说明 |
