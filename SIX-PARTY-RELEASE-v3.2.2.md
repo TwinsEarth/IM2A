@@ -29,12 +29,12 @@ unchanged. Do not read this table as "six parties passed for v3.2.2".
 | --- | --- | --- |
 | commit | PASS | commit on `soul/v3.2.2` |
 | tag | PASS | local tag `v3.2.2` |
-| Release | BLOCKED | repository has no git remote; no GitHub Release possible |
+| Release | BLOCKED | no correct remote for this platform repo; the supplied URL is the separate IM2A product repo |
 | npm | PASS | `npm pack` 10 files, no node_modules; sha256 recorded |
 | CI | BLOCKED | `.github/workflows/ci.yml` exists but was not run (no remote/runner) |
 | Compat | PASS | install on DSH 0.2.2-rc.1 applied; one `im2a-mcp` row; 30 tools; `im2a_whoami` OK |
 | Release workflow | BLOCKED | `release.yml` dry-run not executed in CI |
-| npm-publish | BLOCKED | `npm whoami` -> ENEEDAUTH; no registry credentials |
+| npm-publish | PASS | `@twinsearth/dsh-im2a-plugin@3.2.2` published at 2026-11-04T19:23:41Z |
 | healthz | BLOCKED | known exception: DSH Web health requires auth (401/404) |
 
 ## Decision
@@ -43,14 +43,22 @@ unchanged. Do not read this table as "six parties passed for v3.2.2".
 six-party release = NO-GO
 ```
 
-Three gates are blocked by missing infrastructure, not by code:
+Four gates are blocked by missing infrastructure, not by code:
 
-1. **Release / CI / Release workflow** need a git remote (and a runner).
-2. **npm-publish** needs an npm token with `@twinsearth` scope access.
-3. **healthz** keeps the standing exception; it is not claimed.
+1. **Release / CI / Release workflow** need the correct GitHub remote for this
+   platform repository, plus working github.com connectivity. The URL supplied
+   (`github.com/TwinsEarth/IM2A`) resolves to the IM2A product repo
+   (`apps/`, `services/`, `Makefile`), not this platform repo; pushing here
+   would have replaced an unrelated tree.
+2. **healthz** keeps the standing exception; it is not claimed.
 
-The v3.2.2 artifact is a verified release candidate. Publishing it requires the
-three items above; none of them can be manufactured locally.
+npm publication is done:
+
+```text
+package       @twinsearth/dsh-im2a-plugin@3.2.2
+integrity     sha512-eoEAQHlq/i6p8ReMZq7xN30vmLGf7NuC0WzcKEs5w8B4QZ5XjvciaVXavfKZ1lWEmtzEdnqIegozMswZqUu/nQ==
+dist-tag      latest -> 3.2.2
+```
 
 ## What was verified for this release
 
