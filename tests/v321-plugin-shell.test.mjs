@@ -48,21 +48,30 @@ const LEGACY_TOOLS = [
 ];
 const PLANNED = ["identity", "economy", "governance"];
 
-test("manifest is a valid 3.2.1 single-package shell", async () => {
+test("manifest is a valid 3.2.2 single-package shell", async () => {
   const { manifest } = await loadPlugin(ROOT);
   const guard = validateManifest(manifest);
   assert.deepEqual(guard.errors, []);
   assert.equal(manifest.name, "dsh-im2a-plugin");
-  assert.equal(manifest.version, "3.2.1");
+  assert.equal(manifest.version, "3.2.2");
+  assert.equal(manifest.engines.dsh, "0.2.2-rc.1");
   assert.equal(manifest.premium.license_implemented, false);
   for (const id of PLANNED) {
     assert.equal(manifest.modules[id].status, "planned");
     assert.deepEqual(manifest.modules[id].tools, [], `${id} must not expose tools`);
   }
   for (const [id, mod] of Object.entries(manifest.premium.modules)) {
-    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.2.1`);
+    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.2.2`);
     assert.equal(mod.requires_signature, true);
   }
+});
+
+test("package.json engines match plugin.json engines", async () => {
+  const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8"));
+  const manifest = JSON.parse(await readFile(join(ROOT, "plugin.json"), "utf8"));
+  assert.equal(pkg.engines.dsh, "0.2.2-rc.1");
+  assert.equal(manifest.engines.dsh, pkg.engines.dsh);
+  assert.equal(pkg.version, manifest.version);
 });
 
 test("alias table covers all 30 legacy tools with unique public names", async () => {

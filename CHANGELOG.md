@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.2.2 — 2026-11-04 DSH 0.2.2-rc.1 compatibility
+
+- `engines.dsh` changed from `0.2.1-rc.5` to `0.2.2-rc.1` in both
+  `package.json` and `plugin.json`; still an exact pin, no range widening.
+- Version bump `3.2.1` -> `3.2.2`; kernel registry, module topology and the
+  30-name alias table are unchanged.
+- Added an engines-consistency test (package.json vs plugin.json); the shell
+  suite is now 9 tests.
+- Reinstalled as `@twinsearth/dsh-im2a-plugin@3.2.2`: bundle applied, and the
+  profile still composes exactly one `im2a-mcp` row.
+- Six-party release record in `SIX-PARTY-RELEASE-v3.2.2.md`; the remaining
+  nine-gate blockers are named there rather than claimed as passed.
+
 ## v2.7.2 — 2026-11-01 contribution hash chain and audit
 
 - Froze contribution_log entries with seq, sha256-prefixed prev_hash/entry_hash,
