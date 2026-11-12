@@ -6,9 +6,9 @@
 编排；九个能力模块挂在总线上；五个商用模块由 Relay 许可后加载，本版全部为
 `planned`。
 
-## 3.2.2 交付了什么
+## 3.2.3 交付了什么
 
-- 兼容 DSH `0.2.2-rc.1`：`engines.dsh` 自 `0.2.1-rc.5` 精确升级，未放宽为范围；
+- 兼容 DSH `0.2.2-rc.2`：`engines.dsh` 自 `0.2.2-rc.1` 精确升级，未放宽为范围；
 - `plugin.json`：单包 manifest，内核 + 9 模块 + 5 个商用占位；
 - `kernel/registry.mjs`：拓扑加载、逆序卸载、依赖拒绝、别名解析、错误值；
 - `migrations/3.2.1-tool-aliases.json`：30 条旧名 → 新名，带真实 schema hash；
@@ -20,7 +20,7 @@ Relay 许可握手。
 ## 安装
 
 ```text
-plugin_manager install_bundle(@twinsearth/dsh-im2a-plugin@3.2.2)
+plugin_manager install_bundle(@twinsearth/dsh-im2a-plugin@3.2.3)
 ```
 
 单一 bundle 只插入一条 `im2a-mcp` 行；不要再叠加第二个 bundle 覆盖该行——

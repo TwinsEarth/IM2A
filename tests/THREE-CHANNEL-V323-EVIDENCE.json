@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "three-channel-release",
+  "release": "v3.2.3",
+  "package": "@twinsearth/dsh-im2a-plugin",
+  "checkedAt": "2026-11-13T01:05:00+08:00",
+  "runtime": {
+    "dsh": "0.2.2-rc.2",
+    "source": "E:\\DSH\\DS\\resources\\runtime\\cli\\bin\\dsh.cmd --version"
+  },
+  "channels": {
+    "npm": {
+      "status": "passed",
+      "distTagLatest": "3.2.3",
+      "publishedAt": "2026-11-12T17:03:21.582Z",
+      "tarball": "https://registry.npmjs.org/@twinsearth/dsh-im2a-plugin/-/dsh-im2a-plugin-3.2.3.tgz",
+      "shasum": "d7e243510e6eb74f43769a65983736dd389a04f6",
+      "integrity": "sha512-0WPIT+Dd2IimPxQIv35iE1cfpiYh8LwEfoWoh1953wGCZTZiSqW8B0kww4Wq/pC4djfkbgJeMck9hLV77lzFsg==",
+      "enginesDsh": "0.2.2-rc.2"
+    },
+    "tag": {
+      "status": "passed-local",
+      "name": "v3.2.3",
+      "branch": "soul/v3.2.3",
+      "pushed": false,
+      "blockedReason": "platform repository has no git remote"
+    },
+    "githubRelease": {
+      "status": "blocked",
+      "repository": "TwinsEarth/dsh-im2a-plugin",
+      "repositoryCreated": true,
+      "repositoryDefaultBranch": "main",
+      "repositoryEmpty": true,
+      "blockedBy": "token permission",
+      "blockedReason": "fine-grained PAT has metadata:read only; POST /git/trees returns 403 'Resource not accessible by personal access token' and git push returns 403 'Permission to TwinsEarth/dsh-im2a-plugin.git denied'",
+      "requiredPermission": "Contents: Read and write",
+      "pluginOnlyBranch": "im2a-plugin-split",
+      "pluginOnlyCommits": 3
+    }
+  },
+  "compatibilityGate": {
+    "type": "version-matrix consistency",
+    "checks": [
+      "package.json engines.dsh == version-matrix dsh-runtime.target",
+      "plugin.json engines.dsh == package.json engines.dsh",
+      "package.json version == plugin.json version",
+      "bundle patch inserts exactly one im2a-mcp row"
+    ],
+    "negativeControl": {
+      "mutation": "engines.dsh -> 0.2.2-rc.1",
+      "expected": "non-zero exit",
+      "observed": "exit 1",
+      "restored": true
+    }
+  },
+  "verification": {
+    "shellTests": "9/9 PASS",
+    "validate": "PASS",
+    "install": { "version": "3.2.3", "application": "applied" },
+    "composedMcpRows": 1,
+    "bridgeTools": 30,
+    "whoami": { "status": "PASS", "sessionId": "hs_cfd35b481e44" },
+    "presence": { "status": "PASS", "count": 1 }
+  },
+  "notClaimed": [
+    "GitHub Release",
+    "CI run",
+    "healthz gate (standing auth exception)",
+    "any change to the six product parties"
+  ]
+}

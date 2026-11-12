@@ -14,6 +14,9 @@ import {
 } from "../packages/dsh-im2a-plugin/kernel/registry.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "packages", "dsh-im2a-plugin");
+// The exact DSH build this release targets. It must match version-matrix.json
+// (dsh-runtime.target) and both plugin manifests; the matrix test enforces it.
+const RUNTIME_PIN = "0.2.2-rc.2";
 const LEGACY_TOOLS = [
   "autonomy_pipeline_dryrun",
   "contribution_audit",
@@ -48,30 +51,39 @@ const LEGACY_TOOLS = [
 ];
 const PLANNED = ["identity", "economy", "governance"];
 
-test("manifest is a valid 3.2.2 single-package shell", async () => {
+test("manifest is a valid 3.2.3 single-package shell", async () => {
   const { manifest } = await loadPlugin(ROOT);
   const guard = validateManifest(manifest);
   assert.deepEqual(guard.errors, []);
   assert.equal(manifest.name, "dsh-im2a-plugin");
-  assert.equal(manifest.version, "3.2.2");
-  assert.equal(manifest.engines.dsh, "0.2.2-rc.1");
+  assert.equal(manifest.version, "3.2.3");
+  assert.equal(manifest.engines.dsh, RUNTIME_PIN);
   assert.equal(manifest.premium.license_implemented, false);
   for (const id of PLANNED) {
     assert.equal(manifest.modules[id].status, "planned");
     assert.deepEqual(manifest.modules[id].tools, [], `${id} must not expose tools`);
   }
   for (const [id, mod] of Object.entries(manifest.premium.modules)) {
-    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.2.2`);
+    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.2.3`);
     assert.equal(mod.requires_signature, true);
   }
 });
 
-test("package.json engines match plugin.json engines", async () => {
+test("package.json engines match plugin.json engines and the version matrix", async () => {
   const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8"));
   const manifest = JSON.parse(await readFile(join(ROOT, "plugin.json"), "utf8"));
-  assert.equal(pkg.engines.dsh, "0.2.2-rc.1");
+  const matrix = JSON.parse(
+    await readFile(join(ROOT, "..", "..", "version-matrix.json"), "utf8"),
+  );
+  const runtime = matrix.components.find((c) => c.id === "dsh-runtime");
+  assert.equal(pkg.engines.dsh, RUNTIME_PIN);
   assert.equal(manifest.engines.dsh, pkg.engines.dsh);
   assert.equal(pkg.version, manifest.version);
+  assert.equal(
+    runtime.target,
+    pkg.engines.dsh,
+    "version-matrix dsh-runtime target must equal the plugin engines pin",
+  );
 });
 
 test("alias table covers all 30 legacy tools with unique public names", async () => {

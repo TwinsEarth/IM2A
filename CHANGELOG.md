@@ -1,5 +1,22 @@
 # Changelog
 
+## v3.2.3 — 2026-11-13 DSH 0.2.2-rc.2 compatibility
+
+- `engines.dsh` changed from `0.2.2-rc.1` to `0.2.2-rc.2` in both
+  `package.json` and `plugin.json`; exact pin kept, no range widening.
+- Version bump `3.2.2` -> `3.2.3`; kernel registry, module topology and the
+  30-name alias table are unchanged.
+- `scripts/validate.mjs` now enforces, at gate time, that the active plugin's
+  `engines.dsh` equals `version-matrix.json` `dsh-runtime.target`, that both
+  manifests agree, and that the bundle patch inserts exactly one `im2a-mcp` row.
+  A negative control (pin mutated to the previous build) exits non-zero.
+- The engines/matrix consistency test now reads `version-matrix.json` instead of
+  repeating a literal, so a future runtime bump fails locally instead of at
+  install time.
+- Verified: shell suite 9/9, `validate.mjs` green, bundle applied on DSH
+  `0.2.2-rc.2`, one composed `im2a-mcp` row, 30 bridge tools, and
+  `im2a_whoami` / `im2a_presence` answered through the bridge.
+
 ## v3.2.2 — 2026-11-04 DSH 0.2.2-rc.1 compatibility
 
 - `engines.dsh` changed from `0.2.1-rc.5` to `0.2.2-rc.1` in both

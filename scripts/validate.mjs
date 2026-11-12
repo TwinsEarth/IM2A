@@ -79,6 +79,31 @@ export async function validateP0({ root = defaultRoot } = {}) {
   if (!/serverName: im2a/.test(dshPatch)) throw new Error("dsh host patch missing serverName");
   if (!/@deepseek-ai\/dsh-mcp-client/.test(dshPatch)) throw new Error("dsh host patch missing mcp-client");
 
+  // v3.2.3: the active single-package plugin must pin the exact DSH build named in
+  // the version matrix. Two release cycles in a row shipped a stale engines.dsh
+  // pin that the plugin manager then refused; this makes that mismatch a local
+  // failure instead of an install-time surprise.
+  const dshIm2aPackage = await readJson(root, "packages/dsh-im2a-plugin/package.json");
+  const dshIm2aManifest = await readJson(root, "packages/dsh-im2a-plugin/plugin.json");
+  const dshIm2aPatch = await readFile(path.join(root, "packages/dsh-im2a-plugin/cordis.patch.yml"), "utf8");
+  const dshRuntime = matrix.components.find((component) => component.id === "dsh-runtime");
+  if (!dshRuntime) throw new Error("version matrix is missing the dsh-runtime component");
+  if (dshIm2aPackage.name !== "@twinsearth/dsh-im2a-plugin") throw new Error("dsh-im2a-plugin package name mismatch");
+  if (dshIm2aManifest.name !== "dsh-im2a-plugin") throw new Error("dsh-im2a-plugin manifest name mismatch");
+  if (dshIm2aPackage.version !== dshIm2aManifest.version) throw new Error("dsh-im2a-plugin version mismatch");
+  if (dshIm2aPackage.engines?.dsh !== dshRuntime.target) {
+    throw new Error(`dsh-im2a-plugin must pin engines.dsh=${dshRuntime.target}, got ${dshIm2aPackage.engines?.dsh}`);
+  }
+  if (dshIm2aManifest.engines?.dsh !== dshRuntime.target) {
+    throw new Error(`dsh-im2a-plugin plugin.json must pin engines.dsh=${dshRuntime.target}`);
+  }
+  if (dshIm2aPackage.dsh?.bundle?.patch !== "./cordis.patch.yml") throw new Error("dsh-im2a-plugin bundle patch entry missing");
+  if (!/^- insert:$/m.test(dshIm2aPatch)) throw new Error("dsh-im2a-plugin patch must use insert:");
+  if (!/serverName: im2a/.test(dshIm2aPatch)) throw new Error("dsh-im2a-plugin patch missing serverName");
+  if ((dshIm2aPatch.match(/^ {4}- id: im2a-mcp$/gm) ?? []).length !== 1) {
+    throw new Error("dsh-im2a-plugin patch must insert exactly one im2a-mcp row");
+  }
+
   // Release manifest: draft must be structurally valid; non-draft must be
   // backed by evidence and artifacts. This is deliberately not a self-test.
   assertValid(manifestSchema, manifest, "release manifest");

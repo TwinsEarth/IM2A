@@ -72,16 +72,16 @@
     {
       "id": "dsh-im2a-plugin",
       "kind": "npm",
-      "current": "3.2.1",
-      "target": "3.2.2",
+      "current": "3.2.2",
+      "target": "3.2.3",
       "publishedBy": "npm-publish",
-      "status": "packaged"
+      "status": "npm-published"
     },
     {
       "id": "dsh-runtime",
       "kind": "external",
-      "current": "0.2.2-rc.1",
-      "target": "0.2.2-rc.1",
+      "current": "0.2.2-rc.2",
+      "target": "0.2.2-rc.2",
       "publishedBy": "upstream",
       "status": "external-pinned"
     },

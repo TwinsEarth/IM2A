@@ -31,6 +31,8 @@
     "README.md",
     "RELEASE-GATE-STATUS.md",
     "SIX-PARTY-RELEASE-SCOPE.md",
+    "SIX-PARTY-RELEASE-v3.2.2.md",
+    "THREE-PARTY-RELEASE-v3.2.3.md",
     "T0-STATUS.md",
     "package.json",
     "pnpm-workspace.yaml",
