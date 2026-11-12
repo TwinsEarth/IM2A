@@ -104,6 +104,34 @@ export async function validateP0({ root = defaultRoot } = {}) {
     throw new Error("dsh-im2a-plugin patch must insert exactly one im2a-mcp row");
   }
 
+  // The Host reads display metadata from exported resources. A missing locale
+  // directory surfaces to the user as
+  //   "Plugin metadata ... ENOENT: scandir .../locale"
+  // so every packaged file the Host opens is required here, with a clear cause.
+  const REQUIRED_PACKAGED = [
+    "package.json",
+    "plugin.json",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "locale/en.json",
+    "locale/zh.json",
+  ];
+  for (const rel of REQUIRED_PACKAGED) {
+    let text;
+    try {
+      text = await readFile(path.join(root, "packages/dsh-im2a-plugin", rel), "utf8");
+    } catch (error) {
+      throw new Error(`dsh-im2a-plugin is missing a required packaged file: ${rel} (${error.code ?? error.message})`);
+    }
+    if (text.trim() === "") throw new Error(`dsh-im2a-plugin packaged file is empty: ${rel}`);
+  }
+  for (const locale of ["en", "zh"]) {
+    const meta = await readJson(root, `packages/dsh-im2a-plugin/locale/${locale}.json`);
+    if (!meta?.meta?.title) throw new Error(`locale/${locale}.json must define meta.title`);
+    if (!meta?.meta?.description) throw new Error(`locale/${locale}.json must define meta.description`);
+  }
+
   // Release manifest: draft must be structurally valid; non-draft must be
   // backed by evidence and artifacts. This is deliberately not a self-test.
   assertValid(manifestSchema, manifest, "release manifest");
