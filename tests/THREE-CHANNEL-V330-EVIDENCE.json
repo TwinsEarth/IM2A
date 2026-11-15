@@ -43,7 +43,8 @@
       "branch": "platform/v3.3.0",
       "head": "172b407",
       "mainLeftAt": "6e78a6b",
-      "reason": "IM2A main is a Go product tree (go.mod, cmd/, internal/, services/); replacing it with this Node platform would destroy an unrelated tree"
+      "reason": "IM2A main is a Go product tree (go.mod, cmd/, internal/, services/); replacing it with this Node platform would destroy an unrelated tree",
+      "decision": "2026-11-16 user confirmed: Go product stays main, Node platform stays on a branch; never merge into main"
     }
   },
   "surface": {

@@ -14,10 +14,12 @@ Scope: kernel runtime modules registered into the module system; two new MCP too
 | git tag | PASS | `v3.3.0` pushed to `TwinsEarth/dsh-im2a-plugin` (points at `9c8f86c`) |
 | GitHub Release | PASS | https://github.com/TwinsEarth/dsh-im2a-plugin/releases/tag/v3.3.0 (tarball attached) |
 
-Server-side platform code: pushed to `TwinsEarth/IM2A` as branch **`platform/v3.3.0`**
-(`172b407`). `main` was deliberately left at `6e78a6b` — that repository is a Go product
-(`go.mod`, `cmd/`, `internal/`, `services/`), so replacing it with this Node platform
-would have destroyed an unrelated tree.
+Server-side platform code: pushed to `TwinsEarth/IM2A` as branch **`platform/v3.3.0`**.
+`main` was deliberately left at `6e78a6b`.
+
+**Decision recorded 2026-11-16 (user):** the Go product tree is the main repository and the
+Node platform stays on a branch. It will not be merged into `main`. See
+[IM2A-REPO-TOPOLOGY.md](IM2A-REPO-TOPOLOGY.md) for the full repository/branch policy.
 
 ## Surface changes
 
