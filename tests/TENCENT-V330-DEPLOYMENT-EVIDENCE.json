@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "tencent-deployment",
+  "release": "v3.3.0",
+  "checkedAt": "2026-11-15T23:52:00+08:00",
+  "host": {
+    "name": "ins-j3ou8dmy",
+    "hostname": "VM-0-5-ubuntu",
+    "public": "134.175.243.146",
+    "internal": "192.168.0.5",
+    "os": "Ubuntu Server 24.04 LTS",
+    "node": "v24.16.0",
+    "nodePath": "/opt/im2a/node/bin/node"
+  },
+  "before": {
+    "workingDirectory": "/opt/im2a/v2.7.2",
+    "plugin": "2.7.2",
+    "tools": 30,
+    "service": "im2a-http-mcp",
+    "state": "active"
+  },
+  "after": {
+    "workingDirectory": "/opt/im2a/v3.3.0",
+    "plugin": "3.3.0",
+    "kernelModuleVersion": "1.1.0",
+    "tools": 32,
+    "runtimeModules": 6,
+    "runtimeModulesMissing": 0,
+    "service": "im2a-http-mcp",
+    "state": "active",
+    "healthz": 200,
+    "execStart": "/opt/im2a/node/bin/node packages/im2a-http-mcp/server.mjs",
+    "pid": 2172825
+  },
+  "payload": {
+    "bundle": "im2a-deploy-v330.tgz",
+    "bytes": 121859,
+    "sha256": "e57f6ec24dd3f5ae9133dbaa983399b6e802433244e25fd02e92affe00940a98",
+    "files": 72,
+    "packages": ["im2a-http-mcp", "memory-hub", "skill-runtime", "dsh-im2a-plugin"],
+    "dataMigratedFrom": "/opt/im2a/v2.7.2/data"
+  },
+  "liveChecks": {
+    "toolsList": 32,
+    "kernelStatus": {
+      "plugin": "dsh-im2a-plugin@3.3.0",
+      "kernel": "1.1.0",
+      "modules": 9,
+      "runtime_modules": 6,
+      "runtime_modules_missing": 0,
+      "moduleStates": {
+        "memory": "available",
+        "evolution": "available",
+        "asset": "available",
+        "identity": "partial",
+        "autonomy": "available",
+        "economy": "partial",
+        "fleet": "available",
+        "governance": "partial",
+        "observability": "partial"
+      }
+    },
+    "governancePropose": {
+      "status": "passed",
+      "proposalId": "scp_96d3f90696dd6ce2b1e2d93a",
+      "proposalStatus": "pending",
+      "effectiveScopesAfterPropose": [],
+      "note": "proposal recorded to data/governance/proposals.jsonl and grants nothing; smoke artifact removed afterwards"
+    },
+    "whoami": {
+      "status": "passed",
+      "sessionId": "hs_659caf9aa9be",
+      "transport": "streamable-http"
+    }
+  },
+  "rollback": {
+    "unitBackup": "/tmp/unit.bak",
+    "previousTree": "/opt/im2a/v2.7.2",
+    "steps": [
+      "sudo cp /tmp/unit.bak /etc/systemd/system/im2a-http-mcp.service",
+      "sudo systemctl daemon-reload && sudo systemctl restart im2a-http-mcp",
+      "verify: healthz 200 and tools/list returns 30"
+    ]
+  },
+  "notClaimed": [
+    "production readiness",
+    "TLS or public exposure of 18082",
+    "gateway upgrade (gateway remains the existing build on 18080)",
+    "data written after cutover is not mirrored back to v2.7.2"
+  ]
+}
