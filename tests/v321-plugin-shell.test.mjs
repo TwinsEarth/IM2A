@@ -11,6 +11,7 @@ import {
   effectiveStatus,
   loadPlugin,
   validateManifest,
+  verifyRuntimeModules,
 } from "../packages/dsh-im2a-plugin/kernel/registry.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "packages", "dsh-im2a-plugin");
@@ -51,12 +52,12 @@ const LEGACY_TOOLS = [
 ];
 const PLANNED = ["identity", "economy", "governance"];
 
-test("manifest is a valid 3.2.3 single-package shell", async () => {
+test("manifest is a valid 3.3.0 single-package shell", async () => {
   const { manifest } = await loadPlugin(ROOT);
   const guard = validateManifest(manifest);
   assert.deepEqual(guard.errors, []);
   assert.equal(manifest.name, "dsh-im2a-plugin");
-  assert.equal(manifest.version, "3.2.3");
+  assert.equal(manifest.version, "3.3.0");
   assert.equal(manifest.engines.dsh, RUNTIME_PIN);
   assert.equal(manifest.premium.license_implemented, false);
   for (const id of PLANNED) {
@@ -64,7 +65,7 @@ test("manifest is a valid 3.2.3 single-package shell", async () => {
     assert.deepEqual(manifest.modules[id].tools, [], `${id} must not expose tools`);
   }
   for (const [id, mod] of Object.entries(manifest.premium.modules)) {
-    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.2.3`);
+    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.3.0`);
     assert.equal(mod.requires_signature, true);
   }
 });
@@ -197,4 +198,37 @@ test("disabling a module with dependants is refused with the dependency chain", 
   assert.equal(registry.setModule("memory", false).errorCode, "dependency_conflict");
   assert.equal(registry.setModule("observability", false).ok, true);
   assert.equal(registry.setModule("identity", true).errorCode, "not_implemented");
+});
+
+test("kernel runtime modules are declared, resolvable and surfaced by status", async () => {
+  const { manifest, aliases, root } = await loadPlugin(ROOT);
+  const declared = manifest.kernel.runtime_modules;
+  assert.equal(declared.length, 6, "every WP-1..WP-6 module must be declared");
+  assert.deepEqual(
+    declared.map((entry) => entry.id).sort(),
+    ["did_portability", "model_registry", "resource_meter", "scope_governance", "topology_metrics", "ui_artifact"],
+  );
+  for (const entry of declared) {
+    assert.match(entry.path, /^kernel\/[a-z0-9-]+\.mjs$/, `${entry.id} must point inside kernel/`);
+  }
+
+  const verified = await verifyRuntimeModules(manifest, root);
+  assert.deepEqual(verified.filter((entry) => !entry.exists), [], "no declared runtime module may be missing");
+  assert.ok(verified.every((entry) => entry.exists === true));
+
+  const registry = createRegistry({ manifest, aliases });
+  const report = registry.statusReport();
+  assert.equal(report.runtimeModules.length, 6);
+  assert.equal(report.runtimeModules.find((entry) => entry.id === "scope_governance").status, "partial");
+});
+
+test("a runtime module path outside kernel/ is rejected by the manifest guard", async () => {
+  const { manifest } = await loadPlugin(ROOT);
+  const escaped = structuredClone(manifest);
+  escaped.kernel.runtime_modules[0].path = "../im2a-http-mcp/server.mjs";
+  assert.ok(validateManifest(escaped).errors.some((error) => error.includes("must stay inside kernel/")));
+
+  const duplicated = structuredClone(manifest);
+  duplicated.kernel.runtime_modules[1].id = duplicated.kernel.runtime_modules[0].id;
+  assert.ok(validateManifest(duplicated).errors.some((error) => error.includes("duplicate id")));
 });

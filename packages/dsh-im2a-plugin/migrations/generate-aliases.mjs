@@ -71,6 +71,7 @@ export const MERGED_ALIASES = {
 // knows them, which keeps the "tool set drift" check honest instead of loosening it.
 export const CANONICAL_ONLY = new Set([
   "governance_manage",
+  "im2a_kernel_status",
 ]);
 
 export function canonical(value) {

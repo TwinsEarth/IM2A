@@ -9,7 +9,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, open, readFile } from "node:fs/promises";
 import path from "node:path";
-import { UiArtifactError, createUiArtifact } from "./ui-artifact.mjs";
+import { UiArtifactError, createUiArtifact } from "../dsh-im2a-plugin/kernel/ui-artifact.mjs";
 
 export const TRACE_SCHEMA_VERSION = "1.0";
 export const TRACE_MAX_EVENTS = 2000;

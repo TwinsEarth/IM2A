@@ -3,7 +3,7 @@
   "generatedFrom": {
     "server": "im2a-http-mcp",
     "protocolVersion": "2.0",
-    "toolCount": 31
+    "toolCount": 32
   },
   "deprecatedAfter": "3.4.0",
   "entries": [

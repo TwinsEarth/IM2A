@@ -1,7 +1,7 @@
 {
   "schemaVersion": "3.0",
   "name": "dsh-im2a-plugin",
-  "version": "3.2.3",
+  "version": "3.3.0",
   "engines": { "dsh": "0.2.2-rc.2" },
   "description": "IM2A — an instant network for agents: kernel plus nine capability modules in one package.",
   "display": {
@@ -20,7 +20,7 @@
     "note": "MCP wire names use underscores; the dotted form is documentation and config only."
   },
   "kernel": {
-    "module_version": "1.0.0",
+    "module_version": "1.1.0",
     "status": "available",
     "constitution_hash": null,
     "constitution_hash_note": "null until the v3.1.6 / v3.2.6 schema freeze is recorded",
@@ -35,7 +35,52 @@
       "config_set",
       "license_status"
     ],
-    "tools": ["whoami"]
+    "tools": ["whoami"],
+    "runtime_modules": [
+      {
+        "id": "model_registry",
+        "path": "kernel/model-registry.mjs",
+        "layer": "L1->L2",
+        "status": "available",
+        "provides": ["declared capability manifests", "cost estimation", "endpoint selection"]
+      },
+      {
+        "id": "resource_meter",
+        "path": "kernel/meter.mjs",
+        "layer": "L6->L2",
+        "status": "available",
+        "provides": ["metering records", "three-pool marginal budget with reserved floor"]
+      },
+      {
+        "id": "ui_artifact",
+        "path": "kernel/ui-artifact.mjs",
+        "layer": "L5.2->L2",
+        "status": "available",
+        "provides": ["instant-world artifact contract", "ephemeral/promoted state machine"]
+      },
+      {
+        "id": "did_portability",
+        "path": "kernel/did-portability.mjs",
+        "layer": "L4",
+        "status": "available",
+        "provides": ["DID-bound export bundle", "same-DID import plan with read-only history proof"]
+      },
+      {
+        "id": "topology_metrics",
+        "path": "kernel/topology-metrics.mjs",
+        "layer": "L2/L6",
+        "status": "available",
+        "provides": ["node_count", "quality_index", "attribution_precision", "snapshot digest"]
+      },
+      {
+        "id": "scope_governance",
+        "path": "kernel/scope-governance.mjs",
+        "layer": "L3/C1",
+        "status": "partial",
+        "status_note": "propose and status are exposed as governance_manage; human decisions are recorded outside the MCP surface",
+        "provides": ["scope proposals", "human-only approval", "direct physical grant"]
+      }
+    ]
   },
   "modules": {
     "memory": {

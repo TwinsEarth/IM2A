@@ -100,8 +100,9 @@ WP-0 是唯一的前置阻塞项；WP-1/2/3 可并行；WP-4 独立；WP-5/6 最
 | WP-5 拓扑指标 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/topology-metrics.mjs` | 8 tests：节点跨三源去重、质量=执行成功率、归因精度=独立验证补丁占比、空缺因子为 null 而非 0、摘要忽略生成时间 |
 | WP-6 治理与物理授权 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/scope-governance.mjs` | 10 tests：Agent 只能提议不能授予、Agent 不能批准（含自己的提议）、物理 scope 无提议路径、直接授予需人类+理由、天花板拒绝、拒绝后不可重开、同人重复批准不重复计数 |
 | WP-6a 治理工具面 | ✅ 完成 | `governance_manage` + `packages/im2a-http-mcp/governance-store.mjs` | 5 tests：提议不授予、重启后回放、物理 scope 不落盘、仅追加、全局 status；实机 4 次调用验证 |
+| WP-7 模块注册与 kernel_status | ✅ 完成 | `plugin.json` `kernel.runtime_modules`（6 项）+ `im2a_kernel_status` | 2 tests：6 个运行时模块全部声明且文件存在、越界路径/重复 id 被拒；实机输出 6 模块 0 缺失、9 工具模块、32 MCP 工具 |
 
-累计：WP-0..WP-6a 全部完成；新增 59 tests（21 + 6 + 9 + 8 + 10 + 5），全量 **127 tests 通过**。
+累计：WP-0..WP-7 全部完成；新增 61 tests（21 + 6 + 9 + 8 + 10 + 5 + 2），全量 **129 tests 通过**。
 
 **契约校准记录**（实现倒逼契约修正，都是真实约束）：
 
@@ -182,6 +183,37 @@ catalog 30 → 31。别名表仍为 30 条——`governance_manage` 是原生规
 **实现**：`governance-store.mjs` 用 append-only JSONL 持久化提议；坏行跳过不崩溃；重启后回放。
 实机验证：`status` 空态、`propose skill:write` 得到 pending、`propose physical:motion` 被
 `physical_scope_requires_human_grant` 拒绝、`status` 仍显示 `effective_scopes: []`（提议不授予）。
+
+## 4.6 WP-7：让运行时真的看见这些模块
+
+WP-1..WP-6 落地后，六个内核模块只是磁盘上的文件——`plugin.json` 里没有任何地方声明它们，
+`kernel_status` 也不存在。WP-7 补上这两点。
+
+**声明**：`kernel.runtime_modules` 六项，每项 `id / path / layer / status / provides`。
+`ui_artifact` 从 `packages/im2a-http-mcp/` 迁入 `kernel/`，让六个模块归属一致（服务端改为跨包引用）。
+
+**校验**（`registry.mjs`）：`path` 必须以 `kernel/` 开头且不含 `..`（否则 manifest 能指向任何文件）；
+`id` 不得重复；`status` 必须在既有状态词表内；`verifyRuntimeModules()` 逐个 `stat`，缺失即列入
+`runtime_modules_missing`。
+
+**暴露**：`im2a_kernel_status`（scope `kernel:read`，已加入 catalog 封闭 scope 集），只读，输出：
+插件名/版本、内核版本、模块加载顺序、9 个工具模块的有效状态、6 个运行时模块及文件存在性、
+待裁决治理提议数、MCP 工具数、商用许可状态（恒为 `false`）。
+
+**版本**：新增工具属 minor（本仓 semver 规则明写「新增模块或新增工具」= minor），因此
+plugin `3.2.3 → 3.3.0`、kernel `1.0.0 → 1.1.0`。**npm 上仍是 3.2.3，3.3.0 未发布**，
+发布是单独的决定。
+
+实机输出（2026-11-15）：
+
+```text
+plugin=dsh-im2a-plugin@3.3.0 kernel=1.1.0
+load_order=memory,evolution,asset,identity,autonomy,economy,fleet,governance,observability
+runtime_modules=6 missing=0
+  model_registry / resource_meter / ui_artifact / did_portability / topology_metrics  available
+  scope_governance  partial
+modules=9 governance_pending=1 mcp_tools=32 premium_license_implemented=False
+```
 
 ## 5. 风险
 

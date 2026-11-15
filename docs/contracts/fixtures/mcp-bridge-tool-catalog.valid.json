@@ -934,6 +934,33 @@
         }
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "FORBIDDEN", "INVALID_AGENT_DID", "INTERNAL"]
+    },
+    {
+      "name": "im2a_kernel_status",
+      "title": "Kernel status",
+      "description": "Read-only kernel status: manifest and kernel versions, module load order with effective state, declared runtime modules with file presence, and pending governance proposals. Never mutates anything.",
+      "scope": ["kernel:read"],
+      "sideEffect": "read",
+      "idempotency": "pure",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true },
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "plugin": { "type": "object" },
+          "load_order": { "type": "array" },
+          "modules": { "type": "array" },
+          "runtime_modules": { "type": "array" },
+          "governance": { "type": "object" },
+          "mcp": { "type": "object" }
+        }
+      },
+      "errors": ["NOT_AUTHORIZED", "INTERNAL"]
     }
   ]
 }

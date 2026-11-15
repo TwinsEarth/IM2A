@@ -2,7 +2,7 @@
 // Phase 1 scope: topology, lifecycle, alias resolution, honest module status.
 // No business handlers live here; modules forward to the existing bridge.
 
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,7 +59,42 @@ export function validateManifest(manifest) {
   for (const [id, mod] of Object.entries(premium)) {
     if (mod.status !== "planned") errors.push(`pro/${id}: phase 1 must stay planned`);
   }
+
+  // Kernel runtime modules are JS files the runtime actually loads, so the
+  // manifest must describe them precisely: a path that escapes kernel/ would let
+  // the manifest point anywhere.
+  const runtimeModules = manifest?.kernel?.runtime_modules;
+  if (!Array.isArray(runtimeModules) || runtimeModules.length === 0) {
+    errors.push("kernel.runtime_modules must be a non-empty array");
+  } else {
+    const seen = new Set();
+    for (const [index, entry] of runtimeModules.entries()) {
+      const field = `kernel.runtime_modules[${index}]`;
+      if (!entry || typeof entry.id !== "string" || entry.id.length === 0) errors.push(`${field}.id is required`);
+      else if (seen.has(entry.id)) errors.push(`${field}: duplicate id ${entry.id}`);
+      else seen.add(entry.id);
+      if (typeof entry.path !== "string" || !entry.path.startsWith("kernel/") || entry.path.includes("..")) {
+        errors.push(`${field}.path must stay inside kernel/`);
+      }
+      if (!MODULE_STATUS.has(entry.status)) errors.push(`${field}: unknown status ${entry.status}`);
+    }
+  }
   return { ok: errors.length === 0, errors };
+}
+
+/** Resolve each declared runtime module to its file and report whether it exists. */
+export async function verifyRuntimeModules(manifest, root = PLUGIN_ROOT) {
+  const entries = manifest?.kernel?.runtime_modules ?? [];
+  const results = [];
+  for (const entry of entries) {
+    try {
+      const handle = await stat(join(root, entry.path));
+      results.push({ id: entry.id, path: entry.path, exists: handle.isFile(), status: entry.status });
+    } catch (error) {
+      results.push({ id: entry.id, path: entry.path, exists: false, status: entry.status, error: error.code });
+    }
+  }
+  return results;
 }
 
 // Kahn over hard deps only; soft deps express ordering intent and never block.
@@ -223,6 +258,13 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
         relay_required: manifest.premium.relay_required,
         modules: Object.entries(manifest.premium.modules).map(([id, mod]) => ({ id, status: mod.status })),
       },
+      runtimeModules: (manifest.kernel.runtime_modules ?? []).map((entry) => ({
+        id: entry.id,
+        layer: entry.layer ?? null,
+        status: entry.status,
+        path: entry.path,
+        ...(entry.status_note ? { status_note: entry.status_note } : {}),
+      })),
     };
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "@twinsearth/dsh-im2a-plugin",
-  "version": "3.2.3",
+  "version": "3.3.0",
   "description": "IM2A — an instant network for agents: kernel plus nine capability modules in one package.",
   "license": "MIT",
   "type": "module",

@@ -8,7 +8,7 @@ import {
   isPromotable,
   promoteUiArtifact,
   validateUiArtifact,
-} from "../packages/im2a-http-mcp/ui-artifact.mjs";
+} from "../packages/dsh-im2a-plugin/kernel/ui-artifact.mjs";
 
 const schema = JSON.parse(await readFile(
   new URL("../docs/contracts/ui-artifact-1.0.schema.json", import.meta.url),

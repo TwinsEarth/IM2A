@@ -30,6 +30,7 @@ import { assertNoAgentMetadataEdit } from "./skill-metadata.mjs";
 import { claimDraftSkill, SkillClaimError } from "./skill-claim.mjs";
 import { auditContributionLog } from "./skill-audit.mjs";
 import { GovernanceStore } from "./governance-store.mjs";
+import { createRegistry, loadPlugin, verifyRuntimeModules } from "../dsh-im2a-plugin/kernel/registry.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -51,6 +52,7 @@ const TRACE_DIR = process.env.IM2A_TRACE_DIR ?? join(DB_DIR, "traces");
 const TRACE_TENANT = process.env.IM2A_TENANT_ID ?? "local";
 const traceStore = new TraceStore({ dir: TRACE_DIR, tenant: TRACE_TENANT });
 const governanceStore = new GovernanceStore({ dir: join(DB_DIR, "governance") });
+const PLUGIN_ROOT = join(ROOT, "packages", "dsh-im2a-plugin");
 const SKILL_GUARD_KEY = process.env.IM2A_SKILL_GUARD_KEY ?? "";
 const skillGuard = new SkillGuard({
   auditPath: process.env.IM2A_SKILL_GUARD_AUDIT ?? join(DB_DIR, "skill-guard", "audit.jsonl"),
@@ -558,6 +560,16 @@ const TOOLS = [
         rationale: { type: "string", minLength: 8, maxLength: 2000 },
       },
       required: ["action"],
+    },
+  },
+  {
+    name: "im2a_kernel_status",
+    description: "Read-only kernel status: manifest and kernel versions, module load order with effective state, declared runtime modules with file presence, and pending governance proposals. Never mutates anything.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+      required: [],
     },
   },
 ];
@@ -1139,6 +1151,28 @@ async function handleRpc(message, context = {}) {
           return { jsonrpc: "2.0", id, result: resultText(status) };
         }
         throw new Error("action must be propose or status");
+      }
+      if (name === "im2a_kernel_status") {
+        const { manifest, aliases } = await loadPlugin(PLUGIN_ROOT);
+        const registry = createRegistry({ manifest, aliases });
+        const report = registry.statusReport();
+        const runtimeModules = await verifyRuntimeModules(manifest, PLUGIN_ROOT);
+        const governance = await governanceStore.status(null);
+        const pending = governance.proposals.filter((proposal) => proposal.status === "pending").length;
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: resultText({
+            plugin: { name: report.name, version: report.version, kernel_version: report.kernel },
+            load_order: report.loadOrder,
+            modules: report.modules,
+            runtime_modules: runtimeModules,
+            runtime_modules_missing: runtimeModules.filter((entry) => !entry.exists).map((entry) => entry.id),
+            governance: { pending_proposals: pending },
+            mcp: { transport: "streamable-http", tool_count: TOOLS.length },
+            premium: report.premium,
+          }),
+        };
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {

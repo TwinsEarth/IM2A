@@ -22,7 +22,8 @@ const EXPECTED_TOOLS = [
   "curator_audit", "skill_guard_check", "memory_recall_v2", "evolution_pipeline_dryrun",
   "drive_list", "drive_manage", "goal_buffer", "drive_propose",
   "scheduler_cycle", "scheduler_audit", "goal_schedule", "drive_calibrate",
-  "autonomy_pipeline_dryrun", "skill_claim", "contribution_audit", "governance_manage"
+  "autonomy_pipeline_dryrun", "skill_claim", "contribution_audit", "governance_manage",
+  "im2a_kernel_status"
 ];
 
 /**
@@ -61,7 +62,8 @@ const SCOPE_BY_TOOL = {
   autonomy_pipeline_dryrun: ["drive:read", "goal:read", "curator:read", "memory:read", "trace:read"],
   skill_claim: ["skill:propose", "goal:read", "curator:read"],
   contribution_audit: ["skill:read"],
-  governance_manage: ["governance:propose"]
+  governance_manage: ["governance:propose"],
+  im2a_kernel_status: ["kernel:read"]
 };
 
 async function readJson(root, rel) {
