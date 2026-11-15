@@ -17,7 +17,7 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "packages", "dsh-im2a-plugin");
 // The exact DSH build this release targets. It must match version-matrix.json
 // (dsh-runtime.target) and both plugin manifests; the matrix test enforces it.
-const RUNTIME_PIN = "0.2.2-rc.2";
+const RUNTIME_PIN = "0.2.2-rc.3";
 const LEGACY_TOOLS = [
   "autonomy_pipeline_dryrun",
   "contribution_audit",
@@ -54,12 +54,12 @@ const LEGACY_TOOLS = [
 // module may claim "planned" now that the kernel modules are attached to them.
 const PARTIAL_MODULES = ["identity", "economy", "governance", "observability"];
 
-test("manifest is a valid 3.3.0 single-package shell", async () => {
+test("manifest is a valid 3.3.1 single-package shell", async () => {
   const { manifest } = await loadPlugin(ROOT);
   const guard = validateManifest(manifest);
   assert.deepEqual(guard.errors, []);
   assert.equal(manifest.name, "dsh-im2a-plugin");
-  assert.equal(manifest.version, "3.3.0");
+  assert.equal(manifest.version, "3.3.1");
   assert.equal(manifest.engines.dsh, RUNTIME_PIN);
   assert.equal(manifest.premium.license_implemented, false);
   for (const id of PARTIAL_MODULES) {
@@ -70,7 +70,7 @@ test("manifest is a valid 3.3.0 single-package shell", async () => {
     assert.notEqual(mod.status, "planned", `${id} still claims planned but has a kernel module`);
   }
   for (const [id, mod] of Object.entries(manifest.premium.modules)) {
-    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.3.0`);
+    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.3.1`);
     assert.equal(mod.requires_signature, true);
   }
 });

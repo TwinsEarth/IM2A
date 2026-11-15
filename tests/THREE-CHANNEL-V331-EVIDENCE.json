@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "three-channel-release",
+  "release": "v3.3.1",
+  "package": "@twinsearth/dsh-im2a-plugin",
+  "checkedAt": "2026-11-16T00:25:00+08:00",
+  "runtime": {
+    "dsh": "0.2.2-rc.3",
+    "plugin": "3.3.1",
+    "kernelModuleVersion": "1.1.0"
+  },
+  "reason": "3.3.0 pinned engines.dsh=0.2.2-rc.2 while the runtime moved to 0.2.2-rc.3; the plugin manager refused to load it",
+  "channels": {
+    "npm": {
+      "status": "passed",
+      "distTagLatest": "3.3.1",
+      "publishedAt": "2026-11-15T16:20:02.307Z",
+      "tarball": "https://registry.npmjs.org/@twinsearth/dsh-im2a-plugin/-/dsh-im2a-plugin-3.3.1.tgz",
+      "shasum": "82f57e4d8db55b6df433a94e2358065de0111d7f",
+      "integrity": "sha512-hHQT4cg687n3dDBN3OJhVsWeo1p3emTh1vhguqMaXxCUQNdYDyfl3RJhJ8TxSbN+l0nIPyXIeoWFxXazjDewoQ==",
+      "enginesDsh": "0.2.2-rc.3"
+    },
+    "tag": {
+      "status": "passed",
+      "name": "v3.3.1",
+      "repository": "TwinsEarth/dsh-im2a-plugin",
+      "pushed": true
+    },
+    "githubRelease": {
+      "status": "passed",
+      "repository": "TwinsEarth/dsh-im2a-plugin",
+      "tag": "v3.3.1",
+      "asset": "twinsearth-dsh-im2a-plugin-3.3.1.tgz",
+      "note": "release body is ASCII-normalized because the API rejects UTF-8 notes with 422"
+    },
+    "platformBranch": {
+      "status": "pushed",
+      "repository": "TwinsEarth/IM2A",
+      "branches": ["platform/latest", "platform/v3.3.1"],
+      "mainLeftAt": "Go product tree"
+    }
+  },
+  "verification": {
+    "fullSuite": "129 passed / 0 failed",
+    "gates": {
+      "validate": "exit 0",
+      "bridgeContracts": "exit 0",
+      "releaseAllowlist": "exit 0",
+      "layerContracts": "exit 0"
+    },
+    "stalePinNegativeControl": "exit 1",
+    "install": { "version": "3.3.1", "application": "restart-required", "restartReason": "unmanaged-plugin" },
+    "bridgeTools": 32,
+    "cleanInstall": { "version": "3.3.1", "engines": "0.2.2-rc.3" }
+  },
+  "notClaimed": [
+    "restart applied in this session",
+    "CI run",
+    "healthz gate (standing auth exception)",
+    "economy/identity completeness (partial by design)"
+  ]
+}

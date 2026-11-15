@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.3.1 — 2026-11-16 DSH 0.2.2-rc.3 compatibility
+
+- `engines.dsh` changed from `0.2.2-rc.2` to `0.2.2-rc.3` in both `package.json`
+  and `plugin.json`; exact pin kept, no range widening.
+- Version bump `3.3.0` -> `3.3.1`; kernel registry, runtime modules, module topology
+  and the 31-name alias table are unchanged.
+- `version-matrix.json` `dsh-runtime` moved to `0.2.2-rc.3`; the validate gate already
+  enforces plugin pin == matrix target, so a stale pin now fails locally before install.
+- Verified on DSH `0.2.2-rc.3`: bundle applied, 32 tools, `im2a_kernel_status` reports
+  6 runtime modules with 0 missing.
+
 ## v3.3.0 — 2026-11-15 kernel runtime modules in the module system; two new tools
 
 - Six kernel runtime modules (`model_registry`, `resource_meter`, `ui_artifact`,
