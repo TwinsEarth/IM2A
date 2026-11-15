@@ -94,13 +94,13 @@ WP-0 是唯一的前置阻塞项；WP-1/2/3 可并行；WP-4 独立；WP-5/6 最
 | WP-0 契约冻结 | ✅ 完成 | 3 schema + 6 fixtures + `scripts/check-layer-contracts.mjs`，接入主闸 | 20 schema 负控 / 8 语义负控 / 4 正控全过；外部负控 2 项（改语义、删必填）均 exit 1 |
 | WP-1 L1 能力注册表 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/model-registry.mjs` | 8 tests：未声明模型报 `model_not_declared`、价格只取声明值、端点按区/协议选择、重复声明拒绝 |
 | WP-2 L6 计量 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/meter.mjs` | 6 tests：一次调用一条记录、内部用途不计费、三池分配、10% 保留下限拒突破 |
-| WP-3 L5.2 ui_artifact | 🟡 核心完成 | `packages/im2a-http-mcp/ui-artifact.mjs` | 7 tests：`ephemeral/promoted` 状态对、升格幂等、异目标冲突、坏输入不产物 |
+| WP-3 L5.2 ui_artifact | ✅ 完成 | `packages/im2a-http-mcp/ui-artifact.mjs` | 7 tests：`ephemeral/promoted` 状态对、升格幂等、异目标冲突、坏输入不产物 |
 | WP-3a `trace_ingest` 接入 | ✅ 完成 | `trace-store.mjs` 侧车 `ui-artifacts.jsonl` + 服务端 ingest schema | 6 tests：侧车落盘、无产物不建文件、坏产物整批拒绝且不写 trace、按 trace 隔离、仅追加 |
 | WP-4 L4 DID 可移植 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/did-portability.mjs` | 9 tests：同资产跨机同摘要、篡改必失败、异 DID 导入拒绝（C4）、导入追加 0 条贡献 |
 | WP-5 拓扑指标 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/topology-metrics.mjs` | 8 tests：节点跨三源去重、质量=执行成功率、归因精度=独立验证补丁占比、空缺因子为 null 而非 0、摘要忽略生成时间 |
-| WP-6 治理与物理授权 | ⏳ 待做 | — | — |
+| WP-6 治理与物理授权 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/scope-governance.mjs` | 10 tests：Agent 只能提议不能授予、Agent 不能批准（含自己的提议）、物理 scope 无提议路径、直接授予需人类+理由、天花板拒绝、拒绝后不可重开、同人重复批准不重复计数 |
 
-累计：WP-0..WP-5 全部完成；新增 44 tests（21 + 6 + 9 + 8），全量 **112 tests 通过**。
+累计：WP-0..WP-6 全部完成；新增 54 tests（21 + 6 + 9 + 8 + 10），全量 **122 tests 通过**。
 
 **契约校准记录**（实现倒逼契约修正，都是真实约束）：
 
@@ -146,6 +146,22 @@ ingest 时根本还不知道 trace id。坏产物会让**整批在写 trace 之�
 - **`composite` 只是快照间可比的相对指标**，不是智能度量，也不主张「指数级涌现」。
   任一因子缺失时 `composite.value = null`，绝不补 0 假装算出来。
 
+## 4.4 WP-6 的三条硬边界
+
+治理模块把「谁能改权限」拆成两条互不相通的路径，而不是一条带开关的路径：
+
+1. **提议 ≠ 授予**。`proposeScopeChange` 只产出一条 `pending` 提议，永远不返回 grant；
+   生效必须由人类 `recordHumanDecision` 批准。Agent 不能批准任何东西——包括它自己的提议。
+2. **物理权限没有 Agent 提议入口**。`physical:*` / `actuator:*` / `bio:*` 在
+   `proposeScopeChange` 里直接抛 `physical_scope_requires_human_grant`，**连提议对象都不会产生**。
+   理由很直白：只要能创建提议，提议就能被游说成事实。物理授权只走
+   `grantScopeDirectly`，必须人类主体 + 记录理由。
+3. **天花板归治理层**。提议超出 `proposableScopes` 抛 `scope_above_ceiling`；
+   `economy:settle` 这类不在可提议集合里的权限，Agent 连问都问不了。
+
+补充实现细节：Agent 主体可以直接用 DID 表示（`did:...` 自动识别为 `agent`），
+避免「Agent 试图批准」被误报成「无效输入」而绕过真正的拒绝路径；
+同一个人类重复批准只算一次；被拒绝的提议不可重开（`proposal_closed`）。
 
 ## 5. 风险
 
