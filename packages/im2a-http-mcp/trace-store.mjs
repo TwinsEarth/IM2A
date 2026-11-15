@@ -9,10 +9,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, open, readFile } from "node:fs/promises";
 import path from "node:path";
+import { UiArtifactError, createUiArtifact } from "./ui-artifact.mjs";
 
 export const TRACE_SCHEMA_VERSION = "1.0";
 export const TRACE_MAX_EVENTS = 2000;
+export const TRACE_MAX_UI_ARTIFACTS = 8;
 export const TRACE_FILE_NAME = "trajectory.jsonl";
+export const UI_ARTIFACT_FILE_NAME = "ui-artifacts.jsonl";
 
 const SPAN_TYPES = new Set(["tool_call", "llm_call", "retrieval", "skill_load"]);
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
@@ -172,7 +175,7 @@ function normalizeEvent(raw, index, { agentDid, defaultOccurredAt }) {
  */
 export function normalizeTraceBatch(input, { tenant, clock } = {}) {
   requireObject(input, "input");
-  onlyKeys(input, new Set(["session_id", "agent_did", "events"]), "input");
+  onlyKeys(input, new Set(["session_id", "agent_did", "events", "ui_artifacts"]), "input");
   const tenantValue = requireString(tenant, "tenant", { max: 64, pattern: TENANT_RE });
   const sessionId = requireString(input.session_id, "session_id", { max: 200 });
   const agentDid = requireString(input.agent_did, "agent_did", { max: 208, pattern: DID_RE });
@@ -197,19 +200,65 @@ export function normalizeTraceBatch(input, { tenant, clock } = {}) {
   return record;
 }
 
+/**
+ * WP-3a: normalize the optional ui_artifact declarations carried by one ingest
+ * batch.
+ *
+ * The client cannot know the trace id (the server mints it) or the artifact id,
+ * so the ingest payload carries only the product facts: kind, format, content
+ * hash, size and optional provenance links. The stored product is a complete
+ * `ui-artifact-1.0` document living in a sidecar file, which keeps the frozen
+ * `execution-trace-1.0` contract untouched.
+ */
+export function normalizeUiArtifacts(rawList, { traceId, agentDid, clock } = {}) {
+  if (rawList === undefined) return [];
+  if (!Array.isArray(rawList) || rawList.length < 1 || rawList.length > TRACE_MAX_UI_ARTIFACTS) {
+    throw new TraceValidationError(`ui_artifacts must contain 1..${TRACE_MAX_UI_ARTIFACTS} entries`);
+  }
+  const createdAt = isoNow(clock);
+  return rawList.map((raw, index) => {
+    const field = `ui_artifacts[${index}]`;
+    requireObject(raw, field);
+    onlyKeys(raw, new Set(["kind", "format", "sha256", "bytes", "goal_id", "parent_artifact_id"]), field);
+    for (const key of ["kind", "format", "sha256", "bytes"]) {
+      if (!Object.hasOwn(raw, key)) throw new TraceValidationError(`${field} is missing required ${key}`);
+    }
+    try {
+      return createUiArtifact({
+        traceId,
+        agentDid,
+        kind: raw.kind,
+        format: raw.format,
+        sha256: raw.sha256,
+        bytes: raw.bytes,
+        goalId: raw.goal_id,
+        parentArtifactId: raw.parent_artifact_id,
+        now: () => new Date(createdAt),
+      });
+    } catch (error) {
+      if (error instanceof UiArtifactError) {
+        throw new TraceValidationError(`${field}: ${error.message}`);
+      }
+      throw error;
+    }
+  });
+}
+
 export class TraceStore {
   #dir;
   #tenant;
   #fileName;
+  #artifactFileName;
   #clock;
   #tail = Promise.resolve();
 
-  constructor({ dir, tenant, fileName = TRACE_FILE_NAME, clock } = {}) {
+  constructor({ dir, tenant, fileName = TRACE_FILE_NAME, artifactFileName = UI_ARTIFACT_FILE_NAME, clock } = {}) {
     if (typeof dir !== "string" || dir.length === 0) throw new TypeError("dir is required");
     if (typeof tenant !== "string" || !TENANT_RE.test(tenant)) throw new TypeError("tenant is invalid");
     this.#dir = dir;
     this.#tenant = tenant;
     this.#fileName = fileName;
+    this.#artifactFileName = artifactFileName;
     this.#clock = clock;
   }
 
@@ -219,6 +268,11 @@ export class TraceStore {
 
   get filePath() {
     return path.join(this.tenantDir, this.#fileName);
+  }
+
+  /** Sidecar for ui_artifact records; keeps execution-trace-1.0 frozen. */
+  get artifactFilePath() {
+    return path.join(this.tenantDir, this.#artifactFileName);
   }
 
   /**
@@ -279,20 +333,57 @@ export class TraceStore {
 
   async ingest(input) {
     const record = normalizeTraceBatch(input, { tenant: this.#tenant, clock: this.#clock });
-    const line = `${JSON.stringify(record)}\n`;
-    const run = this.#tail.then(() => this.#append(line));
+    const artifacts = normalizeUiArtifacts(input.ui_artifacts, {
+      traceId: record.trace_id,
+      agentDid: record.agent_did,
+      clock: this.#clock,
+    });
+    const traceLine = `${JSON.stringify(record)}\n`;
+    const artifactLines = artifacts.map((artifact) => `${JSON.stringify(artifact)}\n`);
+    const run = this.#tail.then(async () => {
+      await this.#appendLine(this.filePath, traceLine);
+      for (const artifactLine of artifactLines) {
+        await this.#appendLine(this.artifactFilePath, artifactLine);
+      }
+    });
     this.#tail = run.catch(() => {});
     await run;
     return {
       trace_id: record.trace_id,
       ingested_count: record.events.length,
       content_sha256: record.content_sha256,
+      ui_artifact_ids: artifacts.map((artifact) => artifact.artifact_id),
     };
   }
 
-  async #append(line) {
+  /**
+   * Read-only sidecar lookup. A missing sidecar means "this trace declared no
+   * ui_artifact", not "the trace is missing".
+   */
+  async getUiArtifacts(traceId) {
+    if (typeof traceId !== "string" || !/^[0-9a-f]{32}$/.test(traceId)) {
+      throw new TraceValidationError("trace_id must be 32 lowercase hex characters");
+    }
+    let raw;
+    try {
+      raw = await readFile(this.artifactFilePath, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") return [];
+      throw error;
+    }
+    const artifacts = [];
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      let artifact;
+      try { artifact = JSON.parse(line); } catch { continue; }
+      if (artifact?.trace_id === traceId) artifacts.push(artifact);
+    }
+    return artifacts;
+  }
+
+  async #appendLine(filePath, line) {
     await mkdir(this.tenantDir, { recursive: true, mode: 0o750 });
-    const handle = await open(this.filePath, "a", 0o640);
+    const handle = await open(filePath, "a", 0o640);
     try {
       await handle.writeFile(line, "utf8");
       await handle.sync();

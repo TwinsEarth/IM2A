@@ -217,7 +217,7 @@ const TOOLS = [
   },
   {
     name: "trace_ingest",
-    description: "Append one immutable execution trace batch to trajectory.jsonl. Stores span metadata and SHA-256 digests only; raw prompts, arguments, outputs and credentials are rejected.",
+    description: "Append one immutable execution trace batch to trajectory.jsonl. Stores span metadata and SHA-256 digests only; raw prompts, arguments, outputs and credentials are rejected. Optional ui_artifacts declare task-scoped interfaces; they are stored in the ui-artifacts.jsonl sidecar with server-minted ids and trace linkage.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -250,6 +250,24 @@ const TOOLS = [
               "span_type", "name", "input_digest", "output_digest",
               "duration_ms", "token_cost", "success",
             ],
+          },
+        },
+        ui_artifacts: {
+          type: "array",
+          minItems: 1,
+          maxItems: 8,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              kind: { enum: ["layout", "interactive", "document", "scene"] },
+              format: { enum: ["html", "svg", "json", "markdown"] },
+              sha256: { type: "string", pattern: "^[0-9a-f]{64}$" },
+              bytes: { type: "integer", minimum: 1, maximum: 16777216 },
+              goal_id: { type: "string", pattern: "^goal_[0-9a-f]{24}$" },
+              parent_artifact_id: { type: "string", pattern: "^uiart_[0-9a-f]{24}$" },
+            },
+            required: ["kind", "format", "sha256", "bytes"],
           },
         },
       },
