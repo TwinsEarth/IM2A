@@ -13,10 +13,13 @@
 ## 分支策略（用户 2026-11-16 裁定）
 
 ```text
-main             Go 产品树。禁止用 Node 平台覆盖。
-platform         Node 平台滚动分支，跟随最新平台提交。
-platform/vX.Y.Z  每个平台版本的不可变快照，用于回溯与发布对账。
+main              Go 产品树。禁止用 Node 平台覆盖。
+platform/latest   Node 平台滚动分支，跟随最新平台提交。
+platform/vX.Y.Z   每个平台版本的不可变快照，用于回溯与发布对账。
 ```
+
+（滚动分支必须叫 `platform/latest` 而不是 `platform`：Git 的引用命名空间不允许
+`refs/heads/platform` 与 `refs/heads/platform/v3.3.0` 并存。）
 
 规则：
 
