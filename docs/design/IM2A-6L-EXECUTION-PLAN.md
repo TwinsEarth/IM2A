@@ -97,9 +97,10 @@ WP-0 是唯一的前置阻塞项；WP-1/2/3 可并行；WP-4 独立；WP-5/6 最
 | WP-3 L5.2 ui_artifact | 🟡 核心完成 | `packages/im2a-http-mcp/ui-artifact.mjs` | 7 tests：`ephemeral/promoted` 状态对、升格幂等、异目标冲突、坏输入不产物 |
 | WP-3a `trace_ingest` 接入 | ✅ 完成 | `trace-store.mjs` 侧车 `ui-artifacts.jsonl` + 服务端 ingest schema | 6 tests：侧车落盘、无产物不建文件、坏产物整批拒绝且不写 trace、按 trace 隔离、仅追加 |
 | WP-4 L4 DID 可移植 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/did-portability.mjs` | 9 tests：同资产跨机同摘要、篡改必失败、异 DID 导入拒绝（C4）、导入追加 0 条贡献 |
-| WP-5 / WP-6 | ⏳ 待做 | — | — |
+| WP-5 拓扑指标 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/topology-metrics.mjs` | 8 tests：节点跨三源去重、质量=执行成功率、归因精度=独立验证补丁占比、空缺因子为 null 而非 0、摘要忽略生成时间 |
+| WP-6 治理与物理授权 | ⏳ 待做 | — | — |
 
-累计：WP-0..WP-4 全部完成；新增 36 tests（21 + 6 + 9），全量 **104 tests 通过**。
+累计：WP-0..WP-5 全部完成；新增 44 tests（21 + 6 + 9 + 8），全量 **112 tests 通过**。
 
 **契约校准记录**（实现倒逼契约修正，都是真实约束）：
 
@@ -126,6 +127,24 @@ ingest 时根本还不知道 trace id。坏产物会让**整批在写 trace 之�
   直接拒绝，因为把资产导入另一个 DID 等于改写血缘（C4）。
 - **导入不追加贡献条目**：bundle 只携带贡献链的只读证明（`count` + `head_hash`），
   计划里 `contributions_appended` 恒为 0。恢复的是历史，不是改写历史。
+
+## 4.3 WP-5 的指标口径（重要）
+
+三项指标全部由**已有记录重算**，没有新增采集面：
+
+| 指标 | 口径 | 数据来源 |
+| --- | --- | --- |
+| `node_count` | 三源去重后的 `agent_did` 数 | 计量记录 + 轨迹 + 贡献条目 |
+| `quality_index` | **观测到的执行成功率**（成功事件 / 总事件） | 轨迹 `events[].success` |
+| `attribution_precision` | 有效补丁 / 全部补丁（有效 = 有验证证据且验证者非作者） | 贡献链条目，复用 `isEffectivePatch` |
+
+两条诚实性约束写进了结构而不是文案：
+
+- **`quality_index` 不是信用档位**。身份模块（2.5）仍是 `planned`，没有信用数据可读；
+  快照里 `credit_tier_coverage: 0` 且 `credit_source` 明确写「以执行可靠性代理」。
+  等身份模块落地后只换数据源，不改快照形状。
+- **`composite` 只是快照间可比的相对指标**，不是智能度量，也不主张「指数级涌现」。
+  任一因子缺失时 `composite.value = null`，绝不补 0 假装算出来。
 
 
 ## 5. 风险
