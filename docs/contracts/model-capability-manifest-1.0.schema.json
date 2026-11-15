@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/model-capability-manifest-1.0.schema.json",
+  "title": "IM2A L1 -> L2 model capability manifest (v1.0)",
+  "description": "An L1 model endpoint declares what it is and what it costs. L2 autonomy/economy consume this document instead of hard-coding model names. Routing stays in the 3.4 commercial module; the layer only states facts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider",
+    "model",
+    "endpoints",
+    "limits",
+    "capabilities",
+    "pricing",
+    "declared_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_id", "vendor", "deployment"],
+      "properties": {
+        "provider_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$" },
+        "vendor": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "deployment": { "enum": ["self_hosted", "third_party"] },
+        "jurisdiction": { "type": "string", "minLength": 2, "maxLength": 16 }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "family"],
+      "properties": {
+        "model_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{1,127}$" },
+        "family": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "weights_license": { "type": "string", "minLength": 1, "maxLength": 80 }
+      }
+    },
+    "endpoints": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["protocol", "url", "region"],
+        "properties": {
+          "protocol": { "enum": ["chat_completions", "anthropic_messages", "codex_responses"] },
+          "url": { "type": "string", "format": "uri" },
+          "region": { "type": "string", "minLength": 2, "maxLength": 32 }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_tokens", "max_output_tokens"],
+      "properties": {
+        "context_tokens": { "type": "integer", "minimum": 1 },
+        "max_output_tokens": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool_calling", "structured_output", "streaming", "multimodal"],
+      "properties": {
+        "tool_calling": { "type": "boolean" },
+        "structured_output": { "type": "boolean" },
+        "streaming": { "type": "boolean" },
+        "multimodal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image", "audio", "video"],
+          "properties": {
+            "image": { "type": "boolean" },
+            "audio": { "type": "boolean" },
+            "video": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_per_mtok", "output_per_mtok", "currency"],
+      "properties": {
+        "input_per_mtok": { "type": "number", "minimum": 0 },
+        "output_per_mtok": { "type": "number", "minimum": 0 },
+        "currency": { "enum": ["USD", "CNY"] }
+      }
+    },
+    "declared_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/resource-metering-record-1.0.schema.json",
+  "title": "IM2A L6 -> L2 resource metering record (v1.0)",
+  "description": "Every resource consumption event (model call, storage write, bandwidth transfer) produces one record that the L2 economy module can price. Without metering there is no marginal pricing, and L6 degenerates into a fixed-cost cloud.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "meter_version",
+    "record_id",
+    "at",
+    "agent_did",
+    "layer",
+    "resource",
+    "task",
+    "cost",
+    "billable"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "meter_version": { "const": "1.0" },
+    "record_id": { "type": "string", "pattern": "^meter_[0-9a-f]{24}$" },
+    "at": { "type": "string", "format": "date-time" },
+    "agent_did": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "layer": { "enum": ["compute", "storage", "network", "bandwidth", "data", "account"] },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "quantity", "unit"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "quantity": { "type": "number", "minimum": 0 },
+        "unit": {
+          "enum": ["tokens", "gpu_seconds", "bytes", "requests", "bytes_per_second", "records", "calls"]
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_id"],
+      "properties": {
+        "provider_id": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "region": { "type": "string", "minLength": 2, "maxLength": 32 }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose"],
+      "properties": {
+        "purpose": { "enum": ["external", "self_improvement", "maintenance"] },
+        "trace_id": { "type": "string", "pattern": "^trace_[0-9a-f]{24}$" },
+        "skill_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "goal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": { "type": "number", "minimum": 0 },
+        "currency": { "enum": ["USD", "CNY", "CREDIT"] }
+      }
+    },
+    "billable": { "type": "boolean" }
+  }
+}

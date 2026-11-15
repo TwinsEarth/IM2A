@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "meter_version": "1.0",
+  "record_id": "meter_0123456789abcdef01234567",
+  "at": "2026-11-15T00:00:00Z",
+  "agent_did": "did:im2a:lead",
+  "layer": "compute",
+  "resource": {
+    "kind": "model_inference",
+    "quantity": 18432,
+    "unit": "tokens"
+  },
+  "provider": {
+    "provider_id": "twinsearth-gpu-01",
+    "region": "cn-east"
+  },
+  "task": {
+    "purpose": "external",
+    "trace_id": "trace_0123456789abcdef01234567",
+    "skill_id": "skill-demo"
+  },
+  "cost": {
+    "amount": 0.0052,
+    "currency": "USD"
+  },
+  "billable": true
+}

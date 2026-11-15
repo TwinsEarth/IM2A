@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { generate } from "../packages/agent-plugins/generator/src/generate.mjs";
 import { assertValid, validateSchema } from "./schema-validator.mjs";
 import { validateRealtime } from "./validate-realtime.mjs";
+import { checkLayerContracts } from "./check-layer-contracts.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const defaultRoot = path.resolve(here, "..");
@@ -130,6 +131,17 @@ export async function validateP0({ root = defaultRoot } = {}) {
     const meta = await readJson(root, `packages/dsh-im2a-plugin/locale/${locale}.json`);
     if (!meta?.meta?.title) throw new Error(`locale/${locale}.json must define meta.title`);
     if (!meta?.meta?.description) throw new Error(`locale/${locale}.json must define meta.description`);
+  }
+
+  // WP-0 of the six-layer plan: the three cross-layer contracts (L1 -> L2,
+  // L6 -> L2, L5.2 -> L2) are gated here so a hand-written example that drifts
+  // from the frozen seam fails locally instead of at integration time.
+  const layerContracts = await checkLayerContracts({ root });
+  if (!layerContracts.ok) {
+    const detail = layerContracts.failures
+      .map((failure) => `${failure.contract}/${failure.case}: ${failure.error}`)
+      .join("; ");
+    throw new Error(`layer contracts failed: ${detail}`);
   }
 
   // Release manifest: draft must be structurally valid; non-draft must be

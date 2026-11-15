@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "provider": {
+    "provider_id": "twinsearth-gpu-01",
+    "vendor": "DeepSeek",
+    "deployment": "self_hosted",
+    "jurisdiction": "CN"
+  },
+  "model": {
+    "model_id": "deepseek-v4-1-flash-261017",
+    "family": "DeepSeek-V4",
+    "weights_license": "MIT"
+  },
+  "endpoints": [
+    {
+      "protocol": "chat_completions",
+      "url": "https://api.im2a.dev/v1/chat/completions",
+      "region": "cn-east"
+    },
+    {
+      "protocol": "anthropic_messages",
+      "url": "https://api.im2a.dev/v1/messages",
+      "region": "cn-east"
+    }
+  ],
+  "limits": {
+    "context_tokens": 131072,
+    "max_output_tokens": 8192
+  },
+  "capabilities": {
+    "tool_calling": true,
+    "structured_output": true,
+    "streaming": true,
+    "multimodal": {
+      "image": false,
+      "audio": false,
+      "video": false
+    }
+  },
+  "pricing": {
+    "input_per_mtok": 0.14,
+    "output_per_mtok": 0.28,
+    "currency": "USD"
+  },
+  "declared_at": "2026-11-15T00:00:00Z",
+  "expires_at": "2027-02-15T00:00:00Z"
+}

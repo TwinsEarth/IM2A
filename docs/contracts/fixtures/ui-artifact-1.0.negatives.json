@@ -1,0 +1,74 @@
+{
+  "schema": "docs/contracts/ui-artifact-1.0.schema.json",
+  "base": "docs/contracts/fixtures/ui-artifact-1.0.valid.json",
+  "note": "An instant-world UI is a trace product, not an asset. Promotion is the only path into the contribution chain, so the status/promoted_skill_id pair must stay consistent.",
+  "cases": [
+    {
+      "id": "U1",
+      "why": "an artifact without an id cannot be content-addressed or linked from the trace",
+      "unset": ["artifact_id"],
+      "expect": "missing required artifact_id"
+    },
+    {
+      "id": "U2",
+      "why": "artifact kinds are closed; an unknown kind has no renderer contract",
+      "set": { "kind": "hologram" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "U3",
+      "why": "without a content hash the artifact cannot be verified or deduplicated",
+      "set": { "sha256": "xyz" },
+      "expect": "pattern mismatch"
+    },
+    {
+      "id": "U4",
+      "why": "a zero-byte artifact is not a rendered interface",
+      "set": { "bytes": 0 },
+      "expect": "below minimum"
+    },
+    {
+      "id": "U5",
+      "why": "only two life-cycle states exist: ephemeral or promoted",
+      "set": { "status": "archived" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "U6",
+      "why": "the promoted skill reference must be a string id or explicit null",
+      "set": { "promoted_skill_id": 42 },
+      "expect": "expected string|null"
+    }
+  ],
+  "validMutations": [
+    {
+      "id": "V1",
+      "why": "a promoted artifact carrying a skill id and timestamp is the legitimate second state",
+      "set": {
+        "status": "promoted",
+        "promoted_skill_id": "skill-demo",
+        "promoted_at": "2026-11-16T00:00:00Z"
+      }
+    }
+  ],
+  "semanticCases": [
+    {
+      "id": "S1",
+      "why": "promotion without a target skill would put an orphan into the contribution chain",
+      "set": { "status": "promoted" },
+      "expect": "promoted requires promoted_skill_id"
+    },
+    {
+      "id": "S2",
+      "why": "an ephemeral artifact must not claim a skill id; that is the 'not an asset yet' guarantee",
+      "set": { "promoted_skill_id": "skill-demo" },
+      "expect": "ephemeral must not carry promoted_skill_id"
+    },
+    {
+      "id": "S3",
+      "why": "promotion is an event; without promoted_at the contribution chain cannot order it",
+      "set": { "status": "promoted", "promoted_skill_id": "skill-demo" },
+      "expect": "promoted requires promoted_at"
+    }
+  ]
+}

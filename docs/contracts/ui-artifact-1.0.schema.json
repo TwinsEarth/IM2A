@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://im2a.dev/contracts/ui-artifact-1.0.schema.json",
+  "title": "IM2A L5.2 ui_artifact trace product (v1.0)",
+  "description": "A task-scoped interface generated at runtime by an Agent ('instant world'). It is recorded with the trace but does NOT enter the contribution chain while ephemeral. Only repeated reuse plus a reflect_trigger decision promotes it into a skill via skill_claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "trace_id",
+    "created_at",
+    "kind",
+    "format",
+    "sha256",
+    "bytes",
+    "status",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "artifact_id": { "type": "string", "pattern": "^uiart_[0-9a-f]{24}$" },
+    "trace_id": { "type": "string", "pattern": "^trace_[0-9a-f]{24}$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "kind": { "enum": ["layout", "interactive", "document", "scene"] },
+    "format": { "enum": ["html", "svg", "json", "markdown"] },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "bytes": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["ephemeral", "promoted"] },
+    "promoted_skill_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "promoted_at": { "type": "string", "format": "date-time" },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_did"],
+      "properties": {
+        "agent_did": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "goal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" },
+        "parent_artifact_id": { "type": "string", "pattern": "^uiart_[0-9a-f]{24}$" }
+      }
+    }
+  }
+}

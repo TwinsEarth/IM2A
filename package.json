@@ -15,6 +15,7 @@
     "healthz": "node scripts/healthz.mjs",
     "allowlist": "node scripts/check-release-allowlist.mjs",
     "bridge:contracts": "node scripts/check-bridge-contracts.mjs",
+    "layer:contracts": "node scripts/check-layer-contracts.mjs",
     "release:dry-run": "node scripts/release-dry-run.mjs",
     "test": "node packages/agent-plugins/generator/src/cli.mjs generate && node tests/p0.test.mjs",
     "test:ci": "node packages/agent-plugins/generator/src/cli.mjs generate && node --test tests/*.test.mjs",

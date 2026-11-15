@@ -1,0 +1,70 @@
+{
+  "schema": "docs/contracts/resource-metering-record-1.0.schema.json",
+  "base": "docs/contracts/fixtures/resource-metering-record-1.0.valid.json",
+  "note": "Metering must stay quotable: one record per consumption event, with a purpose that decides whether it can be billed at all.",
+  "cases": [
+    {
+      "id": "M1",
+      "why": "a record without an id cannot be deduplicated on replay",
+      "unset": ["record_id"],
+      "expect": "missing required record_id"
+    },
+    {
+      "id": "M2",
+      "why": "resource layers are the six in the framework; an unknown layer breaks split accounting",
+      "set": { "layer": "quantum" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "M3",
+      "why": "negative cost would invert the ledger",
+      "set": { "cost.amount": -0.01 },
+      "expect": "below minimum"
+    },
+    {
+      "id": "M4",
+      "why": "an unknown unit makes quantity incomparable across providers",
+      "set": { "resource.unit": "widgets" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "M5",
+      "why": "billable must be a boolean, not a truthy string",
+      "set": { "billable": "yes" },
+      "expect": "expected boolean"
+    },
+    {
+      "id": "M6",
+      "why": "the three purpose classes drive pool allocation; a fourth must fail",
+      "set": { "task.purpose": "billing" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "M7",
+      "why": "trace ids are fixed-width so they can be joined without ambiguity",
+      "set": { "task.trace_id": "trace-123" },
+      "expect": "pattern mismatch"
+    }
+  ],
+  "validMutations": [
+    {
+      "id": "V1",
+      "why": "internal maintenance work is recorded but carries no charge",
+      "set": { "task.purpose": "maintenance", "cost.amount": 0, "billable": false }
+    }
+  ],
+  "semanticCases": [
+    {
+      "id": "S1",
+      "why": "billable must be derivable from cost; a free record marked billable would double-charge",
+      "set": { "billable": true, "cost.amount": 0 },
+      "expect": "billable must match cost.amount > 0"
+    },
+    {
+      "id": "S2",
+      "why": "self-improvement consumption belongs to the reserved pool and must never be billed to a customer",
+      "set": { "task.purpose": "self_improvement", "billable": true, "cost.amount": 0.01 },
+      "expect": "internal purpose must not be billable"
+    }
+  ]
+}

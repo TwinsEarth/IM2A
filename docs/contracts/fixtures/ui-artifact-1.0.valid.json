@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "artifact_id": "uiart_0123456789abcdef01234567",
+  "trace_id": "trace_0123456789abcdef01234567",
+  "created_at": "2026-11-15T00:00:00Z",
+  "kind": "interactive",
+  "format": "html",
+  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "bytes": 4096,
+  "status": "ephemeral",
+  "promoted_skill_id": null,
+  "provenance": {
+    "agent_did": "did:im2a:lead",
+    "goal_id": "goal_0123456789abcdef01234567"
+  }
+}

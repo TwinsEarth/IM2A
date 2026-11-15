@@ -1,0 +1,83 @@
+{
+  "schema": "docs/contracts/model-capability-manifest-1.0.schema.json",
+  "base": "docs/contracts/fixtures/model-capability-manifest-1.0.valid.json",
+  "note": "Schema negatives plus semantic negatives. Semantics are rules JSON Schema cannot express but L2 relies on; the checker fails the gate when one is violated.",
+  "cases": [
+    {
+      "id": "C1",
+      "why": "a manifest without endpoints declares a model nobody can call",
+      "unset": ["endpoints"],
+      "expect": "missing required endpoints"
+    },
+    {
+      "id": "C2",
+      "why": "the wire protocol set is closed at three; a fourth mode must fail, not warn",
+      "set": { "endpoints.0.protocol": "openai_chat" },
+      "expect": "not in enum"
+    },
+    {
+      "id": "C3",
+      "why": "negative pricing would invert marginal-return decisions in the economy module",
+      "set": { "pricing.input_per_mtok": -1 },
+      "expect": "below minimum"
+    },
+    {
+      "id": "C4",
+      "why": "a string context window would break budget arithmetic silently",
+      "set": { "limits.context_tokens": "131072" },
+      "expect": "expected integer"
+    },
+    {
+      "id": "C5",
+      "why": "multimodal flags are required so callers never guess support",
+      "unset": ["capabilities.multimodal"],
+      "expect": "missing required multimodal"
+    },
+    {
+      "id": "C6",
+      "why": "a free-form timestamp cannot be ordered against expiry",
+      "set": { "declared_at": "yesterday" },
+      "expect": "invalid date-time"
+    },
+    {
+      "id": "C7",
+      "why": "unknown schema versions must be rejected rather than best-effort parsed",
+      "set": { "schema_version": "2.0" },
+      "expect": "expected const"
+    }
+  ],
+  "validMutations": [
+    {
+      "id": "V1",
+      "why": "loopback http is legitimate for self-hosted local inference; the gate must not reject it",
+      "set": { "endpoints.0.url": "http://127.0.0.1:11434/v1/chat/completions" }
+    },
+    {
+      "id": "V2",
+      "why": "a third-party endpoint need not declare weights license",
+      "set": { "provider.deployment": "third_party" },
+      "unset": ["model.weights_license"]
+    }
+  ],
+  "semanticCases": [
+    {
+      "id": "S1",
+      "why": "output budget above the context window is unsatisfiable and must be caught at declaration time",
+      "set": { "limits.max_output_tokens": 262144 },
+      "expect": "max_output_tokens must not exceed context_tokens"
+    },
+    {
+      "id": "S2",
+      "why": "two endpoints speaking the same protocol make endpoint selection ambiguous",
+      "set": { "endpoints.1.protocol": "chat_completions" },
+      "expect": "duplicate endpoint protocol"
+    },
+    {
+      "id": "S3",
+      "why": "a self-hosted model without a weights license is a redistribution risk",
+      "set": { "provider.deployment": "self_hosted" },
+      "unset": ["model.weights_license"],
+      "expect": "self_hosted requires weights_license"
+    }
+  ]
+}

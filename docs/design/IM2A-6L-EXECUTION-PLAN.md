@@ -1,0 +1,105 @@
+# IM2A 六层框架：执行路线图
+
+配套文档：`docs/design/IM2A-SYSTEM-FRAMEWORK-6L.md`（架构定稿）。
+本文回答"先做什么、怎么验收、本轮做到哪"。
+
+## 1. 现状审计（2026-11-15）
+
+| 层 | 已有 | 缺口 |
+| --- | --- | --- |
+| L1 智能提供 | Harness 侧模型配置、三种 API 模式可接 | **无能力声明契约**：模型能力靠硬编码，经济/自治无法按能力比价 |
+| L2 Agent | Kernel + 9 模块骨架；skill/memory/trace/reflect/curator/guard/claim/audit 已落地；identity/economy/governance 为 `planned` | 拓扑指标、Shapley 归因、信用消费仍缺 |
+| L3 人机边界 | 宪法 C1–C7 文档化；`reserved_ratio`、`trajectory:contribute`、`budget_tokens` 有实现点 | 物理动作 scope、注意力预算的**统一裁决入口**未定义 |
+| L4 硬件终端 | Surface 层可移植性设计（DID 绑定） | 无导出/导入格式，换设备等于重建 |
+| L5 软件载体 | DSH 插件（单包）、浏览器扩展、IM Bot、OpenClaw | **即时生成世界无契约**：`ui_artifact` 未定义 |
+| L6 基础设施 | gateway（18080）、MCP bridge（18082）、SQLite、Memory Hub | **无资源计量记录**：算力/存储/带宽消耗不可归集，边际定价无输入 |
+
+一句话：**第 2 层的骨架在，第 1/5/6 层与该层的三条接缝没有契约**。
+先补接缝，再填实现——否则每加一个模块都要重新发明一遍跨层约定。
+
+## 2. 工作包
+
+### WP-0 跨层契约冻结（本轮执行）
+
+3 条契约 + 否定控制 + 语义控制 + 接入主闸。
+
+| 契约 | 方向 | 冻结内容 |
+| --- | --- | --- |
+| `model-capability-manifest-1.0` | L1 → L2 | 端点、协议、上下文/输出上限、能力位、单价、声明时间 |
+| `resource-metering-record-1.0` | L6 → L2 | 资源种类/数量/单位、用途三分类、成本、是否可计费 |
+| `ui-artifact-1.0` | L5.2 → L2 | 轨迹产物、内容寻址、`ephemeral/promoted`、升格引用 |
+
+**验收**
+
+```text
+node scripts/check-layer-contracts.mjs        exit 0，valid 全过
+每条契约 ≥ 5 条 schema 负控被拒
+每条契约 ≥ 2 条语义负控被拒（schema 表达不了的规则）
+≥ 1 条正控（合法变体必须被接受，证明不是一律拒绝）
+node scripts/validate.mjs                     含新校验且 exit 0
+```
+
+**为什么先做这个**：三条接缝分别决定"能不能比价"、"能不能定价"、"能不能沉淀"。
+契约未冻结时写实现，等于把跨层假设埋进代码。
+
+### WP-1 L1 能力注册表（依赖 WP-0）
+
+- 交付：`kernel/model-registry.mjs`，加载 `capability_manifest[]`，
+  提供 `list()/get(id)/estimateCost(tokensIn, tokensOut)`。
+- 验收：未知模型返回 `model_not_declared`；价格只取自 manifest；
+  同一 provider 多端点按 `region` 选择；不实现路由策略（留给 3.4）。
+
+### WP-2 L6 计量接入（依赖 WP-0）
+
+- 交付：`kernel/meter.mjs` 写 `resource_metering_record`；2.6 经济桩消费三池分配。
+- 验收：一次模型调用产生 1 条 compute 记录；内部用途记录 `billable=false`；
+  三池之和 == 总预算，比例下限 10% 不被突破。
+
+### WP-3 L5.2 `ui_artifact` 落地（依赖 WP-0）
+
+- 交付：`trace_ingest` 接受可选 `ui_artifact`；`reflect_trigger` 命中后走 `skill_claim` 升格。
+- 验收：`ephemeral` 不进贡献链；`promoted` 必须有 `promoted_skill_id` 且进入贡献链；
+  重复升格幂等。
+
+### WP-4 L4 DID 可移植（依赖 WP-0/WP-1）
+
+- 交付：DID 导出/导入包（`skills/` + `goal_buffer` + `credit_profile` + 贡献链只读副本）。
+- 验收：换设备后同一 DID 的资产哈希一致；导入不产生新的贡献条目。
+
+### WP-5 拓扑指标（依赖 WP-1/2/3，与 2.5/2.6 并行）
+
+- 交付：`node_count / quality_index / attribution_precision` 三项指标与快照。
+- 验收：指标可由已有记录重算，不引入新采集面。
+
+### WP-6 治理与物理授权（依赖 WP-4）
+
+- 交付：scope 变更 proposal（C1）；物理动作 scope 的显式授予入口。
+- 验收：Agent 无自主申请路径；高影响变更必须人类裁决。
+
+## 3. 排序与依赖
+
+```text
+WP-0 ──┬── WP-1 ──┐
+       ├── WP-2 ──┼── WP-5
+       ├── WP-3 ──┘
+       └── WP-4 ───── WP-6
+```
+
+WP-0 是唯一的前置阻塞项；WP-1/2/3 可并行；WP-4 独立；WP-5/6 最后。
+
+## 4. 本轮执行范围
+
+**只做 WP-0**。理由：三条契约是后续所有工作包的输入，且可以在不触碰运行时的情况下
+独立验证——这正是"先设计&策划，再开发&执行"里"先"的部分该交付的形态。
+
+不做的部分明确列出：不实现 `model-registry`、不写计量记录、不改 `trace_ingest`。
+这些在 WP-1/2/3 做，且必须在契约评审后才能动。
+
+## 5. 风险
+
+| 风险 | 缓解 |
+| --- | --- |
+| 契约与实现漂移 | 契约进主闸；fixtures 即最小实现样例 |
+| 三条契约过度设计 | 字段取最小可用集；`additionalProperties: false` 强制显式扩展 |
+| 语义规则藏在 prose 里 | 语义负控进校验脚本，失败即红灯 |
+| 把第 2 层做成第 1 层 | 第 1 层只声明能力，路由与定价留在 3.4/2.6 |
