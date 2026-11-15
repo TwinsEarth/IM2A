@@ -100,20 +100,23 @@
       "tools": ["ingest", "reflect", "curator", "curator_audit"]
     },
     "asset": {
-      "module_version": "3.2.0",
+      "module_version": "3.3.0",
       "status": "available",
       "required_scopes": ["skill:write"],
       "deps": ["memory", "evolution"],
       "soft_deps": [],
-      "tools": ["view", "manage", "claim", "list", "audit", "guard_check"]
+      "tools": ["view", "manage", "claim", "list", "audit", "guard_check"],
+      "runtime_modules": ["ui_artifact"]
     },
     "identity": {
       "module_version": "2.8.9",
-      "status": "planned",
+      "status": "partial",
+      "status_note": "DID-bound portability (L4) is implemented; verification tiers and credit attestation are still planned",
       "required_scopes": ["credit:attest"],
       "deps": ["asset", "evolution"],
       "soft_deps": [],
-      "tools": []
+      "tools": [],
+      "runtime_modules": ["did_portability"]
     },
     "autonomy": {
       "module_version": "2.6.9",
@@ -134,11 +137,13 @@
     },
     "economy": {
       "module_version": "2.9.9",
-      "status": "planned",
+      "status": "partial",
+      "status_note": "metering and model-cost estimation are implemented in the kernel; no economy MCP tool is exposed yet",
       "required_scopes": ["economy:node"],
       "deps": ["asset", "identity"],
       "soft_deps": ["observability"],
-      "tools": []
+      "tools": [],
+      "runtime_modules": ["model_registry", "resource_meter"]
     },
     "fleet": {
       "module_version": "3.0.6",
@@ -149,21 +154,24 @@
       "tools": ["harness_list", "send", "recv", "presence", "history"]
     },
     "governance": {
-      "module_version": "3.0.4",
-      "status": "planned",
+      "module_version": "3.3.0",
+      "status": "partial",
+      "status_note": "proposal and status are exposed as governance_manage; human approval is recorded outside the MCP surface",
       "required_scopes": ["governance:vote"],
       "deps": ["identity"],
       "soft_deps": ["observability"],
-      "tools": []
+      "tools": ["manage"],
+      "runtime_modules": ["scope_governance"]
     },
     "observability": {
-      "module_version": "3.2.1",
+      "module_version": "3.3.0",
       "status": "partial",
-      "status_note": "pipeline dry-run only; drift, meta_evolve and telemetry_ingest are not implemented",
+      "status_note": "pipeline dry-run and topology metrics; drift, meta_evolve and telemetry_ingest are not implemented",
       "required_scopes": ["observability:read"],
       "deps": [],
       "soft_deps": [],
-      "tools": ["pipeline_dryrun"]
+      "tools": ["pipeline_dryrun"],
+      "runtime_modules": ["topology_metrics"]
     }
   },
   "premium": {

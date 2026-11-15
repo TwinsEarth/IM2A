@@ -215,6 +215,47 @@ runtime_modules=6 missing=0
 modules=9 governance_pending=1 mcp_tools=32 premium_license_implemented=False
 ```
 
+## 4.7 WP-7b：内核模块接进模块系统
+
+WP-7 只把模块挂在了 `kernel.runtime_modules`，九个能力模块里 `identity / economy / governance`
+仍是 `planned`——两边没对上。WP-7b 把归属补齐：
+
+| 能力模块 | 附件内核模块 | 状态变化 |
+| --- | --- | --- |
+| asset | `ui_artifact` | available（不变） |
+| identity | `did_portability` | planned → **partial** |
+| economy | `model_registry`、`resource_meter` | planned → **partial** |
+| governance | `scope_governance` | planned → **partial**（并新增 `manage` 工具） |
+| observability | `topology_metrics` | partial（不变） |
+
+**新增校验**（`registry.mjs`）三条，防两边再漂移：
+
+1. 每个运行时模块**必须**被至少一个能力模块引用（孤儿模块即失败）；
+2. 模块不得引用未在 `kernel.runtime_modules` 声明的 id；
+3. 同一模块内不得重复引用。
+
+**状态口径**：九个能力模块现在**没有一个**可以直接标 `planned`——凡有内核模块支撑的，都必须
+用 `available` 或 `partial` 并写明 `status_note` 说明缺什么。测试里加了「不得残留 planned」的断言。
+
+**副作用**：governance 拿到 `manage` 工具后，`governance_manage` 由「原生规范名」变成一条真正的
+迁移别名（→ `im2a_governance_manage`），别名表 30 → 31 条；`im2a_kernel_status` 仍为
+`CANONICAL_ONLY`（它没有旧名）。
+
+实机输出（2026-11-15，重启桥后）：
+
+```text
+plugin=dsh-im2a-plugin@3.3.0 kernel=1.1.0 tools=32 runtime_modules=6 missing=0
+  memory        available  tools=4  runtime=[]
+  evolution     available  tools=4  runtime=[]
+  asset         available  tools=6  runtime=[ui_artifact]
+  identity      partial    tools=0  runtime=[did_portability]
+  autonomy      available  tools=8  runtime=[]
+  economy       partial    tools=0  runtime=[model_registry,resource_meter]
+  fleet         available  tools=5  runtime=[]
+  governance    partial    tools=1  runtime=[scope_governance]
+  observability partial    tools=1  runtime=[topology_metrics]
+```
+
 ## 5. 风险
 
 | 风险 | 缓解 |

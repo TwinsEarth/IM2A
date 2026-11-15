@@ -58,6 +58,9 @@ export const TOOL_SUFFIX = {
   kernel: {
     im2a_whoami: "whoami",
   },
+  governance: {
+    governance_manage: "manage",
+  },
 };
 
 // Two legacy dry-runs collapse into one public tool, split by a fixed argument.
@@ -70,7 +73,6 @@ export const MERGED_ALIASES = {
 // from, so the alias table must not invent an entry for them. The generator still
 // knows them, which keeps the "tool set drift" check honest instead of loosening it.
 export const CANONICAL_ONLY = new Set([
-  "governance_manage",
   "im2a_kernel_status",
 ]);
 

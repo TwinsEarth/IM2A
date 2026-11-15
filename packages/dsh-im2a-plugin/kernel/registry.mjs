@@ -78,6 +78,27 @@ export function validateManifest(manifest) {
       }
       if (!MODULE_STATUS.has(entry.status)) errors.push(`${field}: unknown status ${entry.status}`);
     }
+
+    // Every runtime module must be attached to a capability module, and no module
+    // may reference a runtime module that was not declared. Without this the two
+    // halves of the manifest can drift apart silently.
+    const declaredRuntime = new Set(runtimeModules.map((entry) => entry.id));
+    const claimed = new Map();
+    for (const [id, mod] of Object.entries(modules)) {
+      const refs = mod.runtime_modules ?? [];
+      if (!Array.isArray(refs)) {
+        errors.push(`${id}: runtime_modules must be an array`);
+        continue;
+      }
+      if (new Set(refs).size !== refs.length) errors.push(`${id}: runtime_modules has duplicate entries`);
+      for (const ref of refs) {
+        if (!declaredRuntime.has(ref)) errors.push(`${id}: unknown runtime module ${ref}`);
+        claimed.set(ref, (claimed.get(ref) ?? 0) + 1);
+      }
+    }
+    for (const entry of runtimeModules) {
+      if (!claimed.has(entry.id)) errors.push(`runtime module ${entry.id} is not attached to any module`);
+    }
   }
   return { ok: errors.length === 0, errors };
 }
@@ -252,6 +273,8 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
         deps: manifest.modules[id].deps ?? [],
         softDeps: manifest.modules[id].soft_deps ?? [],
         tools: disabled.has(id) ? 0 : (manifest.modules[id].tools ?? []).length,
+        runtimeModules: manifest.modules[id].runtime_modules ?? [],
+        ...(manifest.modules[id].status_note ? { status_note: manifest.modules[id].status_note } : {}),
       })),
       premium: {
         license_implemented: false,

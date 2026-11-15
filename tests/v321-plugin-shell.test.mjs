@@ -50,7 +50,9 @@ const LEGACY_TOOLS = [
   "skills_list",
   "trace_ingest",
 ];
-const PLANNED = ["identity", "economy", "governance"];
+// Modules backed by kernel runtime modules but not yet complete. No capability
+// module may claim "planned" now that the kernel modules are attached to them.
+const PARTIAL_MODULES = ["identity", "economy", "governance", "observability"];
 
 test("manifest is a valid 3.3.0 single-package shell", async () => {
   const { manifest } = await loadPlugin(ROOT);
@@ -60,9 +62,12 @@ test("manifest is a valid 3.3.0 single-package shell", async () => {
   assert.equal(manifest.version, "3.3.0");
   assert.equal(manifest.engines.dsh, RUNTIME_PIN);
   assert.equal(manifest.premium.license_implemented, false);
-  for (const id of PLANNED) {
-    assert.equal(manifest.modules[id].status, "planned");
-    assert.deepEqual(manifest.modules[id].tools, [], `${id} must not expose tools`);
+  for (const id of PARTIAL_MODULES) {
+    assert.equal(manifest.modules[id].status, "partial", `${id} must declare its real state`);
+    assert.ok(manifest.modules[id].status_note, `${id} must explain what is missing`);
+  }
+  for (const [id, mod] of Object.entries(manifest.modules)) {
+    assert.notEqual(mod.status, "planned", `${id} still claims planned but has a kernel module`);
   }
   for (const [id, mod] of Object.entries(manifest.premium.modules)) {
     assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.3.0`);
@@ -87,21 +92,23 @@ test("package.json engines match plugin.json engines and the version matrix", as
   );
 });
 
-test("alias table covers all 30 legacy tools with unique public names", async () => {
+test("alias table covers all 31 legacy tools with unique public names", async () => {
   const aliases = JSON.parse(
     await readFile(join(ROOT, "migrations", "3.2.1-tool-aliases.json"), "utf8"),
   );
-  assert.equal(aliases.entries.length, 30);
+  assert.equal(aliases.entries.length, 31);
   const olds = aliases.entries.map((e) => e.old_name).sort();
-  assert.deepEqual(olds, LEGACY_TOOLS);
+  assert.deepEqual(olds, [...LEGACY_TOOLS, "governance_manage"].sort());
   for (const entry of aliases.entries) {
     assert.match(entry.new_name, TOOL_NAME_RE, `${entry.new_name} is not a valid MCP tool name`);
     assert.match(entry.schema_hash, /^sha256:[0-9a-f]{64}$/);
     assert.equal(entry.since, "3.2.1");
     assert.equal(entry.deprecated_after, "3.4.0");
-    assert.ok(!PLANNED.includes(entry.module), `${entry.old_name} points at a planned module`);
+    // `identity` exposes no MCP tool, so it must not appear in the alias table.
+    assert.notEqual(entry.module, "identity", `${entry.old_name} points at a tool-less module`);
   }
   for (const tool of LEGACY_TOOLS) assert.ok(aliasIndex(aliases, tool), `${tool} unmapped`);
+  assert.equal(aliasIndex(aliases, "governance_manage").new_name, "im2a_governance_manage");
 });
 
 function aliasIndex(aliases, name) {
@@ -144,24 +151,33 @@ test("soft deps never mark a working module unavailable", async () => {
   const { manifest } = await loadPlugin(ROOT);
   assert.deepEqual(manifest.modules.fleet.soft_deps, ["economy"]);
   assert.equal(effectiveStatus(manifest, "fleet"), "available");
-  assert.equal(effectiveStatus(manifest, "economy"), "planned");
+  assert.equal(effectiveStatus(manifest, "economy"), "partial");
 });
 
-test("registry hides planned modules and reports them honestly", async () => {
+test("modules backed by kernel modules report their real state", async () => {
   const { manifest, aliases } = await loadPlugin(ROOT);
   const registry = createRegistry({ manifest, aliases });
   const names = registry.publicTools().map((t) => t.name);
   assert.equal(new Set(names).size, names.length, "tool names must be unique");
   assert.ok(names.includes("im2a_memory_recall"));
   assert.ok(names.includes("memory_recall_v2"), "legacy alias must stay callable");
-  for (const id of PLANNED) {
-    assert.ok(!names.some((n) => n.startsWith(`im2a_${id}_`)), `${id} leaked a tool`);
-  }
+  // economy has a kernel module but no MCP tool yet.
+  assert.ok(!names.some((name) => name.startsWith("im2a_economy_")), "economy leaked a tool");
+  // governance gained its manage tool with the kernel registration.
+  assert.ok(names.includes("im2a_governance_manage"));
+  assert.ok(names.includes("governance_manage"), "the legacy name must stay callable");
+
   const report = registry.statusReport();
   assert.equal(report.premium.license_implemented, false);
   const economy = report.modules.find((m) => m.id === "economy");
-  assert.equal(economy.effective, "planned");
+  assert.equal(economy.effective, "partial");
   assert.equal(economy.tools, 0);
+  assert.deepEqual(economy.runtimeModules, ["model_registry", "resource_meter"]);
+
+  const governance = report.modules.find((m) => m.id === "governance");
+  assert.equal(governance.effective, "partial");
+  assert.deepEqual(governance.runtimeModules, ["scope_governance"]);
+  assert.equal(governance.tools, 1);
 });
 
 test("bus returns error values, never fake success", async () => {
@@ -172,10 +188,10 @@ test("bus returns error values, never fake success", async () => {
   assert.equal(unknown.isError, true);
   assert.equal(unknown.errorCode, "unknown_tool");
 
-  const plannedCall = await registry.call("im2a_governance_propose");
-  assert.equal(plannedCall.isError, true);
-  assert.equal(plannedCall.errorCode, "not_implemented");
-  assert.equal(plannedCall.module, "governance");
+  const undeclaredCall = await registry.call("im2a_economy_settle");
+  assert.equal(undeclaredCall.isError, true);
+  assert.equal(undeclaredCall.errorCode, "unknown_tool");
+  assert.equal(undeclaredCall.module, "economy");
 
   const noHandler = await registry.call("im2a_memory_recall", { query: "x" });
   assert.equal(noHandler.errorCode, "not_implemented");
@@ -197,7 +213,9 @@ test("disabling a module with dependants is refused with the dependency chain", 
   assert.ok(refused.dependants.includes("autonomy"));
   assert.equal(registry.setModule("memory", false).errorCode, "dependency_conflict");
   assert.equal(registry.setModule("observability", false).ok, true);
-  assert.equal(registry.setModule("identity", true).errorCode, "not_implemented");
+  // economy has a kernel module but no hard dependants, so it can be disabled.
+  assert.equal(registry.setModule("economy", false).ok, true);
+  assert.equal(registry.setModule("economy", true).ok, true);
 });
 
 test("kernel runtime modules are declared, resolvable and surfaced by status", async () => {
@@ -220,6 +238,10 @@ test("kernel runtime modules are declared, resolvable and surfaced by status", a
   const report = registry.statusReport();
   assert.equal(report.runtimeModules.length, 6);
   assert.equal(report.runtimeModules.find((entry) => entry.id === "scope_governance").status, "partial");
+
+  // Every runtime module must be reachable from exactly one capability module.
+  const attached = report.modules.flatMap((mod) => mod.runtimeModules);
+  assert.deepEqual([...attached].sort(), declared.map((entry) => entry.id).sort());
 });
 
 test("a runtime module path outside kernel/ is rejected by the manifest guard", async () => {

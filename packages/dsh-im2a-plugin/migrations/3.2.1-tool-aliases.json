@@ -124,6 +124,16 @@
       "schema_hash": "sha256:4a07ba714e4ca2ae9a8df8e68feb0a1603582c38873d7d67b092f5d06a123b06"
     },
     {
+      "old_name": "governance_manage",
+      "new_name": "im2a_governance_manage",
+      "module": "governance",
+      "since": "3.2.1",
+      "deprecated_after": "3.4.0",
+      "removed_in": null,
+      "status": "active",
+      "schema_hash": "sha256:b4558e4c77f5ac525f7abf1eff89c538bc8b7c065641e60c355496a44856b0a1"
+    },
+    {
       "old_name": "im2a_harness_list",
       "new_name": "im2a_fleet_harness_list",
       "module": "fleet",
