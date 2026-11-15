@@ -29,6 +29,7 @@ import { runAutonomyPipelineDryRun } from "./autonomy-pipeline.mjs";
 import { assertNoAgentMetadataEdit } from "./skill-metadata.mjs";
 import { claimDraftSkill, SkillClaimError } from "./skill-claim.mjs";
 import { auditContributionLog } from "./skill-audit.mjs";
+import { GovernanceStore } from "./governance-store.mjs";
 
 const PORT = Number(process.env.IM2A_HTTP_MCP_PORT ?? 18082);
 const HOST = process.env.IM2A_HTTP_MCP_HOST ?? "127.0.0.1";
@@ -49,6 +50,7 @@ const memoryHub = new MemoryHub({
 const TRACE_DIR = process.env.IM2A_TRACE_DIR ?? join(DB_DIR, "traces");
 const TRACE_TENANT = process.env.IM2A_TENANT_ID ?? "local";
 const traceStore = new TraceStore({ dir: TRACE_DIR, tenant: TRACE_TENANT });
+const governanceStore = new GovernanceStore({ dir: join(DB_DIR, "governance") });
 const SKILL_GUARD_KEY = process.env.IM2A_SKILL_GUARD_KEY ?? "";
 const skillGuard = new SkillGuard({
   auditPath: process.env.IM2A_SKILL_GUARD_AUDIT ?? join(DB_DIR, "skill-guard", "audit.jsonl"),
@@ -536,6 +538,26 @@ const TOOLS = [
         lookback_days: { type: "integer", minimum: 1, maximum: 90 },
       },
       required: ["agent_did"],
+    },
+  },
+  {
+    name: "governance_manage",
+    description: "Agent-initiated scope governance. action=propose records a PENDING scope-change proposal and grants nothing; action=status reads proposals and the scope already held. Human approval is deliberately NOT a tool: a self-declared principal string could be forged by an agent, so decisions are recorded outside this MCP surface.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        action: { enum: ["propose", "status"] },
+        agent_did: { type: "string", minLength: 1, maxLength: 200 },
+        scopes: {
+          type: "array",
+          minItems: 1,
+          maxItems: 16,
+          items: { type: "string", pattern: "^[a-z][a-z0-9_-]{1,31}:[a-z][a-z0-9_-]{1,31}$" },
+        },
+        rationale: { type: "string", minLength: 8, maxLength: 2000 },
+      },
+      required: ["action"],
     },
   },
 ];
@@ -1101,6 +1123,22 @@ async function handleRpc(message, context = {}) {
           now,
         });
         return { jsonrpc: "2.0", id, result: resultText(result) };
+      }
+      if (name === "governance_manage") {
+        const action = String(args.action);
+        if (action === "propose") {
+          const proposal = await governanceStore.propose({
+            agentDid: args.agent_did === undefined ? null : String(args.agent_did),
+            scopes: Array.isArray(args.scopes) ? args.scopes.map(String) : [],
+            rationale: args.rationale === undefined ? "" : String(args.rationale),
+          });
+          return { jsonrpc: "2.0", id, result: resultText(proposal) };
+        }
+        if (action === "status") {
+          const status = await governanceStore.status(args.agent_did ? String(args.agent_did) : null);
+          return { jsonrpc: "2.0", id, result: resultText(status) };
+        }
+        throw new Error("action must be propose or status");
       }
       return { jsonrpc: "2.0", id, result: resultText(`unknown tool: ${name}`, true) };
     } catch (error) {

@@ -903,6 +903,37 @@
         "required": ["entries", "integrity_status", "unique_contributor_count", "effective_patch_count"]
       },
       "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "SKILL_METADATA_MISSING", "SKILL_METADATA_INVALID", "INVALID_AGENT_DID", "INTERNAL"]
+    },
+    {
+      "name": "governance_manage",
+      "title": "Propose or inspect scope changes",
+      "description": "Records a PENDING scope-change proposal for an agent (action=propose), or reads pending proposals and already-held scope (action=status). It grants nothing: human approval is deliberately not a tool, because a self-declared principal string could be forged by an agent.",
+      "scope": ["governance:propose"],
+      "sideEffect": "proposal-write",
+      "idempotency": "at-most-once",
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string" },
+          "agent_did": { "type": "string" },
+          "scopes": { "type": "array", "items": { "type": "string" } },
+          "rationale": { "type": "string" }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "proposal_id": { "type": "string" },
+          "status": { "type": "string" },
+          "requested_scopes": { "type": "array" },
+          "proposals": { "type": "array" },
+          "effective_scopes": { "type": "array" }
+        }
+      },
+      "errors": ["NOT_AUTHORIZED", "INVALID_ARGUMENT", "FORBIDDEN", "INVALID_AGENT_DID", "INTERNAL"]
     }
   ]
 }

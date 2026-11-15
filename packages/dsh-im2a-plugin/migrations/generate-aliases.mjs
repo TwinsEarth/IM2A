@@ -66,6 +66,13 @@ export const MERGED_ALIASES = {
   autonomy_pipeline_dryrun: "autonomy",
 };
 
+// Tools that were born on the canonical side: they have no legacy name to migrate
+// from, so the alias table must not invent an entry for them. The generator still
+// knows them, which keeps the "tool set drift" check honest instead of loosening it.
+export const CANONICAL_ONLY = new Set([
+  "governance_manage",
+]);
+
 export function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") {
@@ -122,9 +129,12 @@ export async function buildAliasTable({ url = ENDPOINT } = {}) {
 
   const declared = declaredLegacyNames();
   const missing = declared.filter((n) => !byName.has(n));
-  const extra = [...byName.keys()].filter((n) => !declared.includes(n));
-  if (missing.length || extra.length) {
-    throw new Error(`tool set drift: missing=[${missing}] extra=[${extra}]`);
+  const missingCanonical = [...CANONICAL_ONLY].filter((n) => !byName.has(n));
+  const extra = [...byName.keys()].filter((n) => !declared.includes(n) && !CANONICAL_ONLY.has(n));
+  if (missing.length || extra.length || missingCanonical.length) {
+    throw new Error(
+      `tool set drift: missing=[${missing}] extra=[${extra}] missingCanonicalOnly=[${missingCanonical}]`,
+    );
   }
 
   const entries = [];

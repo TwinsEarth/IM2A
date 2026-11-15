@@ -99,8 +99,9 @@ WP-0 是唯一的前置阻塞项；WP-1/2/3 可并行；WP-4 独立；WP-5/6 最
 | WP-4 L4 DID 可移植 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/did-portability.mjs` | 9 tests：同资产跨机同摘要、篡改必失败、异 DID 导入拒绝（C4）、导入追加 0 条贡献 |
 | WP-5 拓扑指标 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/topology-metrics.mjs` | 8 tests：节点跨三源去重、质量=执行成功率、归因精度=独立验证补丁占比、空缺因子为 null 而非 0、摘要忽略生成时间 |
 | WP-6 治理与物理授权 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/scope-governance.mjs` | 10 tests：Agent 只能提议不能授予、Agent 不能批准（含自己的提议）、物理 scope 无提议路径、直接授予需人类+理由、天花板拒绝、拒绝后不可重开、同人重复批准不重复计数 |
+| WP-6a 治理工具面 | ✅ 完成 | `governance_manage` + `packages/im2a-http-mcp/governance-store.mjs` | 5 tests：提议不授予、重启后回放、物理 scope 不落盘、仅追加、全局 status；实机 4 次调用验证 |
 
-累计：WP-0..WP-6 全部完成；新增 54 tests（21 + 6 + 9 + 8 + 10），全量 **122 tests 通过**。
+累计：WP-0..WP-6a 全部完成；新增 59 tests（21 + 6 + 9 + 8 + 10 + 5），全量 **127 tests 通过**。
 
 **契约校准记录**（实现倒逼契约修正，都是真实约束）：
 
@@ -162,6 +163,25 @@ ingest 时根本还不知道 trace id。坏产物会让**整批在写 trace 之�
 补充实现细节：Agent 主体可以直接用 DID 表示（`did:...` 自动识别为 `agent`），
 避免「Agent 试图批准」被误报成「无效输入」而绕过真正的拒绝路径；
 同一个人类重复批准只算一次；被拒绝的提议不可重开（`proposal_closed`）。
+
+## 4.5 治理工具面（2026-11-15 裁定）
+
+采用方案 B：只新增一个 `governance_manage`，`action` 枚举 `propose | status`，工具面 30 → 31。
+
+**为什么裁决不进 MCP**：`recordHumanDecision` 在内核里信任调用方传入的 `principal` 字符串；
+一旦包成 MCP 工具，Agent 只要传 `principal: "human:alice"` 就能自批。所以 decide / grant
+一律不暴露，人类裁决走 DSH 审批面（或未来的 ed25519 人类签名路径）。
+
+**scope 归属**：工具要求 `governance:propose`（已加入 catalog 的封闭 scope 集合）。
+它**不在** Agent 可提议集合内，因此「谁有权提议」本身由人类直接授予决定。
+
+**契约变更**：`governance` 前缀加入工具名模式；`governance:propose` 加入 scope 枚举；
+catalog 30 → 31。别名表仍为 30 条——`governance_manage` 是原生规范名，没有「旧名」可迁移，
+登记在生成器的 `CANONICAL_ONLY` 里，避免为了新工具而放宽漂移检查。
+
+**实现**：`governance-store.mjs` 用 append-only JSONL 持久化提议；坏行跳过不崩溃；重启后回放。
+实机验证：`status` 空态、`propose skill:write` 得到 pending、`propose physical:motion` 被
+`physical_scope_requires_human_grant` 拒绝、`status` 仍显示 `effective_scopes: []`（提议不授予）。
 
 ## 5. 风险
 

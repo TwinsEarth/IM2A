@@ -3,7 +3,7 @@
   "generatedFrom": {
     "server": "im2a-http-mcp",
     "protocolVersion": "2.0",
-    "toolCount": 30
+    "toolCount": 31
   },
   "deprecatedAfter": "3.4.0",
   "entries": [
@@ -311,7 +311,7 @@
       "deprecated_after": "3.4.0",
       "removed_in": null,
       "status": "active",
-      "schema_hash": "sha256:5bb8bb380a7bc704d27383ac59a24295549b396affbeaf0ec8baa2d1b3d83176"
+      "schema_hash": "sha256:c6fcd476eb6ebc2d3aa2030e50666e953c75416f4ebf4d67ab302ee296d04dc5"
     }
   ]
 }

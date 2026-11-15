@@ -115,6 +115,7 @@ function newId(prefix) {
 export function createScopeGovernance({
   proposableScopes = DEFAULT_PROPOSABLE_SCOPES,
   requiredHumanApprovals = 1,
+  seedProposals = [],
   clock = () => new Date(),
 } = {}) {
   if (!Number.isInteger(requiredHumanApprovals) || requiredHumanApprovals < 1) {
@@ -123,6 +124,10 @@ export function createScopeGovernance({
   const proposable = new Set(proposableScopes);
   const proposals = new Map();
   const grants = [];
+  for (const seeded of seedProposals) {
+    if (!seeded || typeof seeded.proposal_id !== "string") continue;
+    proposals.set(seeded.proposal_id, structuredClone(seeded));
+  }
 
   function requireProposal(proposalId) {
     const proposal = proposals.get(proposalId);
