@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "three-channel-release",
+  "release": "v3.3.0",
+  "package": "@twinsearth/dsh-im2a-plugin",
+  "checkedAt": "2026-11-15T23:45:00+08:00",
+  "runtime": {
+    "dsh": "0.2.2-rc.2",
+    "plugin": "3.3.0",
+    "kernel_module_version": "1.1.0"
+  },
+  "channels": {
+    "npm": {
+      "status": "passed",
+      "distTagLatest": "3.3.0",
+      "publishedAt": "2026-11-15T15:39:48.380Z",
+      "tarball": "https://registry.npmjs.org/@twinsearth/dsh-im2a-plugin/-/dsh-im2a-plugin-3.3.0.tgz",
+      "shasum": "6ab7a4b22ac1c083b6e7314444f1dc12baad29b4",
+      "integrity": "sha512-6HwdZ906Yclq3c3Sx3sWbRJGbXVvaikRhFo8MTvJotvQbMHFI+sQfHVnsdKV0Q0F4n43gpoIqzFfzE7mkb0N5g==",
+      "enginesDsh": "0.2.2-rc.2",
+      "cleanInstall": { "version": "3.3.0", "files": 16, "kernelFiles": 7 }
+    },
+    "tag": {
+      "status": "passed-local",
+      "name": "v3.3.0",
+      "branch": "soul/6l-framework",
+      "pushed": false
+    },
+    "githubRelease": {
+      "status": "blocked",
+      "repository": "TwinsEarth/dsh-im2a-plugin",
+      "repositoryEmpty": true,
+      "blockedBy": "credentials",
+      "evidence": [
+        "original token: GET /user -> 200 (TwinsEarth); POST /git/blobs -> 403 Resource not accessible by personal access token; git push -> 403 Permission denied",
+        "replacement token 1/2/3: GET /user -> 401 Unauthorized under both Bearer and token schemes; each 93 chars, no whitespace"
+      ],
+      "requiredPermission": "Contents: Read and write on TwinsEarth/dsh-im2a-plugin"
+    }
+  },
+  "surface": {
+    "mcpTools": 32,
+    "addedTools": ["governance_manage", "im2a_kernel_status"],
+    "scopesAdded": ["governance:propose", "kernel:read"],
+    "aliasEntries": 31,
+    "runtimeModules": 6
+  },
+  "verification": {
+    "fullSuite": "129 passed / 0 failed",
+    "gates": {
+      "validate": "exit 0",
+      "bridgeContracts": "exit 0",
+      "releaseAllowlist": "exit 0",
+      "layerContracts": "exit 0"
+    },
+    "liveKernelStatus": {
+      "plugin": "dsh-im2a-plugin@3.3.0",
+      "kernel": "1.1.0",
+      "runtime_modules": 6,
+      "runtime_modules_missing": 0,
+      "modules": 9,
+      "mcp_tools": 32
+    }
+  },
+  "notClaimed": [
+    "GitHub Release",
+    "CI run",
+    "healthz gate (standing auth exception)",
+    "economy/identity completeness (both are partial by design)"
+  ]
+}

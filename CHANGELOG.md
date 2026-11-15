@@ -1,5 +1,22 @@
 # Changelog
 
+## v3.3.0 — 2026-11-15 kernel runtime modules in the module system; two new tools
+
+- Six kernel runtime modules (`model_registry`, `resource_meter`, `ui_artifact`,
+  `did_portability`, `topology_metrics`, `scope_governance`) are declared under
+  `kernel.runtime_modules` and attached to capability modules. `validateManifest`
+  rejects orphan modules, unknown references and duplicate references.
+- No capability module may claim `planned` any more: `identity`, `economy` and
+  `governance` moved to `partial` with explicit `status_note`s.
+- MCP surface 30 -> 32: `governance_manage` (propose/status only; human approval is
+  deliberately not a tool) and `im2a_kernel_status` (read-only kernel status).
+- Closed scope set gains `governance:propose` and `kernel:read`; tool-name pattern
+  accepts the `governance` prefix; alias table 30 -> 31.
+- `ui-artifact.mjs` moved from `packages/im2a-http-mcp/` into
+  `packages/dsh-im2a-plugin/kernel/` for uniform kernel ownership.
+- Verified: 129 tests, four gates green, clean-room npm install of 3.3.0 (16 files),
+  live `im2a_kernel_status` reports 6 runtime modules / 0 missing / 32 tools.
+
 ## v3.2.3 — 2026-11-13 DSH 0.2.2-rc.2 compatibility
 
 - `engines.dsh` changed from `0.2.2-rc.1` to `0.2.2-rc.2` in both
