@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "validate": "node scripts/validate.mjs",
+    "pin:check": "node scripts/pin-check.mjs",
     "compat": "node scripts/compat-check.mjs",
     "healthz": "node scripts/healthz.mjs",
     "allowlist": "node scripts/check-release-allowlist.mjs",

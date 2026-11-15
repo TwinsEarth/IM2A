@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — pin check tooling
+
+- `npm run pin:check` (`scripts/pin-check.mjs`): reads the installed DSH version
+  (`--dsh-version` / `DSH_VERSION`, then `dsh --version`, then
+  `runtime/primary-runtime/runtime.json`), compares it with `package.json` and
+  `plugin.json` `engines.dsh` and `version-matrix.json` `dsh-runtime.target`, and
+  reports one of `OK` / `NEEDS_RELEASE` / `REPO_INCONSISTENT` / `UNKNOWN` with exit
+  codes 0/1/2/3. Drift output names the four files to edit and a suggested patch
+  version. Read-only; never rewrites the pin.
+- 8 unit tests cover the verdicts and the source precedence.
+
 ## v3.3.1 — 2026-11-16 DSH 0.2.2-rc.3 compatibility
 
 - `engines.dsh` changed from `0.2.2-rc.2` to `0.2.2-rc.3` in both `package.json`
