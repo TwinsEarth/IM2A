@@ -51,6 +51,11 @@
       "id": "V1",
       "why": "internal maintenance work is recorded but carries no charge",
       "set": { "task.purpose": "maintenance", "cost.amount": 0, "billable": false }
+    },
+    {
+      "id": "V2",
+      "why": "internal work can consume real cost and still be non-billable; the gate must allow it",
+      "set": { "task.purpose": "self_improvement", "cost.amount": 0.01, "billable": false }
     }
   ],
   "semanticCases": [

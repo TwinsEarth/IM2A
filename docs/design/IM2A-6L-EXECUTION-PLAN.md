@@ -87,13 +87,34 @@ WP-0 ──┬── WP-1 ──┐
 
 WP-0 是唯一的前置阻塞项；WP-1/2/3 可并行；WP-4 独立；WP-5/6 最后。
 
-## 4. 本轮执行范围
+## 4. 执行状态（滚动更新）
 
-**只做 WP-0**。理由：三条契约是后续所有工作包的输入，且可以在不触碰运行时的情况下
-独立验证——这正是"先设计&策划，再开发&执行"里"先"的部分该交付的形态。
+| WP | 状态 | 交付物 | 验收 |
+| --- | --- | --- | --- |
+| WP-0 契约冻结 | ✅ 完成 | 3 schema + 6 fixtures + `scripts/check-layer-contracts.mjs`，接入主闸 | 20 schema 负控 / 8 语义负控 / 4 正控全过；外部负控 2 项（改语义、删必填）均 exit 1 |
+| WP-1 L1 能力注册表 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/model-registry.mjs` | 8 tests：未声明模型报 `model_not_declared`、价格只取声明值、端点按区/协议选择、重复声明拒绝 |
+| WP-2 L6 计量 | ✅ 完成 | `packages/dsh-im2a-plugin/kernel/meter.mjs` | 6 tests：一次调用一条记录、内部用途不计费、三池分配、10% 保留下限拒突破 |
+| WP-3 L5.2 ui_artifact | 🟡 核心完成 | `packages/im2a-http-mcp/ui-artifact.mjs` | 7 tests：`ephemeral/promoted` 状态对、升格幂等、异目标冲突、坏输入不产物 |
+| WP-3a `trace_ingest` 接入 | ⏳ 待做 | 见 §4.1 | 未开始 |
+| WP-4..6 | ⏳ 待做 | — | — |
 
-不做的部分明确列出：不实现 `model-registry`、不写计量记录、不改 `trace_ingest`。
-这些在 WP-1/2/3 做，且必须在契约评审后才能动。
+本轮把三个模块 + 21 tests 落地，四道闸 + 全部单测（30/30）绿灯。
+
+**契约校准记录**（实现倒逼契约修正，都是真实约束）：
+
+- `trace_id` 实际是裸 32 位小写 hex（`trace-store.mjs:189`），**不是** `trace_` 前缀。
+  两份契约与 fixtures 已按实际校准——这就是先写契约再接实现的价值：错误在夹具期暴露，
+  而不是在集成期。
+- `goal_id` 是 `goal_` + 24 hex（`goal-buffer.mjs:163`），既有契约正确。
+- 「`billable` ⇔ 成本 > 0」是错的：内部用途可以有真实成本但不计费。语义规则改为
+  「计费 ⇒ 有成本」，并补正控 V2（`self_improvement` + 0.01 + `billable:false` 必须被接受）。
+
+## 4.1 WP-3a 的未决设计点
+
+`execution-trace-1.0` 契约是 `additionalProperties: false` 且已冻结。把 `ui_artifacts`
+塞进 trace 记录会破坏它，因此 WP-3a 应走**侧车文件**（`ui-artifacts.jsonl`，按
+`trace_id` 索引），而不是改 1.0 契约。这条需要先拍板再动。
+
 
 ## 5. 风险
 

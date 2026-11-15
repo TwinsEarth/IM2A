@@ -20,7 +20,7 @@
   "properties": {
     "schema_version": { "const": "1.0" },
     "artifact_id": { "type": "string", "pattern": "^uiart_[0-9a-f]{24}$" },
-    "trace_id": { "type": "string", "pattern": "^trace_[0-9a-f]{24}$" },
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
     "created_at": { "type": "string", "format": "date-time" },
     "kind": { "enum": ["layout", "interactive", "document", "scene"] },
     "format": { "enum": ["html", "svg", "json", "markdown"] },

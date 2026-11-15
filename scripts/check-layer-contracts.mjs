@@ -70,11 +70,11 @@ function capabilitySemantics(value) {
   return errors;
 }
 
-/** Billing must be derivable from cost, and only external work may be billed. */
+/** Billing implies real cost, and only external work may be billed. The converse
+ *  is deliberately false: internal work can consume a large amount and stay free. */
 function meteringSemantics(value) {
   const errors = [];
-  const positiveCost = value.cost.amount > 0;
-  if (value.billable !== positiveCost) errors.push("billable must match cost.amount > 0");
+  if (value.billable && !(value.cost.amount > 0)) errors.push("billable must match cost.amount > 0");
   if (value.task.purpose !== "external" && value.billable) {
     errors.push("internal purpose must not be billable");
   }

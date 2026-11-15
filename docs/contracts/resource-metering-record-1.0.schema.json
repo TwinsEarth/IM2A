@@ -51,7 +51,7 @@
       "required": ["purpose"],
       "properties": {
         "purpose": { "enum": ["external", "self_improvement", "maintenance"] },
-        "trace_id": { "type": "string", "pattern": "^trace_[0-9a-f]{24}$" },
+        "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
         "skill_id": { "type": "string", "minLength": 1, "maxLength": 200 },
         "goal_id": { "type": "string", "pattern": "^goal_[0-9a-f]{24}$" }
       }
