@@ -11,8 +11,13 @@ Scope: kernel runtime modules registered into the module system; two new MCP too
 | Channel | Status | Evidence |
 | --- | --- | --- |
 | npm | PASS | published 2026-11-15T15:39:48.380Z; `latest` → 3.3.0; integrity recorded in the release notes |
-| git tag | PASS (local) | annotated tag `v3.3.0`; not pushed |
-| GitHub Release | BLOCKED | token has `metadata:read`; `POST /git/blobs` and `git push` both 403 |
+| git tag | PASS | `v3.3.0` pushed to `TwinsEarth/dsh-im2a-plugin` (points at `9c8f86c`) |
+| GitHub Release | PASS | https://github.com/TwinsEarth/dsh-im2a-plugin/releases/tag/v3.3.0 (tarball attached) |
+
+Server-side platform code: pushed to `TwinsEarth/IM2A` as branch **`platform/v3.3.0`**
+(`172b407`). `main` was deliberately left at `6e78a6b` — that repository is a Go product
+(`go.mod`, `cmd/`, `internal/`, `services/`), so replacing it with this Node platform
+would have destroyed an unrelated tree.
 
 ## Surface changes
 
@@ -51,21 +56,22 @@ npm clean-room install                3.3.0, 16 files, 7 kernel files
 live im2a_kernel_status               6 runtime modules, 0 missing, 32 tools
 ```
 
-## Why the third channel is blocked
+## How the third channel was finished
 
-`TwinsEarth/dsh-im2a-plugin` exists but is empty (size 0). The supplied fine-grained
-token can read repository metadata and create repositories, but every content write is
-refused:
+An earlier token could read metadata but not write (`403 Resource not accessible`), and
+three replacement tokens returned `401`. The token supplied on 2026-11-16 authenticated as
+`TwinsEarth` and could write, so the channel completed as:
 
 ```text
-POST /repos/TwinsEarth/dsh-im2a-plugin/git/blobs
-  403 {"message":"Resource not accessible by personal access token"}
-git push
-  remote: Permission to TwinsEarth/dsh-im2a-plugin.git denied
+git subtree split --prefix=packages/dsh-im2a-plugin -b plugin-v330
+git push <repo> plugin-v330:refs/heads/main
+git push <repo> 9c8f86c:refs/tags/v3.3.0
+POST /repos/TwinsEarth/dsh-im2a-plugin/releases        -> id 446178757
+POST /uploads.github.com/.../assets?name=...tgz        -> uploaded
 ```
 
-A token with **Contents: Read and write** on that repository is enough to finish the
-channel: push the branch, push the tag, create the Release and attach the tarball.
+The release body had to be ASCII-only: the API rejected the UTF-8 notes with
+`422 Unprocessable Entity`, so non-ASCII punctuation was normalized before the PATCH.
 
 ## Rollback
 

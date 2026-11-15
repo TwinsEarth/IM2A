@@ -21,21 +21,29 @@
       "cleanInstall": { "version": "3.3.0", "files": 16, "kernelFiles": 7 }
     },
     "tag": {
-      "status": "passed-local",
+      "status": "passed",
       "name": "v3.3.0",
-      "branch": "soul/6l-framework",
-      "pushed": false
+      "targetCommit": "9c8f86c64b429514f1714b51cc7777d622c6de11",
+      "repository": "TwinsEarth/dsh-im2a-plugin",
+      "pushed": true
     },
     "githubRelease": {
-      "status": "blocked",
+      "status": "passed",
       "repository": "TwinsEarth/dsh-im2a-plugin",
-      "repositoryEmpty": true,
-      "blockedBy": "credentials",
-      "evidence": [
-        "original token: GET /user -> 200 (TwinsEarth); POST /git/blobs -> 403 Resource not accessible by personal access token; git push -> 403 Permission denied",
-        "replacement token 1/2/3: GET /user -> 401 Unauthorized under both Bearer and token schemes; each 93 chars, no whitespace"
-      ],
-      "requiredPermission": "Contents: Read and write on TwinsEarth/dsh-im2a-plugin"
+      "releaseId": 446178757,
+      "url": "https://github.com/TwinsEarth/dsh-im2a-plugin/releases/tag/v3.3.0",
+      "asset": "twinsearth-dsh-im2a-plugin-3.3.0.tgz",
+      "assetBytes": 24692,
+      "assetUrl": "https://github.com/TwinsEarth/dsh-im2a-plugin/releases/download/v3.3.0/twinsearth-dsh-im2a-plugin-3.3.0.tgz",
+      "note": "release body had to be ASCII-only; the API rejected UTF-8 notes with 422 and accepted a normalized body"
+    },
+    "serverRepository": {
+      "status": "pushed-branch",
+      "repository": "TwinsEarth/IM2A",
+      "branch": "platform/v3.3.0",
+      "head": "172b407",
+      "mainLeftAt": "6e78a6b",
+      "reason": "IM2A main is a Go product tree (go.mod, cmd/, internal/, services/); replacing it with this Node platform would destroy an unrelated tree"
     }
   },
   "surface": {
