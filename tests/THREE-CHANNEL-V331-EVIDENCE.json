@@ -24,13 +24,16 @@
       "status": "passed",
       "name": "v3.3.1",
       "repository": "TwinsEarth/dsh-im2a-plugin",
+      "targetCommit": "428dd202cbc091c5a15353bc92b80826f62ce151",
       "pushed": true
     },
     "githubRelease": {
       "status": "passed",
       "repository": "TwinsEarth/dsh-im2a-plugin",
-      "tag": "v3.3.1",
+      "releaseId": 446191879,
+      "url": "https://github.com/TwinsEarth/dsh-im2a-plugin/releases/tag/v3.3.1",
       "asset": "twinsearth-dsh-im2a-plugin-3.3.1.tgz",
+      "assetBytes": 24830,
       "note": "release body is ASCII-normalized because the API rejects UTF-8 notes with 422"
     },
     "platformBranch": {
