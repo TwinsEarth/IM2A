@@ -1,5 +1,9 @@
 # @twinsearth/dsh-im2a-plugin
 
+[![CI](https://github.com/TwinsEarth/dsh-im2a-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/TwinsEarth/dsh-im2a-plugin/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@twinsearth/dsh-im2a-plugin)](https://www.npmjs.com/package/@twinsearth/dsh-im2a-plugin)
+[![license](https://img.shields.io/github/license/TwinsEarth/dsh-im2a-plugin)](LICENSE)
+
 **智能体宇宙—IM2A** — 一个面向 Agent 开发&开放的即时连接网络。
 
 一个包，一个 manifest，一套生命周期。内核负责生命周期、工具总线、宪法门控与
@@ -32,17 +36,22 @@ plugin_manager install_bundle(@twinsearth/dsh-im2a-plugin@3.3.1)
 ## 运行前提
 
 ```text
-IM2A HTTP MCP  http://127.0.0.1:18082/mcp   (im2a-http-mcp, 30 tools)
+IM2A HTTP MCP  http://127.0.0.1:18082/mcp   (im2a-http-mcp, 32 tools)
 ```
 
 行配置 `failOnStartupError: false`：桥未就绪时该行不可用，但不阻塞 Harness 启动。
 
 ## 验证
 
+CI 在每次推送 `main` 时运行（见 `.github/workflows/ci.yml`），本地等价命令：
+
 ```text
-node --test tests/v321-plugin-shell.test.mjs     8/8
-node packages/dsh-im2a-plugin/migrations/generate-aliases.mjs   30 entries
+node scripts/check-package.mjs
 ```
+
+它校验：两份清单的版本与 `engines.dsh` 一致、`LICENSE` 为 MIT、`kernel.runtime_modules`
+声明的文件全部存在、别名表的工具名与 schema hash 合法、随包文件齐全。随后用
+`npm pack --dry-run` 核对 tarball 内容。
 
 display metadata：`locale/zh.json` / `locale/en.json` 的 `meta.title` 与
 `meta.description`，图标 `icon.svg`，均通过 `package.json` 的 `exports` 导出。
@@ -50,5 +59,6 @@ display metadata：`locale/zh.json` / `locale/en.json` 的 `meta.title` 与
 ## 不承诺
 
 - 本版没有 Relay 许可握手，`license_implemented: false` 是事实声明；
-- `identity` / `economy` / `governance` 为 `planned`，不会返回假结果；
+- `identity` / `economy` / `governance` / `observability` 为 `partial`：内核模块已实现，
+  但验证档位、经济工具面、裁决入口与遥测仍未交付，不会返回假结果；
 - 回环明文仅用于本机；跨机部署必须 TLS。
