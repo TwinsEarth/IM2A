@@ -73,7 +73,7 @@
       "id": "dsh-im2a-plugin",
       "kind": "npm",
       "current": "3.3.1",
-      "target": "3.4.0",
+      "target": "3.3.3",
       "publishedBy": "npm-publish",
       "status": "planned"
     },

@@ -10,7 +10,7 @@
 编排；九个能力模块挂在总线上；五个商用模块由 Relay 许可后加载，本版全部为
 `planned`。
 
-## 3.4.0 交付了什么
+## 3.3.3 交付了什么
 
 - **修复**：`kernel/topology-metrics.mjs` 曾 import `../../im2a-http-mcp/skill-claim.mjs`，
   该路径只存在于仓库、不在发布包内，导致 3.3.1 装好后该模块 `ERR_MODULE_NOT_FOUND`。

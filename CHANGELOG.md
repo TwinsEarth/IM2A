@@ -1,6 +1,6 @@
 # Changelog
 
-## v3.4.0 — 2026-11-20 published-package fix, tool-surface truth, DSH 0.2.2-rc.5
+## v3.3.3 — 2026-11-20 published-package fix, tool-surface truth, DSH 0.2.2-rc.5
 
 - `engines.dsh` moved `0.2.2-rc.3` -> `0.2.2-rc.5` (the runtime on this machine had
   already advanced; `npm run pin:check` flagged it before release).
