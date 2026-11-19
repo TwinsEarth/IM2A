@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "four-channel-release",
+  "release": "v3.3.3",
+  "package": "@twinsearth/dsh-im2a-plugin",
+  "checkedAt": "2026-11-20T01:15:00+08:00",
+  "runtime": { "dsh": "0.2.2-rc.5", "plugin": "3.3.3", "kernelModuleVersion": "1.1.0" },
+  "channels": {
+    "githubRelease": {
+      "status": "passed",
+      "repository": "TwinsEarth/dsh-im2a-plugin",
+      "releaseId": 451663319,
+      "url": "https://github.com/TwinsEarth/dsh-im2a-plugin/releases/tag/v3.3.3",
+      "asset": "twinsearth-dsh-im2a-plugin-3.3.3.tgz",
+      "assetBytes": 29197,
+      "note": "release body is ASCII-normalized: the API rejects UTF-8 notes with 422"
+    },
+    "tag": {
+      "status": "passed",
+      "name": "v3.3.3",
+      "targetCommit": "73e4a625d73f36a1ea3eae8a83df7c4c28ad5709",
+      "pushed": true
+    },
+    "ci": {
+      "status": "passed",
+      "runNumber": 5,
+      "headSha": "73e4a62",
+      "conclusion": "success",
+      "workflow": "ci",
+      "url": "https://github.com/TwinsEarth/dsh-im2a-plugin/actions"
+    },
+    "npm": {
+      "status": "passed",
+      "distTagLatest": "3.3.3",
+      "publishedAt": "2026-11-19T17:12:12.855Z",
+      "tarball": "https://registry.npmjs.org/@twinsearth/dsh-im2a-plugin/-/dsh-im2a-plugin-3.3.3.tgz",
+      "shasum": "9802bc4a58ccc447fda7bf3405a34bcedffbf702",
+      "integrity": "sha512-wtS9oNIWea/E1TPEeazVtcqcfcS0g1EJNvl94LuUMGTDLXG3MWWhQow3ebPFDIG6SdObDZw1hlHfFl7SIIqPzA==",
+      "enginesDsh": "0.2.2-rc.5",
+      "cleanInstall": {
+        "version": "3.3.3",
+        "kernelModulesLoaded": "7/7",
+        "callableTools": 32,
+        "declaredTools": 39
+      }
+    },
+    "marketTimestamp": {
+      "status": "recorded",
+      "source": "npm registry time[\"3.3.3\"]",
+      "timestamp": "2026-11-19T17:12:12.855Z",
+      "timestampLocal": "2026-11-20T01:12:12+08:00",
+      "modified": "2026-11-19T17:12:13.102Z",
+      "dshMarketIndex": {
+        "index": "Open Plugin Market (https://polang233.github.io/dsh-plugin-index/index.json)",
+        "listed": false,
+        "note": "the index lists @twinsearth/w2m-dsh-plugin only; this bundle is not in that third-party index, so no market-side listing timestamp exists"
+      }
+    }
+  },
+  "surface": {
+    "mcpTools": 32,
+    "declaredTools": 39,
+    "overlap": ["im2a_kernel_status"],
+    "runtimeModules": 6,
+    "aliasEntries": 31
+  },
+  "verification": {
+    "fullSuite": "148 passed / 0 failed",
+    "gates": { "validate": "exit 0", "bridgeContracts": "exit 0", "releaseAllowlist": "exit 0", "layerContracts": "exit 0" },
+    "checkPackage": "@3.3.3 engines 0.2.2-rc.5, 6 runtime modules, 31 aliases",
+    "checkDist": "6/6 kernel modules load from the tarball",
+    "pinCheck": "OK",
+    "npmInstallProbe": "7/7 kernel modules loaded from the installed package (3.3.1 was 6/7)"
+  },
+  "notClaimed": [
+    "listing in the DSH plugin market index",
+    "live-bridge behaviour on the Tencent host (unchanged since the 3.3.0 deployment)",
+    "economy / identity completeness (partial by design)"
+  ]
+}
