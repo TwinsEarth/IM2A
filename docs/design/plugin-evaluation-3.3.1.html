@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IM2A 插件评估 · v3.3.1</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a33; --line:#26325a; --ink:#e8edff; --dim:#93a0c8;
+    --ok:#37d67a; --warn:#ffb020; --bad:#ff5d5d; --accent:#5b8cff; --accent2:#8f6bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#1a2450 0%,var(--bg) 60%);
+       color:var(--ink);font:14px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  .wrap{max-width:1120px;margin:0 auto;padding:36px 24px 72px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+  h2{font-size:19px;margin:38px 0 12px;padding-left:10px;border-left:3px solid var(--accent)}
+  .sub{color:var(--dim);margin:0 0 26px}
+  .grid{display:grid;gap:14px}
+  .k4{grid-template-columns:repeat(4,1fr)}
+  .k3{grid-template-columns:repeat(3,1fr)}
+  .card{background:linear-gradient(180deg,#141d38,#0f1730);border:1px solid var(--line);
+        border-radius:12px;padding:14px 16px}
+  .kpi .v{font-size:26px;font-weight:700;letter-spacing:.5px}
+  .kpi .l{color:var(--dim);font-size:12px}
+  .kpi.ok .v{color:var(--ok)} .kpi.warn .v{color:var(--warn)} .kpi.bad .v{color:var(--bad)}
+  .fig{background:#0d1430;border:1px solid var(--line);border-radius:14px;padding:14px;overflow:auto}
+  .fig figcaption{color:var(--dim);font-size:12px;margin-top:8px;text-align:center}
+  svg{display:block;width:100%;height:auto}
+  .box{fill:#16203f;stroke:#2c3a66;stroke-width:1.2;rx:8}
+  .boxAlt{fill:#1a2a4d;stroke:#3a4f88}
+  .boxBad{fill:#3a1620;stroke:#7d2b36}
+  .boxOk{fill:#12351f;stroke:#2c6b45}
+  .t{fill:#dbe3ff;font:12px "Segoe UI","Microsoft YaHei",sans-serif}
+  .tS{fill:#93a0c8;font:11px "Segoe UI","Microsoft YaHei",sans-serif}
+  .tB{fill:#ffffff;font:600 13px "Segoe UI","Microsoft YaHei",sans-serif}
+  .tOk{fill:#7ff0a8;font:12px "Segoe UI","Microsoft YaHei",sans-serif}
+  .tBad{fill:#ff9b9b;font:12px "Segoe UI","Microsoft YaHei",sans-serif}
+  .arw{stroke:#5a6ba8;stroke-width:1.4;fill:none;marker-end:url(#m)}
+  .arwBad{stroke:#a8505a;stroke-width:1.4;fill:none;marker-end:url(#mb)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:12px;letter-spacing:.4px}
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid}
+  .tag.ok{color:var(--ok);border-color:#2c6b45;background:#10281a}
+  .tag.warn{color:var(--warn);border-color:#6b5320;background:#2a2211}
+  .tag.bad{color:var(--bad);border-color:#7d2b36;background:#2a1218}
+  code{background:#0a1128;border:1px solid #1e2a4d;border-radius:5px;padding:1px 5px;font-size:12px}
+  .note{color:var(--dim);font-size:12.5px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5a6ba8"/>
+    </marker>
+    <marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a8505a"/>
+    </marker>
+  </defs>
+</svg>
+<div class="wrap">
+
+  <h1>IM2A 插件逐文件评估</h1>
+  <p class="sub">@twinsearth/dsh-im2a-plugin@3.3.1 · 19 个文件 / 2,377 行 · 2026-11-19</p>
+
+  <div class="grid k4">
+    <div class="card kpi ok"><div class="v">9 / 9</div><div class="l">能力模块有明确状态（5 available + 4 partial）</div></div>
+    <div class="card kpi warn"><div class="v">6 / 7</div><div class="l">内核模块在发布包中可加载</div></div>
+    <div class="card kpi bad"><div class="v">1 / 39</div><div class="l">清单规范名真实存在于桥</div></div>
+    <div class="card kpi ok"><div class="v">137 / 137</div><div class="l">测试通过（全仓）</div></div>
+  </div>
+
+  <h2>1 · 分层架构：六层框架如何落到文件</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 430" role="img" aria-label="分层架构图">
+      <!-- runtime host -->
+      <rect class="boxAlt" x="20" y="16" width="230" height="56"/>
+      <text class="tB" x="34" y="40">DSH Host</text>
+      <text class="tS" x="34" y="58">cordis.patch.yml → 1 行</text>
+
+      <rect class="boxAlt" x="290" y="16" width="230" height="56"/>
+      <text class="tB" x="304" y="40">im2a-mcp 行</text>
+      <text class="tS" x="304" y="58">streamable-http · 127.0.0.1:18082</text>
+
+      <rect class="boxOk" x="560" y="16" width="250" height="56"/>
+      <text class="tB" x="574" y="40">桥 server.mjs</text>
+      <text class="tS" x="574" y="58">32 tools · 6 kernel modules</text>
+
+      <path class="arw" d="M250 44 H286"/>
+      <path class="arw" d="M520 44 H556"/>
+
+      <!-- layer stack -->
+      <g>
+        <rect class="box" x="20" y="100" width="470" height="46"/>
+        <text class="tB" x="34" y="122">L1 智能提供层</text>
+        <text class="tS" x="34" y="139">kernel/model-registry.mjs — 声明/成本/端点，不路由</text>
+
+        <rect class="box" x="20" y="156" width="470" height="46"/>
+        <text class="tB" x="34" y="178">L2 Agent 层</text>
+        <text class="tS" x="34" y="195">plugin.json 9 模块 + kernel/registry.mjs（拓扑/状态/总线）</text>
+
+        <rect class="box" x="20" y="212" width="470" height="46"/>
+        <text class="tB" x="34" y="234">L3 人机共生边界</text>
+        <text class="tS" x="34" y="251">kernel/scope-governance.mjs — 提议≠授予；物理域无 Agent 路径</text>
+
+        <rect class="box" x="20" y="268" width="470" height="46"/>
+        <text class="tB" x="34" y="290">L4 硬件终端</text>
+        <text class="tS" x="34" y="307">kernel/did-portability.mjs — 只能迁回自己的 DID</text>
+
+        <rect class="box" x="20" y="324" width="470" height="46"/>
+        <text class="tB" x="34" y="346">L5 软件载体 / L5.2 产物</text>
+        <text class="tS" x="34" y="363">locale/ + icon.svg + ui-artifact.mjs（ephemeral→promoted）</text>
+
+        <rect class="box" x="20" y="380" width="470" height="40"/>
+        <text class="tB" x="34" y="402">L6 基础设施</text>
+        <text class="tS" x="196" y="402">meter.mjs + topology-metrics.mjs（计量/预算/指标）</text>
+      </g>
+
+      <!-- right side data stores -->
+      <rect class="box" x="560" y="100" width="460" height="120"/>
+      <text class="tB" x="574" y="124">数据落点（桥侧）</text>
+      <text class="tS" x="574" y="146">memory.db (SQLite+FTS5) · skills.db</text>
+      <text class="tS" x="574" y="166">traces/*.jsonl + ui-artifacts.jsonl（侧车）</text>
+      <text class="tS" x="574" y="186">governance/proposals.jsonl（仅追加）</text>
+      <text class="tS" x="574" y="206">skill-guard/audit.jsonl · scheduler-audit.jsonl</text>
+
+      <rect class="boxBad" x="560" y="240" width="460" height="80"/>
+      <text class="tBad" x="574" y="264">P0 · 发布包断点</text>
+      <text class="tS" x="574" y="286">topology-metrics.mjs 依赖 ../../im2a-http-mcp/skill-claim.mjs</text>
+      <text class="tS" x="574" y="304">→ 安装 npm 包后 import 失败（ERR_MODULE_NOT_FOUND）</text>
+
+      <rect class="box" x="560" y="340" width="460" height="80"/>
+      <text class="tB" x="574" y="364">P1 · 命名断裂</text>
+      <text class="tS" x="574" y="386">registry.publicTools() 生成 39 个规范名；桥只认 32 个旧名</text>
+      <text class="tS" x="574" y="404">交集仅 im2a_kernel_status；registry.call() 生产环境无 handler</text>
+
+      <path class="arw" d="M490 122 H556"/>
+      <path class="arw" d="M490 290 H556"/>
+      <path class="arw" d="M490 190 H516 V260 H556"/>
+    </svg>
+    <figcaption>图 1 · 六层框架 ↔ 包内文件 ↔ 运行时落点。红色为评估发现的断点。</figcaption>
+  </figure>
+
+  <h2>2 · 真实调用链（谁真正在跑）</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 300" role="img" aria-label="调用链图">
+      <rect class="boxAlt" x="16" y="96" width="150" height="70"/>
+      <text class="tB" x="30" y="122">Agent / 用户</text>
+      <text class="tS" x="30" y="142">MCP tool call</text>
+
+      <rect class="boxAlt" x="196" y="96" width="150" height="70"/>
+      <text class="tB" x="210" y="122">DSH Host</text>
+      <text class="tS" x="210" y="142">im2a-mcp 行</text>
+
+      <rect class="boxAlt" x="376" y="96" width="170" height="70"/>
+      <text class="tB" x="390" y="122">桥 :18082</text>
+      <text class="tS" x="390" y="142">32 tools</text>
+
+      <path class="arw" d="M166 131 H192"/>
+      <path class="arw" d="M346 131 H372"/>
+
+      <rect class="box" x="590" y="20" width="230" height="58"/>
+      <text class="tB" x="604" y="42">skill-* / memory-* / drive-*</text>
+      <text class="tS" x="604" y="60">SQLite · FTS5 · JSONL</text>
+
+      <rect class="box" x="590" y="96" width="230" height="58"/>
+      <text class="tB" x="604" y="118">governance_manage</text>
+      <text class="tS" x="604" y="136">GovernanceStore → scope-governance</text>
+
+      <rect class="boxOk" x="590" y="172" width="230" height="58"/>
+      <text class="tB" x="604" y="194">im2a_kernel_status</text>
+      <text class="tS" x="604" y="212">loadPlugin → registry.statusReport()</text>
+
+      <path class="arw" d="M546 112 H586"/>
+      <path class="arw" d="M546 131 H586"/>
+      <path class="arw" d="M546 150 H570 V200 H586"/>
+
+      <rect class="box" x="590" y="248" width="440" height="40"/>
+      <text class="tS" x="604" y="273">注意：调用链里没有 registry.resolve() / call() —— 它们只在测试中被调用</text>
+
+      <path class="arwBad" d="M470 96 V64 H586" stroke-dasharray="5 4"/>
+      <text class="tS" x="470" y="54">未接线（P1）</text>
+    </svg>
+    <figcaption>图 2 · 从 Agent 到存储的真实路径；注册表尚未进入该路径。</figcaption>
+  </figure>
+
+  <h2>3 · 工具名断裂：1 / 39 的重叠</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 330" role="img" aria-label="命名对比图">
+      <rect class="box" x="16" y="20" width="430" height="270"/>
+      <text class="tB" x="32" y="46">manifest 声明（39 个规范名）</text>
+      <text class="tS" x="32" y="70">im2a_kernel_whoami</text>
+      <text class="tOk" x="32" y="90">im2a_kernel_status   ← 唯一交集</text>
+      <text class="tS" x="32" y="110">im2a_kernel_{pipeline, gate_check, …}</text>
+      <text class="tS" x="32" y="130">im2a_memory_{search, get, propose, recall}</text>
+      <text class="tS" x="32" y="150">im2a_asset_{view, manage, claim, …}</text>
+      <text class="tS" x="32" y="170">im2a_autonomy_{drive_list, …}</text>
+      <text class="tS" x="32" y="190">im2a_evolution_{ingest, reflect, …}</text>
+      <text class="tS" x="32" y="210">im2a_fleet_{harness_list, …}</text>
+      <text class="tS" x="32" y="230">im2a_governance_manage</text>
+      <text class="tS" x="32" y="250">im2a_observability_pipeline_dryrun</text>
+      <text class="tS" x="32" y="274">38 个名字没有任何实现</text>
+
+      <rect class="box" x="594" y="20" width="430" height="270"/>
+      <text class="tB" x="610" y="46">桥实际暴露（32 个）</text>
+      <text class="tS" x="610" y="70">im2a_whoami</text>
+      <text class="tOk" x="610" y="90">im2a_kernel_status   ← 唯一交集</text>
+      <text class="tS" x="610" y="110">im2a_harness_list / im2a_send / im2a_recv</text>
+      <text class="tS" x="610" y="130">memory_search / memory_recall_v2</text>
+      <text class="tS" x="610" y="150">skill_view / skill_manage / skills_list</text>
+      <text class="tS" x="610" y="170">drive_list / goal_buffer / scheduler_cycle</text>
+      <text class="tS" x="610" y="190">trace_ingest / reflect_trigger / curator</text>
+      <text class="tS" x="610" y="210">governance_manage（注意：无 im2a_ 前缀）</text>
+      <text class="tS" x="610" y="230">contribution_audit / skill_claim</text>
+      <text class="tS" x="610" y="250">另有 31 条别名表映射旧名 → 规范名</text>
+      <text class="tS" x="610" y="274">registry.call() 因此永远返回 not_implemented</text>
+
+      <path class="arw" d="M446 88 H590"/>
+      <text class="tB" x="452" y="80">1</text>
+    </svg>
+    <figcaption>图 3 · 两套命名体系并存；注册表是设计期契约检查器，不是运行时工具源。</figcaption>
+  </figure>
+
+  <h2>4 · 模块生命周期与状态传播</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 290" role="img" aria-label="状态机图">
+      <rect class="box" x="30" y="30" width="180" height="60"/>
+      <text class="tB" x="46" y="56">planned</text>
+      <text class="tS" x="46" y="76">不可加载 · 不得带工具</text>
+
+      <rect class="box" x="270" y="30" width="180" height="60"/>
+      <text class="tB" x="286" y="56">partial</text>
+      <text class="tS" x="286" y="76">可加载 · 必须有 status_note</text>
+
+      <rect class="boxOk" x="510" y="30" width="180" height="60"/>
+      <text class="tB" x="526" y="56">available</text>
+      <text class="tS" x="526" y="76">可加载 · 全功能</text>
+
+      <path class="arw" d="M210 60 H266"/>
+      <path class="arw" d="M450 60 H506"/>
+
+      <rect class="box" x="30" y="140" width="300" height="60"/>
+      <text class="tB" x="46" y="166">unavailable（传播结果）</text>
+      <text class="tS" x="46" y="186">任一硬依赖不可用 → 本模块不可用</text>
+
+      <path class="arw" d="M360 90 V140" stroke-dasharray="5 4"/>
+      <text class="tS" x="368" y="124">effectiveStatus 递归</text>
+
+      <rect class="box" x="380" y="140" width="300" height="60"/>
+      <text class="tB" x="396" y="166">disabled（运行时集合）</text>
+      <text class="tS" x="396" y="186">setModule(false)：有依赖者 → dependency_conflict</text>
+
+      <rect class="box" x="730" y="140" width="280" height="60"/>
+      <text class="tB" x="746" y="166">加载顺序 · Kahn 拓扑</text>
+      <text class="tS" x="746" y="186">卸载 = 逆序；软依赖只表达意图</text>
+
+      <path class="arw" d="M680 170 H726"/>
+
+      <rect class="box" x="30" y="228" width="980" height="46"/>
+      <text class="tS" x="46" y="256">护栏：planned 模块不得声明工具 · 依赖必须存在 · 运行时模块必须被恰好一个能力模块引用 · 路径不得逃出 kernel/</text>
+    </svg>
+    <figcaption>图 4 · 三种声明状态如何决定可加载性，以及状态如何沿依赖图传播。</figcaption>
+  </figure>
+
+  <h2>5 · Agent 工作流（清单中 9 个模块的闭环）</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 250" role="img" aria-label="Agent 工作流图">
+      <rect class="box" x="16" y="70" width="150" height="60"/>
+      <text class="tB" x="30" y="96">goal_buffer</text>
+      <text class="tS" x="30" y="114">容量仲裁 · 去重</text>
+
+      <rect class="box" x="196" y="70" width="150" height="60"/>
+      <text class="tB" x="210" y="96">goal_schedule</text>
+      <text class="tS" x="210" y="114">保留比例 = 治理权限</text>
+
+      <rect class="box" x="376" y="70" width="150" height="60"/>
+      <text class="tB" x="390" y="96">drive_*</text>
+      <text class="tS" x="390" y="114">动机 / 提案</text>
+
+      <rect class="box" x="556" y="70" width="150" height="60"/>
+      <text class="tB" x="570" y="96">执行</text>
+      <text class="tS" x="570" y="114">产生 trace</text>
+
+      <rect class="boxAlt" x="736" y="70" width="170" height="60"/>
+      <text class="tB" x="750" y="96">trace_ingest</text>
+      <text class="tS" x="750" y="114">裸 32hex + 产物侧车</text>
+
+      <path class="arw" d="M166 100 H192"/>
+      <path class="arw" d="M346 100 H372"/>
+      <path class="arw" d="M526 100 H552"/>
+      <path class="arw" d="M706 100 H732"/>
+
+      <rect class="box" x="736" y="170" width="170" height="56"/>
+      <text class="tB" x="750" y="194">reflect / 演化演练</text>
+      <text class="tS" x="750" y="212">只产出提案，不落库</text>
+
+      <rect class="boxBad" x="546" y="170" width="150" height="56"/>
+      <text class="tB" x="560" y="194">skill_claim</text>
+      <text class="tS" x="560" y="212">L2 + 独立验证者</text>
+
+      <rect class="box" x="376" y="170" width="130" height="56"/>
+      <text class="tB" x="390" y="194">skills_*</text>
+      <text class="tS" x="390" y="212">资产库</text>
+
+      <path class="arw" d="M821 130 V166"/>
+      <path class="arw" d="M736 198 H700"/>
+      <path class="arw" d="M546 198 H510"/>
+
+      <text class="tS" x="16" y="40">闭环约束：</text>
+      <text class="tS" x="92" y="40">执行 → 反思 → 演化 全链路只产出提案 / 审计；升格必须通过 skill_claim 的证据检查（验证者 ≠ 作者）</text>
+    </svg>
+    <figcaption>图 5 · 目标到资产的闭环；红色为唯一的升格闸门。</figcaption>
+  </figure>
+
+  <h2>6 · 关键指标</h2>
+  <figure class="fig">
+    <svg viewBox="0 0 1040 300" role="img" aria-label="指标图">
+      <text class="tB" x="16" y="26">能力覆盖（诚实口径）</text>
+
+      <text class="tS" x="16" y="58">9 个能力模块</text>
+      <rect x="150" y="42" width="420" height="18" fill="#12351f" stroke="#2c6b45"/>
+      <rect x="150" y="42" width="233" height="18" fill="#2f8f57"/>
+      <text class="tS" x="584" y="57">5 available · 4 partial · 0 planned</text>
+
+      <text class="tS" x="16" y="92">6 个运行时模块</text>
+      <rect x="150" y="76" width="420" height="18" fill="#12351f" stroke="#2c6b45"/>
+      <rect x="150" y="76" width="350" height="18" fill="#2f8f57"/>
+      <text class="tS" x="584" y="91">5 available · 1 partial</text>
+
+      <text class="tS" x="16" y="126">39 个规范工具名</text>
+      <rect x="150" y="110" width="420" height="18" fill="#3a1620" stroke="#7d2b36"/>
+      <rect x="150" y="110" width="11" height="18" fill="#ff5d5d"/>
+      <text class="tBad" x="584" y="125">1 真实路由 · 38 未实现</text>
+
+      <text class="tS" x="16" y="160">发布包可加载率</text>
+      <rect x="150" y="144" width="420" height="18" fill="#2a2211" stroke="#6b5320"/>
+      <rect x="150" y="144" width="360" height="18" fill="#ffb020"/>
+      <text class="tS" x="584" y="159">6 / 7 内核模块</text>
+
+      <text class="tB" x="16" y="206">风险热力</text>
+      <rect x="16" y="220" width="240" height="56" fill="#3a1620" stroke="#7d2b36"/>
+      <text class="tBad" x="30" y="244">P0 跨包导入</text>
+      <text class="tS" x="30" y="264">100% 复现 · 影响高</text>
+
+      <rect x="272" y="220" width="240" height="56" fill="#2a2211" stroke="#6b5320"/>
+      <text class="tS" x="286" y="244" fill="#ffb020">P1 工具名断裂</text>
+      <text class="tS" x="286" y="264">声明层 ≠ 运行层</text>
+
+      <rect x="528" y="220" width="240" height="56" fill="#12203f" stroke="#2c3a66"/>
+      <text class="tS" x="542" y="244">P2 硬编码 3.2.1</text>
+      <text class="tS" x="542" y="264">误导排障 · 影响低</text>
+
+      <rect x="784" y="220" width="240" height="56" fill="#12203f" stroke="#2c3a66"/>
+      <text class="tS" x="798" y="244">测试环境 ≠ 发布环境</text>
+      <text class="tS" x="798" y="264">仓库绿、发布红</text>
+    </svg>
+    <figcaption>图 6 · 覆盖度与风险热力；红色为必须修复项。</figcaption>
+  </figure>
+
+  <h2>7 · 逐文件评分</h2>
+  <table>
+    <thead><tr><th>文件</th><th>行数</th><th>角色</th><th>评分</th><th>主要问题</th></tr></thead>
+    <tbody>
+      <tr><td><code>plugin.json</code></td><td>190</td><td>运行时清单</td><td><span class="tag warn">6.5</span></td><td>39 个规范名与桥不符；meta_tools 无实现</td></tr>
+      <tr><td><code>kernel/registry.mjs</code></td><td>295</td><td>内核总线</td><td><span class="tag warn">7</span></td><td>硬编码 3.2.1；publicTools 与运行时不同源</td></tr>
+      <tr><td><code>kernel/topology-metrics.mjs</code></td><td>138</td><td>拓扑指标</td><td><span class="tag bad">3</span></td><td><b>跨包导入 → 发布包不可加载</b></td></tr>
+      <tr><td><code>kernel/scope-governance.mjs</code></td><td>302</td><td>治理</td><td><span class="tag ok">9.5</span></td><td>principal 自报；信任根未落地（已知）</td></tr>
+      <tr><td><code>kernel/did-portability.mjs</code></td><td>180</td><td>DID 可移植</td><td><span class="tag ok">9</span></td><td>信用数据尚不存在（契约先行）</td></tr>
+      <tr><td><code>kernel/model-registry.mjs</code></td><td>191</td><td>L1 注册表</td><td><span class="tag ok">9</span></td><td>浅冻结（嵌套仍可变）</td></tr>
+      <tr><td><code>kernel/ui-artifact.mjs</code></td><td>151</td><td>L5.2 产物</td><td><span class="tag ok">8.5</span></td><td>只存引用，无内容完整性校验</td></tr>
+      <tr><td><code>kernel/meter.mjs</code></td><td>206</td><td>L6 计量</td><td><span class="tag ok">8</span></td><td>记录仅内存，未持久化</td></tr>
+      <tr><td><code>cordis.patch.yml</code></td><td>16</td><td>MCP 行</td><td><span class="tag ok">8</span></td><td>启动失败静默（取舍）</td></tr>
+      <tr><td><code>migrations/*.json</code></td><td>327</td><td>别名表</td><td><span class="tag ok">8</span></td><td>31 vs toolCount 32 差异无注释</td></tr>
+      <tr><td><code>migrations/generate-aliases.mjs</code></td><td>179</td><td>生成器</td><td><span class="tag ok">8.5</span></td><td>依赖桥在线</td></tr>
+      <tr><td><code>scripts/check-package.mjs</code></td><td>91</td><td>包自检</td><td><span class="tag warn">7</span></td><td>不 import 全部内核模块 → 漏掉 P0</td></tr>
+      <tr><td><code>.github/workflows/ci.yml</code></td><td>31</td><td>CI</td><td><span class="tag warn">7.5</span></td><td>未做「安装后 import」验证</td></tr>
+      <tr><td><code>package.json</code></td><td>28</td><td>分发契约</td><td><span class="tag warn">6.5</span></td><td>files 白名单未覆盖 import 图</td></tr>
+      <tr><td><code>README.md</code> / LICENSE / icon / locale</td><td>77</td><td>附属</td><td><span class="tag ok">8</span></td><td>缺「两套工具名」说明</td></tr>
+    </tbody>
+  </table>
+
+  <h2>8 · 修复优先级</h2>
+  <div class="grid k3">
+    <div class="card">
+      <div class="l"><span class="tag bad">P0 · 30 分钟</span></div>
+      <p><b>拆掉跨包导入</b><br>把 <code>isEffectivePatch</code> 内联为本地纯函数（约 12 行）。</p>
+    </div>
+    <div class="card">
+      <div class="l"><span class="tag bad">P0+ · 20 分钟</span></div>
+      <p><b>发布环境验证</b><br>CI 装 tarball 到临时目录，逐个 import 7 个内核模块。</p>
+    </div>
+    <div class="card">
+      <div class="l"><span class="tag warn">P1 · 1–2 天</span></div>
+      <p><b>统一工具名归属</b><br>以桥的 32 个真实名为准，manifest 改为映射；或给 registry 接 handler。</p>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:28px">
+    完整逐文件文字评估见 <code>docs/design/PLUGIN-EVALUATION-3.3.1.md</code>。
+    本页无外部依赖，可离线打开。
+  </p>
+</div>
+</body>
+</html>
