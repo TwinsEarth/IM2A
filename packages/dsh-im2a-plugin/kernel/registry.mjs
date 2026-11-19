@@ -246,7 +246,12 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
     for (const id of plan.order) {
       for (const tool of manifest.modules[id].tools ?? []) push(`im2a_${id}_${tool}`, id);
     }
-    for (const tool of manifest.kernel.tools ?? []) push(`im2a_kernel_${tool}`, "kernel");
+    // Kernel tools follow the same rule as meta tools: "implemented" is only true
+    // when the runtime actually serves that exact name.
+    for (const tool of manifest.kernel.tools ?? []) {
+      const name = `im2a_kernel_${tool}`;
+      push(name, "kernel", runtimeSet.has(name));
+    }
     const metaStatus = manifest.kernel.meta_tools_status;
     for (const tool of manifest.kernel.meta_tools ?? []) {
       const name = `im2a_kernel_${tool}`;
