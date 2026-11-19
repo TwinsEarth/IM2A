@@ -146,11 +146,23 @@ function newRecordId() {
   return `meter_${randomBytes(12).toString("hex")}`;
 }
 
-export function createResourceMeter({ agentDid, providerId, region, clock = () => new Date() } = {}) {
+export function createResourceMeter({ agentDid, providerId, region, seedRecords = [], clock = () => new Date() } = {}) {
   if (typeof agentDid !== "string" || agentDid.length === 0) {
     throw new MeterError("invalid_agent", "agentDid is required");
   }
+  if (!Array.isArray(seedRecords)) {
+    throw new MeterError("invalid_snapshot", "seedRecords must be an array", { seedRecords });
+  }
   const records = [];
+  // Seeded records are validated exactly like fresh ones: a persisted snapshot is
+  // an input, not a trusted source.
+  for (const seeded of seedRecords) {
+    const errors = validateMeteringRecord(seeded);
+    if (errors.length) {
+      throw new MeterError("invalid_record", `seeded record rejected: ${errors.join("; ")}`, { errors, seeded });
+    }
+    records.push(Object.freeze(structuredClone(seeded)));
+  }
 
   return {
     version: METERING_VERSION,
@@ -186,6 +198,21 @@ export function createResourceMeter({ agentDid, providerId, region, clock = () =
       return records.map((record) => structuredClone(record));
     },
 
+    /**
+     * Everything this meter holds, as plain JSON. Persist this and pass
+     * `records` back as `seedRecords` to rebuild the meter after a restart —
+     * without a snapshot the totals only ever existed in memory.
+     */
+    snapshot() {
+      return {
+        schema_version: "1.0",
+        meter_version: METERING_VERSION,
+        agent_did: agentDid,
+        record_count: records.length,
+        records: records.map((record) => structuredClone(record)),
+      };
+    },
+
     /** Sum of billable cost only; internal work is tracked but never charged. */
     totalBillableCost(currency = "USD") {
       return records
@@ -203,4 +230,25 @@ export function createResourceMeter({ agentDid, providerId, region, clock = () =
       return pools;
     },
   };
+}
+
+/**
+ * Rebuild a meter from a snapshot produced by `meter.snapshot()`. The records
+ * are re-validated on the way in, so a corrupted or hand-edited snapshot fails
+ * loudly instead of silently skewing the billing totals.
+ */
+export function restoreResourceMeter(snapshot, { providerId, region, clock } = {}) {
+  if (!isPlainObject(snapshot) || !Array.isArray(snapshot.records)) {
+    throw new MeterError("invalid_snapshot", "snapshot.records must be an array", { snapshot });
+  }
+  if (typeof snapshot.agent_did !== "string" || snapshot.agent_did.length === 0) {
+    throw new MeterError("invalid_snapshot", "snapshot.agent_did is required", { snapshot });
+  }
+  return createResourceMeter({
+    agentDid: snapshot.agent_did,
+    providerId,
+    region,
+    clock,
+    seedRecords: snapshot.records,
+  });
 }

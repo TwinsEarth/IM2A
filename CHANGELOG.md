@@ -18,7 +18,16 @@
   directory and imports every kernel module from the published layout; CI runs it.
   It also fails if `scripts/` or `.github/` leak into the tarball.
 - `validateManifest` now requires the `runtime` block, so a manifest that describes only a design surface is rejected.
-- **Tool surface:** `plugin.json` gains a `runtime` block holding the 32 names the MCP bridge actually serves. `registry.publicTools()` now returns that callable surface instead of the 39 design names; `declaredTools()` keeps the design view and `toolGap()` reports the difference (both = `im2a_kernel_status`, 38 declared-only, 31 runtime-only). `resolve()` returns `runtimeName` and the canonical target separately, and `call()` answers `not_wired` (with the reason) rather than a vague `not_implemented`.
+- **Debt cleared:** `registry.mjs` no longer hardcodes `3.2.1` in error text (uses
+  `manifest.version`); `kernel.meta_tools` now carries `meta_tools_status: "partial"`
+  plus a note, and every declared meta tool reports `implemented` per tool
+  (`im2a_kernel_status` is the only one that exists). The manifest guard rejects
+  `meta_tools` without a status.
+- **Persistence:** `meter.snapshot()` returns plain JSON and `restoreResourceMeter()`
+  rebuilds a meter from it, re-validating every record; billing totals no longer exist
+  only in memory.
+- **Coverage:** `scripts/check-package.mjs` imports every declared runtime module
+  (this is the gap that let the P0 cross-package import ship).- **Tool surface:** `plugin.json` gains a `runtime` block holding the 32 names the MCP bridge actually serves. `registry.publicTools()` now returns that callable surface instead of the 39 design names; `declaredTools()` keeps the design view and `toolGap()` reports the difference (both = `im2a_kernel_status`, 38 declared-only, 31 runtime-only). `resolve()` returns `runtimeName` and the canonical target separately, and `call()` answers `not_wired` (with the reason) rather than a vague `not_implemented`.
 
 ## Unreleased — pin check tooling
 

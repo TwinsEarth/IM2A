@@ -59,3 +59,24 @@ test("a manifest without a runtime block is rejected", async () => {
   delete broken.runtime;
   assert.throws(() => createRegistry({ manifest: broken, aliases: { entries: [] } }), /runtime block is required/);
 });
+
+test("meta tools report implementation per tool, not as a blanket claim", async () => {
+  const { manifest } = await loadPlugin(ROOT);
+  const reg = await registry();
+  const declared = reg.declaredTools();
+  const meta = declared.filter((tool) => manifest.kernel.meta_tools.some((name) => tool.name === `im2a_kernel_${name}`));
+
+  assert.equal(meta.length, manifest.kernel.meta_tools.length);
+  for (const tool of meta) {
+    assert.equal(tool.implemented, tool.callable, `${tool.name}: implemented must match whether it is callable`);
+  }
+  const implemented = meta.filter((tool) => tool.implemented).map((tool) => tool.name);
+  assert.deepEqual(implemented, ["im2a_kernel_status"], "only the status meta tool exists today");
+});
+
+test("meta_tools without a status are rejected by the manifest guard", async () => {
+  const { manifest, aliases } = await loadPlugin(ROOT);
+  const broken = structuredClone(manifest);
+  delete broken.kernel.meta_tools_status;
+  assert.throws(() => createRegistry({ manifest: broken, aliases }), /meta_tools_status is required/);
+});

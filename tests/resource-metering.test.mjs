@@ -7,6 +7,7 @@ import {
   RESERVED_FLOOR_RATIO,
   createResourceMeter,
   purposePool,
+  restoreResourceMeter,
   splitMarginalBudget,
   validateMeteringRecord,
 } from "../packages/dsh-im2a-plugin/kernel/meter.mjs";
@@ -114,4 +115,43 @@ test("purpose maps to the pool the floor is audited on", () => {
   assert.equal(purposePool("self_improvement"), "reserved_pool");
   assert.equal(purposePool("maintenance"), "reserved_pool");
   assert.throws(() => purposePool("billing"), (error) => error.code === "invalid_purpose");
+});
+
+test("a snapshot survives a restart and keeps the totals", () => {
+  const first = createResourceMeter({ agentDid: "did:im2a:meter", clock });
+  first.record({
+    layer: "compute",
+    resource: { kind: "gpu", quantity: 2, unit: "gpu_seconds" },
+    task: { purpose: "external" },
+    cost: { amount: 0.5, currency: "USD" },
+  });
+  first.record({
+    layer: "storage",
+    resource: { kind: "disk", quantity: 10, unit: "bytes" },
+    task: { purpose: "maintenance" },
+    cost: { amount: 0.25, currency: "USD" },
+  });
+
+  const snapshot = first.snapshot();
+  assert.equal(snapshot.record_count, 2);
+  assert.equal(snapshot.agent_did, "did:im2a:meter");
+
+  const restarted = restoreResourceMeter(JSON.parse(JSON.stringify(snapshot)), { clock });
+  assert.equal(restarted.records().length, 2);
+  assert.equal(restarted.totalBillableCost("USD"), 0.5, "internal work is still not billable");
+  assert.deepEqual(restarted.costByPool("USD"), { external_pool: 0.5, reserved_pool: 0.25 });
+});
+
+test("a tampered snapshot is rejected instead of skewing totals", () => {
+  const meter = createResourceMeter({ agentDid: "did:im2a:meter", clock });
+  meter.record({
+    layer: "compute",
+    resource: { kind: "gpu", quantity: 1, unit: "gpu_seconds" },
+    task: { purpose: "external" },
+    cost: { amount: 1, currency: "USD" },
+  });
+  const snapshot = JSON.parse(JSON.stringify(meter.snapshot()));
+  snapshot.records[0].cost.amount = -5;
+  assert.throws(() => restoreResourceMeter(snapshot, { clock }), (error) => error.code === "invalid_record");
+  assert.throws(() => restoreResourceMeter({ records: [] }, { clock }), (error) => error.code === "invalid_snapshot");
 });

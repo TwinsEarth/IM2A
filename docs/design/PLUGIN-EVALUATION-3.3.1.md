@@ -514,3 +514,14 @@ P1（工具名归属）仍未处理，为下一步工作。
 `validateManifest` 现在**强制要求** `runtime` 块——只描述设计面、没有可调用面的清单会被拒绝。
 新增 `tests/tool-surface.test.mjs`（5 条）锁定这些不变量：可调用面 == runtime 列表、
 每个设计名要么可调用要么出现在 `declared_only`、每个运行时工具都归属到某个模块。
+
+### 9.2 P2 清理（同日，v3.4.0）
+
+| 债 | 处理 | 验证 |
+| --- | --- | --- |
+| `registry.mjs` 硬编码 `"3.2.1"` | 改用 `manifest.version`，文件头注释去版本号 | 全仓 grep 仅剩迁移文件名（真实路径） |
+| `meta_tools` 9 项无实现 | `meta_tools_status: "partial"` + 说明；每个工具单独标 `implemented`（只有 `im2a_kernel_status` 为真）；清单校验强制要求状态字段 | `tool-surface` 新增 2 条测试 |
+| `meter.mjs` 只在内存 | 新增 `snapshot()` / `restoreResourceMeter()`，恢复时逐条重校验（篡改的快照会被拒绝） | `resource-metering` 新增 2 条测试 |
+| `check-package` 只 import registry | 改为 import 全部声明模块 | P0 阶段已修 |
+
+测试数：144 → **148**（+2 meter +2 meta）。

@@ -1,4 +1,4 @@
-// IM2A v3.2.1 kernel registry: one manifest, one bus, one gate.
+// IM2A kernel registry: one manifest, one bus, one gate.
 // Phase 1 scope: topology, lifecycle, alias resolution, honest module status.
 // No business handlers live here; modules forward to the existing bridge.
 
@@ -128,6 +128,18 @@ export function validateManifest(manifest) {
     }
   }
 
+  // Declared meta tools that have no implementation must say so, otherwise the
+  // manifest advertises a kernel surface nothing serves.
+  const metaTools = manifest?.kernel?.meta_tools ?? [];
+  if (Array.isArray(metaTools) && metaTools.length > 0) {
+    const metaStatus = manifest?.kernel?.meta_tools_status;
+    if (!MODULE_STATUS.has(metaStatus)) {
+      errors.push("kernel.meta_tools_status is required when meta_tools are declared");
+    } else if (metaStatus !== "available" && !manifest?.kernel?.meta_tools_note) {
+      errors.push("kernel.meta_tools_note is required while meta_tools are not available");
+    }
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -227,15 +239,21 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
    */
   function declaredTools() {
     const out = [];
-    const push = (name, module) => {
+    const push = (name, module, implemented = true) => {
       if (out.some((tool) => tool.name === name)) return;
-      out.push({ name, module, canonical: true, callable: runtimeSet.has(name) });
+      out.push({ name, module, canonical: true, callable: runtimeSet.has(name), implemented });
     };
     for (const id of plan.order) {
       for (const tool of manifest.modules[id].tools ?? []) push(`im2a_${id}_${tool}`, id);
     }
     for (const tool of manifest.kernel.tools ?? []) push(`im2a_kernel_${tool}`, "kernel");
-    for (const tool of manifest.kernel.meta_tools ?? []) push(`im2a_kernel_${tool}`, "kernel");
+    const metaStatus = manifest.kernel.meta_tools_status;
+    for (const tool of manifest.kernel.meta_tools ?? []) {
+      const name = `im2a_kernel_${tool}`;
+      // A meta tool counts as implemented only if the runtime actually serves it
+      // or the whole meta surface has shipped.
+      push(name, "kernel", metaStatus === "available" || runtimeSet.has(name));
+    }
     return out;
   }
 
@@ -352,7 +370,7 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
       });
     }
     if (enabled && !LOADABLE.has(status.get(id))) {
-      return failure("not_implemented", `${id} is ${status.get(id)} in 3.2.1`, { module: id });
+      return failure("not_implemented", `${id} is ${status.get(id)} in ${manifest.version}`, { module: id });
     }
     if (enabled) disabled.delete(id); else disabled.add(id);
     return { ok: true, module: id, enabled };

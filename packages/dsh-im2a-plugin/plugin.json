@@ -35,6 +35,8 @@
       "config_set",
       "license_status"
     ],
+    "meta_tools_status": "partial",
+    "meta_tools_note": "only status is implemented (served by the bridge as im2a_kernel_status); the other eight have no handler yet and are design-only, never advertised as callable",
     "tools": ["whoami"],
     "runtime_modules": [
       {
