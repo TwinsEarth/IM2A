@@ -1,8 +1,8 @@
 {
   "schemaVersion": "3.0",
   "name": "dsh-im2a-plugin",
-  "version": "3.3.1",
-  "engines": { "dsh": "0.2.2-rc.3" },
+  "version": "3.3.2",
+  "engines": { "dsh": "0.2.2-rc.5" },
   "description": "IM2A — an instant network for agents: kernel plus nine capability modules in one package.",
   "display": {
     "title": "智能体宇宙—IM2A",

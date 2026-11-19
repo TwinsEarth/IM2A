@@ -78,6 +78,17 @@ for (const rel of ["plugin.json", "package.json", "README.md", "icon.svg", "cord
   }
 }
 
+// --- every kernel module must load on its own -----------------------------
+// A module that only resolves because a sibling package happens to exist in the
+// repo will pass every static check and still break after install.
+for (const entry of manifest.kernel.runtime_modules ?? []) {
+  try {
+    await import(new URL(`../${entry.path}`, import.meta.url));
+  } catch (error) {
+    failures.push(`kernel module failed to import: ${entry.path} (${error.code ?? error.name}: ${error.message})`);
+  }
+}
+
 if (failures.length > 0) {
   console.error(`package check failed (${failures.length}):`);
   for (const failure of failures) console.error(`  - ${failure}`);

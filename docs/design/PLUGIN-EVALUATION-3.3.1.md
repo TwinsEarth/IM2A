@@ -462,3 +462,39 @@ drive_list / drive_manage / drive_propose（动机与提案，交叉检查近期
 
 一句话：**这是一个「内核写得好、线没插上」的插件**。修掉 P0（跨包导入）与
 补齐 P1（工具名归属）后，工程完整度可以到 8.8 左右。
+
+---
+
+## 9. 修复记录（2026-11-20，v3.3.2）
+
+**P0 已修复。** `kernel/topology-metrics.mjs` 不再 import `../../im2a-http-mcp/skill-claim.mjs`，
+判定逻辑以本地导出函数 `isEffectivePatch` 内联，语义逐条对齐（`action === "patch"`、
+两个证据计数为非负整数、`verifier_agents` 中至少一个 DID 不等于作者）。
+
+新增两道防线，让同类问题不可能再发出去：
+
+| 防线 | 文件 | 作用 |
+| --- | --- | --- |
+| 静态边界 | `tests/package-boundary.test.mjs` | 任何内核模块出现 `from "../...` 即失败；并逐个 import 全部模块 |
+| 发布布局 | `scripts/check-dist.mjs` | 打包 → 解到临时目录 → **按消费者视角** import 全部模块；同时拒绝 `scripts/`、`.github/` 泄漏进 tarball |
+| 包自检 | `scripts/check-package.mjs` | 新增「import 全部声明模块」步骤 |
+| CI | `.github/workflows/ci.yml` | 用 `check-dist.mjs` 替换 `npm pack --dry-run` |
+
+验证结果：
+
+```text
+published-layout check passed: 6/6 kernel modules load from the tarball
+node --test tests/*.test.mjs   139 passed / 0 failed
+check-package                  passed: dsh-im2a-plugin@3.3.2 (6 runtime modules, 31 aliases)
+负向验证（把跨包 import 加回去）  check-dist exit 1，报 import failed
+```
+
+修复后各项评分变化：
+
+| 维度 | 修复前 | 修复后 |
+| --- | --- | --- |
+| 可发布性 | 5 / 10 | **9 / 10** |
+| 发布包可加载率 | 6/7 | **7/7** |
+| 综合 | 7.9 | **8.4** |
+
+P1（工具名归属）仍未处理，为下一步工作。

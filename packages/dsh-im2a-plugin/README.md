@@ -10,9 +10,14 @@
 编排；九个能力模块挂在总线上；五个商用模块由 Relay 许可后加载，本版全部为
 `planned`。
 
-## 3.3.1 交付了什么
+## 3.3.2 交付了什么
 
-- 兼容 DSH `0.2.2-rc.3`：`engines.dsh` 自 `0.2.2-rc.2` 精确升级，未放宽为范围；
+- **修复**：`kernel/topology-metrics.mjs` 曾 import `../../im2a-http-mcp/skill-claim.mjs`，
+  该路径只存在于仓库、不在发布包内，导致 3.3.1 装好后该模块 `ERR_MODULE_NOT_FOUND`。
+  判定逻辑（补丁证据 + 独立验证者）已内联为本地函数，模块现可从 tarball 加载；
+- `scripts/check-dist.mjs`：把 tarball 解到临时目录、按「消费者视角」逐个 import 内核模块，
+  CI 每次推送都跑；
+- 兼容 DSH `0.2.2-rc.5`：`engines.dsh` 自 `0.2.2-rc.3` 精确升级，未放宽为范围；
 - `plugin.json`：单包 manifest，内核 + 9 模块 + 5 个商用占位；
 - `kernel/` 六个运行时模块：`model-registry`、`meter`、`ui-artifact`、`did-portability`、
   `topology-metrics`、`scope-governance`，已在 manifest 注册并挂到对应能力模块；

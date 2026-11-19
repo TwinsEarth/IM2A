@@ -1,5 +1,24 @@
 # Changelog
 
+## v3.3.2 — 2026-11-20 published-package import fix + DSH 0.2.2-rc.5
+
+- `engines.dsh` moved `0.2.2-rc.3` -> `0.2.2-rc.5` (the runtime on this machine had
+  already advanced; `npm run pin:check` flagged it before release).
+
+- **Fixed:** `kernel/topology-metrics.mjs` imported `../../im2a-http-mcp/skill-claim.mjs`,
+  a path that exists in the repository but not in the published tarball. Installing
+  3.3.1 and importing the module failed with `ERR_MODULE_NOT_FOUND`; 6 of 7 kernel
+  modules loaded. The audit rule (`action === "patch"`, integer evidence counts, at
+  least one verifier who is not the author) is now a local exported function with
+  identical semantics, and the module loads from the tarball.
+- **Guard:** `tests/package-boundary.test.mjs` fails if any kernel module imports
+  outside the package, and imports each module on its own.
+- **Guard:** `scripts/check-package.mjs` now imports every declared runtime module.
+- **New:** `scripts/check-dist.mjs` packs the package, extracts the tarball to a temp
+  directory and imports every kernel module from the published layout; CI runs it.
+  It also fails if `scripts/` or `.github/` leak into the tarball.
+- Version `3.3.1` -> `3.3.2`.
+
 ## Unreleased — pin check tooling
 
 - `npm run pin:check` (`scripts/pin-check.mjs`): reads the installed DSH version

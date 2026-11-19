@@ -27,5 +27,5 @@ jobs:
       - name: Check manifest, runtime modules and alias table
         run: node scripts/check-package.mjs
 
-      - name: Verify the tarball contents
-        run: npm pack --dry-run
+      - name: Check the published layout (tarball view)
+        run: node scripts/check-dist.mjs

@@ -16,10 +16,28 @@
  *     the product is bounded by node_count and falls to 0 with either factor.
  */
 import { createHash } from "node:crypto";
-import { isEffectivePatch } from "../../im2a-http-mcp/skill-claim.mjs";
 import { canonicalJson } from "./did-portability.mjs";
 
 export const TOPOLOGY_METRICS_VERSION = "1.0";
+
+/**
+ * A patch counts only when it carries valid validation evidence AND a verifier
+ * who is not the author.
+ *
+ * This mirrors the audit rule in the bridge's skill-claim.mjs on purpose: the
+ * plugin package must not import across package boundaries, because the
+ * published tarball contains this package only. The rule is small and stable,
+ * so duplicating it here is cheaper than adding a runtime dependency on the
+ * bridge — and `tests/package-boundary.test.mjs` keeps the duplication honest.
+ */
+export function isEffectivePatch(entry) {
+  if (!entry || entry.action !== "patch" || !entry.validation_evidence) return false;
+  const evidence = entry.validation_evidence;
+  if (!Number.isInteger(evidence.post_patch_success_count) || evidence.post_patch_success_count < 0) return false;
+  if (!Number.isInteger(evidence.post_patch_failure_count) || evidence.post_patch_failure_count < 0) return false;
+  if (!Array.isArray(evidence.verifier_agents)) return false;
+  return evidence.verifier_agents.some((did) => typeof did === "string" && did !== entry.agent_did);
+}
 
 export class TopologyMetricsError extends Error {
   constructor(code, message, detail = {}) {
