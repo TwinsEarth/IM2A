@@ -1,7 +1,7 @@
 {
   "schemaVersion": "3.0",
   "name": "dsh-im2a-plugin",
-  "version": "3.3.2",
+  "version": "3.4.0",
   "engines": { "dsh": "0.2.2-rc.5" },
   "description": "IM2A — an instant network for agents: kernel plus nine capability modules in one package.",
   "display": {
@@ -80,6 +80,47 @@
         "status_note": "propose and status are exposed as governance_manage; human decisions are recorded outside the MCP surface",
         "provides": ["scope proposals", "human-only approval", "direct physical grant"]
       }
+    ]
+  },
+  "runtime": {
+    "transport": "streamable-http",
+    "serverName": "im2a",
+    "url": "http://127.0.0.1:18082/mcp",
+    "catalog": "mcp-bridge-tool-catalog-2.0",
+    "note": "This is the callable surface: the tools the MCP bridge actually serves. kernel.tools / kernel.meta_tools / modules[].tools describe the design surface; where the two differ, the bridge wins at runtime and kernel/registry.mjs reports the gap instead of pretending the design names are callable.",
+    "tools": [
+      "im2a_harness_list",
+      "im2a_send",
+      "im2a_recv",
+      "im2a_presence",
+      "im2a_whoami",
+      "im2a_history",
+      "skills_list",
+      "skill_view",
+      "skill_manage",
+      "curator",
+      "memory_search",
+      "memory_get",
+      "memory_propose",
+      "trace_ingest",
+      "reflect_trigger",
+      "curator_audit",
+      "skill_guard_check",
+      "memory_recall_v2",
+      "evolution_pipeline_dryrun",
+      "drive_list",
+      "drive_manage",
+      "goal_buffer",
+      "drive_propose",
+      "scheduler_cycle",
+      "scheduler_audit",
+      "goal_schedule",
+      "drive_calibrate",
+      "autonomy_pipeline_dryrun",
+      "skill_claim",
+      "contribution_audit",
+      "governance_manage",
+      "im2a_kernel_status"
     ]
   },
   "modules": {

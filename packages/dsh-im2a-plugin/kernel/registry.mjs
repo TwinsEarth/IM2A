@@ -8,6 +8,9 @@ import { fileURLToPath } from "node:url";
 
 export const MODULE_STATUS = new Set(["available", "partial", "planned", "unavailable"]);
 export const TOOL_NAME_RE = /^im2a_[a-z][a-z0-9_]{2,40}$/;
+// Wire names are not all `im2a_`-prefixed (the bridge still serves legacy names
+// such as memory_search), so the runtime surface uses a general MCP-name rule.
+export const RUNTIME_TOOL_RE = /^[a-z][a-z0-9_]{2,50}$/;
 export const LOADABLE = new Set(["available", "partial"]);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -100,6 +103,31 @@ export function validateManifest(manifest) {
       if (!claimed.has(entry.id)) errors.push(`runtime module ${entry.id} is not attached to any module`);
     }
   }
+  // The runtime block is the only callable surface. Without it the manifest
+  // describes a design that nothing serves, which is exactly the drift this
+  // field exists to prevent.
+  const runtime = manifest?.runtime;
+  if (!runtime || typeof runtime !== "object") {
+    errors.push("runtime block is required: it declares the callable surface");
+  } else {
+    if (typeof runtime.transport !== "string" || runtime.transport.length === 0) errors.push("runtime.transport is required");
+    if (typeof runtime.serverName !== "string" || runtime.serverName.length === 0) errors.push("runtime.serverName is required");
+    if (!Array.isArray(runtime.tools) || runtime.tools.length === 0) {
+      errors.push("runtime.tools must be a non-empty array");
+    } else {
+      const seenRuntime = new Set();
+      for (const name of runtime.tools) {
+        if (typeof name !== "string" || !RUNTIME_TOOL_RE.test(name)) {
+          errors.push(`runtime.tools has an invalid tool name: ${name}`);
+        } else if (seenRuntime.has(name)) {
+          errors.push(`runtime.tools has a duplicate: ${name}`);
+        } else {
+          seenRuntime.add(name);
+        }
+      }
+    }
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -169,56 +197,124 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
     Object.keys(manifest.modules).filter((id) => !LOADABLE.has(status.get(id))),
   );
 
-  function publicTools() {
+  const runtimeNames = [...(manifest.runtime?.tools ?? [])];
+  const runtimeSet = new Set(runtimeNames);
+  const aliasByCanonical = new Map(aliases.entries.map((entry) => [entry.new_name, entry]));
+  const moduleByLegacy = new Map(aliases.entries.map((entry) => [entry.old_name, entry.module]));
+  // Bridge names that predate the alias table and therefore have no legacy entry.
+  const RUNTIME_MODULE_HINTS = {
+    im2a_kernel_status: "kernel",
+    im2a_whoami: "kernel",
+    governance_manage: "governance",
+    im2a_harness_list: "fleet",
+    im2a_send: "fleet",
+    im2a_recv: "fleet",
+    im2a_presence: "fleet",
+    im2a_history: "fleet",
+  };
+
+  function moduleOf(name) {
+    if (moduleByLegacy.has(name)) return moduleByLegacy.get(name);
+    if (RUNTIME_MODULE_HINTS[name]) return RUNTIME_MODULE_HINTS[name];
+    const match = /^im2a_([a-z][a-z0-9_]*?)_[a-z]/.exec(name);
+    if (match && manifest.modules[match[1]]) return match[1];
+    return "unmapped";
+  }
+
+  /**
+   * Design surface: the canonical names the manifest describes. Some of them are
+   * callable (they also appear in runtime.tools); most are not yet served.
+   */
+  function declaredTools() {
     const out = [];
+    const push = (name, module) => {
+      if (out.some((tool) => tool.name === name)) return;
+      out.push({ name, module, canonical: true, callable: runtimeSet.has(name) });
+    };
     for (const id of plan.order) {
-      if (disabled.has(id)) continue;
-      for (const tool of manifest.modules[id].tools ?? []) {
-        out.push({ name: `im2a_${id}_${tool}`, module: id, canonical: true });
-      }
+      for (const tool of manifest.modules[id].tools ?? []) push(`im2a_${id}_${tool}`, id);
     }
-    for (const tool of manifest.kernel.tools ?? []) out.push({ name: `im2a_kernel_${tool}`, module: "kernel", canonical: true });
-    for (const tool of manifest.kernel.meta_tools ?? []) out.push({ name: `im2a_kernel_${tool}`, module: "kernel", canonical: true });
-    const seen = new Set(out.map((t) => t.name));
-    for (const entry of aliases.entries) {
-      if (seen.has(entry.old_name)) continue;
-      if (disabled.has(entry.module)) continue;
-      out.push({ name: entry.old_name, module: entry.module, canonical: false, replaced_by: entry.new_name });
-    }
+    for (const tool of manifest.kernel.tools ?? []) push(`im2a_kernel_${tool}`, "kernel");
+    for (const tool of manifest.kernel.meta_tools ?? []) push(`im2a_kernel_${tool}`, "kernel");
     return out;
+  }
+
+  /** Callable surface: exactly the tools the MCP bridge serves, nothing more. */
+  function runtimeTools() {
+    return runtimeNames.map((name) => {
+      const alias = aliasByOld.get(name);
+      return {
+        name,
+        module: moduleOf(name),
+        canonical: alias?.new_name ?? (aliasByCanonical.has(name) ? name : null),
+        deprecated: Boolean(alias),
+      };
+    });
+  }
+
+  /**
+   * The only list a caller may treat as "tools that exist". Design names that the
+   * bridge does not serve are reported by toolGap(), never silently included here.
+   */
+  function publicTools() {
+    return runtimeTools();
+  }
+
+  /** Where the design surface and the callable surface diverge. */
+  function toolGap() {
+    const declared = declaredTools().map((tool) => tool.name);
+    const declaredSet = new Set(declared);
+    return {
+      declared: declared.length,
+      runtime: runtimeNames.length,
+      both: runtimeNames.filter((name) => declaredSet.has(name)),
+      declared_only: declared.filter((name) => !runtimeSet.has(name)),
+      runtime_only: runtimeNames.filter((name) => !declaredSet.has(name)),
+    };
   }
 
   function resolve(name) {
     const alias = aliasByOld.get(name);
     const canonicalName = alias?.new_name ?? name;
-    if (!TOOL_NAME_RE.test(canonicalName)) return failure("unknown_tool", `invalid tool name ${name}`);
+    const runtimeName = runtimeSet.has(name) ? name : runtimeSet.has(canonicalName) ? canonicalName : null;
 
-    for (const id of [...plan.order, "kernel"]) {
-      const prefix = `im2a_${id}_`;
-      if (!canonicalName.startsWith(prefix)) continue;
-      if (id !== "kernel" && disabled.has(id)) {
-        const declared = status.get(id);
-        if (declared === "planned") {
-          return failure("not_implemented", `${id} is planned in 3.2.1`, { module: id });
-        }
-        return failure("module_unavailable", `module ${id} is not loaded`, { module: id });
-      }
-      const tool = canonicalName.slice(prefix.length);
-      const declared = id === "kernel"
-        ? [...(manifest.kernel.tools ?? []), ...(manifest.kernel.meta_tools ?? [])]
-        : manifest.modules[id].tools ?? [];
-      if (!declared.includes(tool)) {
-        return failure("unknown_tool", `${canonicalName} is not declared by ${id}`, { module: id });
-      }
+    if (runtimeName) {
       return {
         ok: true,
-        name: canonicalName,
-        module: id,
-        tool,
+        name,
+        runtimeName,
+        module: moduleOf(runtimeName),
+        tool: canonicalName,
         fixedArgs: alias?.fixed_args ?? {},
         deprecated: Boolean(alias),
-        handler: handlers[canonicalName] ?? handlers[`${id}.${tool}`] ?? null,
+        callable: true,
+        handler: handlers[runtimeName] ?? handlers[canonicalName] ?? null,
       };
+    }
+
+    if (!RUNTIME_TOOL_RE.test(canonicalName)) return failure("unknown_tool", `invalid tool name ${name}`);
+
+    // Declared by the manifest but not served by the bridge: say so precisely.
+    const design = declaredTools().find((tool) => tool.name === canonicalName);
+    if (design) {
+      if (design.module !== "kernel" && disabled.has(design.module)) {
+        const declaredStatus = status.get(design.module);
+        if (declaredStatus === "planned") {
+          return failure("not_implemented", `${design.module} is planned`, { module: design.module });
+        }
+        return failure("module_unavailable", `module ${design.module} is not loaded`, { module: design.module });
+      }
+      return failure(
+        "not_wired",
+        `${canonicalName} is declared by the manifest but ${manifest.runtime?.serverName ?? "the runtime"} does not serve it`,
+        { module: design.module, runtime: manifest.runtime?.url ?? null },
+      );
+    }
+
+    for (const id of [...plan.order, "kernel"]) {
+      if (canonicalName.startsWith(`im2a_${id}_`)) {
+        return failure("unknown_tool", `${canonicalName} is not declared by ${id}`, { module: id });
+      }
     }
     return failure("unknown_tool", `no module owns ${name}`);
   }
@@ -227,7 +323,10 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
     const target = resolve(name);
     if (!target.ok) return target;
     if (!target.handler) {
-      return failure("not_implemented", `${target.name} has no handler in 3.2.1`, { module: target.module });
+      return failure("not_wired", `${target.runtimeName} is served by the MCP bridge; no in-process handler is registered`, {
+        module: target.module,
+        runtimeName: target.runtimeName,
+      });
     }
     const payload = { ...target.fixedArgs, ...args };
     try {
@@ -288,8 +387,33 @@ export function createRegistry({ manifest, aliases, handlers = {} }) {
         path: entry.path,
         ...(entry.status_note ? { status_note: entry.status_note } : {}),
       })),
+      surface: (() => {
+        const gap = toolGap();
+        return {
+          transport: manifest.runtime?.transport ?? null,
+          server: manifest.runtime?.serverName ?? null,
+          declared: gap.declared,
+          runtime: gap.runtime,
+          callable_declared: gap.both,
+          declared_only: gap.declared_only.length,
+          runtime_only: gap.runtime_only.length,
+        };
+      })(),
     };
   }
 
-  return { manifest, aliases, plan, status, publicTools, resolve, call, setModule, statusReport };
+  return {
+    manifest,
+    aliases,
+    plan,
+    status,
+    publicTools,
+    declaredTools,
+    runtimeTools,
+    toolGap,
+    resolve,
+    call,
+    setModule,
+    statusReport,
+  };
 }

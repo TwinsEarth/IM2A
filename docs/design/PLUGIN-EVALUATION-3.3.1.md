@@ -498,3 +498,19 @@ check-package                  passed: dsh-im2a-plugin@3.3.2 (6 runtime modules,
 | 综合 | 7.9 | **8.4** |
 
 P1（工具名归属）仍未处理，为下一步工作。
+
+### 9.1 P1 修复（同日，v3.4.0）
+
+`plugin.json` 新增 `runtime` 块，声明桥真正服务的 32 个工具名；注册表语义随之归位：
+
+| API | 含义 |
+| --- | --- |
+| `runtimeTools()` / `publicTools()` | **可调用面** = 32 个真实工具，不再混入设计名 |
+| `declaredTools()` | 设计面 = 39 个规范名，逐条带 `callable` 标记 |
+| `toolGap()` | `{declared:39, runtime:32, both:["im2a_kernel_status"], declared_only:38, runtime_only:31}` |
+| `resolve()` | 返回 `runtimeName` 与 `tool`（规范目标）两个字段，别名关系不再含糊 |
+| `call()` | 无 handler 时返回 `not_wired` 并说明「由 MCP 桥执行」，不再是含糊的 `not_implemented` |
+
+`validateManifest` 现在**强制要求** `runtime` 块——只描述设计面、没有可调用面的清单会被拒绝。
+新增 `tests/tool-surface.test.mjs`（5 条）锁定这些不变量：可调用面 == runtime 列表、
+每个设计名要么可调用要么出现在 `declared_only`、每个运行时工具都归属到某个模块。

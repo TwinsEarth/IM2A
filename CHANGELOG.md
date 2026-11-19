@@ -1,6 +1,6 @@
 # Changelog
 
-## v3.3.2 — 2026-11-20 published-package import fix + DSH 0.2.2-rc.5
+## v3.4.0 — 2026-11-20 published-package fix, tool-surface truth, DSH 0.2.2-rc.5
 
 - `engines.dsh` moved `0.2.2-rc.3` -> `0.2.2-rc.5` (the runtime on this machine had
   already advanced; `npm run pin:check` flagged it before release).
@@ -17,7 +17,8 @@
 - **New:** `scripts/check-dist.mjs` packs the package, extracts the tarball to a temp
   directory and imports every kernel module from the published layout; CI runs it.
   It also fails if `scripts/` or `.github/` leak into the tarball.
-- Version `3.3.1` -> `3.3.2`.
+- `validateManifest` now requires the `runtime` block, so a manifest that describes only a design surface is rejected.
+- **Tool surface:** `plugin.json` gains a `runtime` block holding the 32 names the MCP bridge actually serves. `registry.publicTools()` now returns that callable surface instead of the 39 design names; `declaredTools()` keeps the design view and `toolGap()` reports the difference (both = `im2a_kernel_status`, 38 declared-only, 31 runtime-only). `resolve()` returns `runtimeName` and the canonical target separately, and `call()` answers `not_wired` (with the reason) rather than a vague `not_implemented`.
 
 ## Unreleased — pin check tooling
 

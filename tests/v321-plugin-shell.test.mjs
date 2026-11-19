@@ -54,12 +54,12 @@ const LEGACY_TOOLS = [
 // module may claim "planned" now that the kernel modules are attached to them.
 const PARTIAL_MODULES = ["identity", "economy", "governance", "observability"];
 
-test("manifest is a valid 3.3.2 single-package shell", async () => {
+test("manifest is a valid 3.4.0 single-package shell", async () => {
   const { manifest } = await loadPlugin(ROOT);
   const guard = validateManifest(manifest);
   assert.deepEqual(guard.errors, []);
   assert.equal(manifest.name, "dsh-im2a-plugin");
-  assert.equal(manifest.version, "3.3.2");
+  assert.equal(manifest.version, "3.4.0");
   assert.equal(manifest.engines.dsh, RUNTIME_PIN);
   assert.equal(manifest.premium.license_implemented, false);
   for (const id of PARTIAL_MODULES) {
@@ -70,7 +70,7 @@ test("manifest is a valid 3.3.2 single-package shell", async () => {
     assert.notEqual(mod.status, "planned", `${id} still claims planned but has a kernel module`);
   }
   for (const [id, mod] of Object.entries(manifest.premium.modules)) {
-    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.3.2`);
+    assert.equal(mod.status, "planned", `pro/${id} must stay planned in 3.4.0`);
     assert.equal(mod.requires_signature, true);
   }
 });
@@ -159,16 +159,19 @@ test("modules backed by kernel modules report their real state", async () => {
   const registry = createRegistry({ manifest, aliases });
   const names = registry.publicTools().map((t) => t.name);
   assert.equal(new Set(names).size, names.length, "tool names must be unique");
-  assert.ok(names.includes("im2a_memory_recall"));
-  assert.ok(names.includes("memory_recall_v2"), "legacy alias must stay callable");
+  assert.equal(names.length, 32, "publicTools is the callable surface, not the design surface");
+  assert.ok(names.includes("memory_recall_v2"), "the bridge name must be the callable one");
+  assert.ok(!names.includes("im2a_memory_recall"), "design-only names must not be advertised as callable");
+  assert.ok(names.includes("governance_manage"));
+  assert.ok(names.includes("im2a_kernel_status"));
   // economy has a kernel module but no MCP tool yet.
   assert.ok(!names.some((name) => name.startsWith("im2a_economy_")), "economy leaked a tool");
-  // governance gained its manage tool with the kernel registration.
-  assert.ok(names.includes("im2a_governance_manage"));
-  assert.ok(names.includes("governance_manage"), "the legacy name must stay callable");
 
   const report = registry.statusReport();
   assert.equal(report.premium.license_implemented, false);
+  assert.deepEqual(report.surface.callable_declared, ["im2a_kernel_status"]);
+  assert.equal(report.surface.declared, 39);
+  assert.equal(report.surface.runtime, 32);
   const economy = report.modules.find((m) => m.id === "economy");
   assert.equal(economy.effective, "partial");
   assert.equal(economy.tools, 0);
@@ -193,12 +196,22 @@ test("bus returns error values, never fake success", async () => {
   assert.equal(undeclaredCall.errorCode, "unknown_tool");
   assert.equal(undeclaredCall.module, "economy");
 
-  const noHandler = await registry.call("im2a_memory_recall", { query: "x" });
-  assert.equal(noHandler.errorCode, "not_implemented");
+  // A design-only name: declared by the manifest, not served by the bridge.
+  const designOnly = await registry.call("im2a_memory_recall", { query: "x" });
+  assert.equal(designOnly.errorCode, "not_wired");
+  assert.match(designOnly.detail, /does not serve it/);
 
-  const viaAlias = registry.resolve("memory_recall_v2");
-  assert.equal(viaAlias.name, "im2a_memory_recall");
-  assert.equal(viaAlias.deprecated, true);
+  // A bridge-served name: callable in principle, but no in-process handler is
+  // registered — the bridge owns execution, the kernel only describes it.
+  const bridged = await registry.call("memory_recall_v2", { query: "x" });
+  assert.equal(bridged.errorCode, "not_wired");
+  assert.match(bridged.detail, /MCP bridge/);
+
+  const viaBridge = registry.resolve("memory_recall_v2");
+  assert.equal(viaBridge.name, "memory_recall_v2");
+  assert.equal(viaBridge.runtimeName, "memory_recall_v2");
+  assert.equal(viaBridge.tool, "im2a_memory_recall", "the canonical target is still reported");
+  assert.equal(viaBridge.deprecated, true);
 
   const merged = registry.resolve("autonomy_pipeline_dryrun");
   assert.deepEqual(merged.fixedArgs, { pipeline: "autonomy" });
